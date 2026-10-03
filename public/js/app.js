@@ -65,6 +65,13 @@ const playerPayload = () => S.profile && { id: S.profile.id, adj: S.profile.adj,
 // A typed-in first name wins; otherwise the secret agent name ("Turbo Fox").
 const displayName = (p) => (p.nick ? p.nick : `${p.adj} ${p.animal}`);
 const meOf = (st) => st.players.find((p) => p.id === st.me) || { score: 0, streak: 0, lives: 0, rank: 1 };
+// Which question is on screen: the round (rematches) + the question number.
+const qKey = (st) => `${st.round}:${st.qi}`;
+// Remembered for this tab only (survives a reload, gone when the tab closes).
+const session = {
+  get(k) { try { return sessionStorage.getItem(k) || ""; } catch { return ""; } },
+  set(k, v) { try { if (v) sessionStorage.setItem(k, v); else sessionStorage.removeItem(k); } catch {} },
+};
 
 function restartAnim(node, cls) {
   node.classList.remove(cls);
@@ -455,6 +462,7 @@ async function startSolo() {
   try {
     const { id } = await post("/api/solo", { topic: S.topicId, player: playerPayload() });
     startGame(`/api/solo/${id}/ws`, { kind: "solo", topicId: S.topicId });
+    session.set("rt_solo", JSON.stringify({ id, topicId: S.topicId, at: Date.now() })); // so a reload can pick the run back up
   } catch (e) { toast(e.message); }
 }
 
@@ -472,6 +480,11 @@ function seg(box, values, current, labelOf, onPick) {
 function renderSetup() {
   const r = S.meta.room, t = topic(S.topicId);
   $("setupTopic").textContent = `${t.emoji} ${t.title} · ${t.blurb}`;
+  seg($("segTopic"), S.meta.topics.map((x) => x.id), S.topicId, (id) => `${topic(id).emoji} ${topic(id).title}`, (id) => {
+    S.topicId = id;
+    fx.setAccent(topic(id).color);
+    renderSetup();
+  });
   seg($("segCount"), r.counts, S.setup.count, (v) => `${v}`, (v) => { S.setup.count = v; renderSetup(); });
   seg($("segTimer"), r.timers, S.setup.timer, (v) => `${v}s`, (v) => { S.setup.timer = v; renderSetup(); });
   seg($("segLevel"), r.levels, S.setup.level, (v) => LEVEL_NAMES[v] || v, (v) => { S.setup.level = v; renderSetup(); });
@@ -664,6 +677,9 @@ function startGame(path, { kind, code, topicId, lurk = false }) {
 function leaveGame(goHome = true) {
   const g = S.g;
   if (g) {
+    // Tell the room we've gone, so we don't linger as a ghost player (and the host role moves on).
+    if (g.kind === "room" && !g.lurking) g.conn.send({ t: "leave" });
+    if (g.kind === "solo") session.set("rt_solo", "");
     g.conn.close();
     stopTimer(g);
     clearInterval(g.cdT);
@@ -718,7 +734,18 @@ function confirmQuit() {
 
 function onStatus(g, s, closeCode) {
   if (S.g !== g) return;
-  if (s === "reconnecting") { g.wasDown = true; toast("Reconnecting… 📡", 6000); }
+  if (s === "reconnecting") {
+    g.wasDown = true;
+    toast("Reconnecting… 📡", 6000);
+    const info = closeCode || {};
+    // Is the room still there at all? (Rooms tidy themselves up after a few quiet hours.)
+    if (g.kind === "room" && info.tries >= 2) {
+      api(`/api/rooms/${g.code}`).catch((e) => {
+        if (e.status === 404 && S.g === g) { toast("That room has closed."); leaveGame(true); }
+      });
+    }
+    if (g.kind === "solo" && info.tries >= 3 && !info.everOpened) { toast("That run has finished."); leaveGame(true); }
+  }
   if (s === "open" && g.wasDown) { g.wasDown = false; toast("Back online! ✅"); }
   if (s === "ended") {
     if (closeCode === 4000) toast("This game is open somewhere else.");
@@ -747,13 +774,13 @@ function onMessage(g, m) {
   if (st.phase === "lobby") return renderLobby(g, st);
   if (st.phase === "countdown") return renderCountdown(g, st);
   if (st.phase === "question") {
-    if (st.qi !== g.lastQi) renderQuestion(g, st, false);
+    if (qKey(st) !== g.lastQi) renderQuestion(g, st, false);
     else renderWaiting(g, st);
     return;
   }
   if (st.phase === "reveal") {
-    if (st.qi !== g.lastQi) renderQuestion(g, st, true);
-    if (g.revealedQi !== st.qi) renderReveal(g, st);
+    if (qKey(st) !== g.lastQi) renderQuestion(g, st, true);
+    if (g.revealedQi !== qKey(st)) renderReveal(g, st);
     return;
   }
   if (st.phase === "final") {
@@ -1023,8 +1050,8 @@ function renderQuestion(g, st, silent) {
   $("banner").classList.add("hidden");
   if (S.screen !== "game") show("game", { accent: st.topic.color });
 
-  g.lastQi = st.qi;
-  g.revealedQi = -1;
+  g.lastQi = qKey(st);
+  g.revealedQi = null;
   g.locked = !!st.mine;
   const q = st.question;
   const me = meOf(st);
@@ -1082,7 +1109,7 @@ function renderQuestion(g, st, silent) {
   if (silent) { stopTimer(g); return; }
   g.shownAt = performance.now();
   // Start your stopwatch when the pictures have actually loaded, so slow Wi-Fi isn't unfair.
-  waitForImages($("scr-game")).then(() => { if (g.lastQi === st.qi && !g.locked) g.shownAt = performance.now(); });
+  waitForImages($("scr-game")).then(() => { if (g.lastQi === qKey(st) && !g.locked) g.shownAt = performance.now(); });
   startTimer(g, st);
   if (Math.random() < 0.3) host.say(line("think"), { mood: "think", ms: 1500 });
   else host.hide();
@@ -1163,7 +1190,7 @@ function stopTimer(g) {
 
 // ---------- REVEAL ----------
 function renderReveal(g, st) {
-  g.revealedQi = st.qi;
+  g.revealedQi = qKey(st);
   stopTimer(g);
   const r = st.reveal, mine = st.mine, me = meOf(st);
   const box = $("answers");
@@ -1362,6 +1389,7 @@ function renderFinal(g, st, key) {
     $("hallResult").innerHTML = "";
     $("hallResult").append(el("span", "medal", "📡"), el("span", "txt", "Sending your score to the Hall of Fame…"));
     g.localRecord = store.recordGame(S.profile.id, g.topicId, f.me.score, false);
+    session.set("rt_solo", ""); // the run is over: nothing to pick back up after a reload
     again.textContent = "Play again ▶";
     again.onclick = () => { S.topicId = g.topicId; startSolo(); };
     sound.play(out ? "sad" : "fanfare");
@@ -1538,6 +1566,7 @@ function wire() {
   $("finalHallBtn").onclick = () => { const t = S.g ? S.g.topicId : S.topicId; leaveGame(false); history.replaceState(null, "", "/"); openHall(t); };
   $("hallPlayBtn").onclick = () => { S.topicId = S.hall.topic; renderTopics(); requireProfile(startSolo); };
   $("createRoomBtn").onclick = createRoom;
+  $("setupBack").onclick = () => { sound.play("click"); leaveGame(true); };
   $("joinGoBtn").onclick = joinRoom;
   $("startBtn").onclick = pressStart;
   $("leaveLobbyBtn").onclick = () => leaveGame(true);
@@ -1618,6 +1647,21 @@ async function boot() {
 
   const m = location.pathname.match(/^\/join\/([A-Za-z]{5})\/?$/) || location.search.match(/[?&]join=([A-Za-z]{5})/);
   if (m) { openJoin(m[1].toUpperCase()); return; }
+
+  // The page reloaded in the middle of a solo run (iPads do this to background tabs): pick it back up.
+  let solo = null;
+  try { solo = JSON.parse(session.get("rt_solo") || "null"); } catch {}
+  if (solo && S.profile && /^[0-9a-f]{64}$/.test(solo.id) && Date.now() - solo.at < 3 * 60 * 60 * 1000) {
+    const info = await api(`/api/solo/${solo.id}`).catch(() => null);
+    if (info && info.exists && info.phase !== "final") {
+      S.topicId = topic(solo.topicId).id;
+      startGame(`/api/solo/${solo.id}/ws`, { kind: "solo", topicId: S.topicId });
+      session.set("rt_solo", JSON.stringify(solo));
+      toast("Welcome back! Picking up your run where you left off 🦊", 3500);
+      return;
+    }
+    session.set("rt_solo", "");
+  }
   show("home");
   setTimeout(() => heroSay(S.profile ? `Welcome back, ${displayName(S.profile)}! Ready to beat your record?` : line("hello")), 700);
 }

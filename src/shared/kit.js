@@ -44,7 +44,14 @@ export function pickFresh(rng, pool, { used, avoid, missed, keyOf = (x) => x.key
     if (retry.length) return rng.pick(retry);
   }
   const fresh = avoid && avoid.size ? open.filter((x) => !avoid.has(keyOf(x))) : open;
-  return rng.pick(fresh.length ? fresh : open);
+  if (fresh.length) return rng.pick(fresh);
+  if (avoid && avoid.size) {
+    // Everything has been seen: recycle the ones seen LONGEST ago (a Set keeps the order things were added).
+    const when = new Map([...avoid].map((k, i) => [k, i]));
+    const oldestFirst = open.slice().sort((a, b) => (when.get(keyOf(a)) ?? -1) - (when.get(keyOf(b)) ?? -1));
+    return rng.pick(oldestFirst.slice(0, Math.max(1, Math.ceil(oldestFirst.length / 3))));
+  }
+  return rng.pick(open);
 }
 
 // Choose `n` distractors: first from `preferred`, then topped up from `fallback`.
@@ -80,10 +87,15 @@ export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time
   return {
     id, title, emoji, color, blurb, size: bank.length, orbit, music,
     next({ rng, level, used, avoid, missed }) {
-      // closest level first, then anything
-      let pool = bank.filter((q) => q.level === level && !used.has(q.key));
-      if (!pool.length) pool = bank.filter((q) => Math.abs(q.level - level) <= 1 && !used.has(q.key));
-      if (!pool.length) pool = bank;
+      // Prefer a question nobody has seen, at this level, then a nearby level, then any level.
+      // Only when there are no fresh ones left at all do we recycle (oldest first, see pickFresh).
+      const unused = bank.filter((q) => !used.has(q.key));
+      const fresh = (qs) => qs.filter((q) => !(avoid && avoid.has(q.key)));
+      const near = (d) => unused.filter((q) => Math.abs(q.level - level) <= d);
+      let pool = fresh(near(0));
+      if (!pool.length) pool = fresh(near(1));
+      if (!pool.length) pool = fresh(unused);
+      if (!pool.length) pool = near(0).length ? near(0) : unused.length ? unused : bank;
       const q = pickFresh(rng, pool, { used, avoid, missed });
       const wrong = rng.shuffle(q.wrong).slice(0, 3);
       const { items, answer } = mixIn(rng, q.a, wrong);

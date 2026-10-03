@@ -94,6 +94,13 @@ export default {
       let m = path.match(/^\/api\/solo\/([0-9a-f]{64})\/ws$/);
       if (m) return env.ROOMS.get(env.ROOMS.idFromString(m[1])).fetch(request);
 
+      // Is this solo run still going? (So a page reload can pick it back up.)
+      m = path.match(/^\/api\/solo\/([0-9a-f]{64})$/);
+      if (m) {
+        const info = await env.ROOMS.get(env.ROOMS.idFromString(m[1])).peek();
+        return json({ exists: info.exists, phase: info.phase }, info.exists ? 200 : 404);
+      }
+
       if (path === "/api/rooms" && request.method === "POST") {
         const b = await body(request);
         const player = cleanPlayer(b.player);

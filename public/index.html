@@ -126,11 +126,12 @@
           <p class="eyebrow anim">Challenge room</p>
           <h2 class="h anim">Set up the showdown</h2>
           <p class="sub anim" id="setupTopic"></p>
+          <div class="opt anim"><span class="label">Quiz</span><div class="seg" id="segTopic"></div></div>
           <div class="opt anim"><span class="label">Questions</span><div class="seg" id="segCount"></div></div>
           <div class="opt anim"><span class="label">Seconds per question</span><div class="seg" id="segTimer"></div></div>
           <div class="opt anim"><span class="label">Difficulty</span><div class="seg" id="segLevel"></div></div>
           <div class="row-end anim">
-            <button class="btn ghost" data-go="home">Back</button>
+            <button class="btn ghost" id="setupBack">Back</button>
             <button class="btn primary" id="createRoomBtn">Create room ▶</button>
           </div>
           <p class="fine anim">Everyone in the room gets the same questions at the same time. Fastest right answers win!</p>
@@ -177,6 +178,7 @@
             <div class="row-end anim">
               <button class="btn ghost" id="leaveLobbyBtn">Leave</button>
               <button class="btn ghost" id="editAvatarBtn">🎨 Change my avatar</button>
+              <button class="btn ghost hidden" id="changeQuizBtn">🔀 Change quiz</button>
               <button class="btn primary pulse" id="startBtn">Start game ▶</button>
               <p class="waiting hidden" id="waitHost">Waiting for the host to start…</p>
             </div>
@@ -262,6 +264,7 @@
           <div class="row-center anim">
             <button class="btn ghost" data-go="home">🏠 Home</button>
             <button class="btn ghost" id="finalHallBtn">🏆 Hall of Fame</button>
+            <button class="btn ghost hidden" id="newQuizBtn">🔀 New quiz</button>
             <button class="btn primary" id="againBtn">Play again ▶</button>
             <p class="waiting hidden" id="waitRematch">Waiting for the host…</p>
           </div>

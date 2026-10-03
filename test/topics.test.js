@@ -75,6 +75,20 @@ test("flags: avoid list keeps games fresh (no repeats from last game)", () => {
   }
 });
 
+test("rematches recycle fairly: a small topic never repeats until it runs out, then reuses the OLDEST first", () => {
+  const t = TOPIC_BY_ID.space; // only 30 questions
+  const asked = [];
+  const g1 = buildGame(t, { seed: "r1", count: 15, levelSetting: "mixed", avoid: new Set(asked) });
+  asked.push(...g1.map((q) => q.key));
+  const g2 = buildGame(t, { seed: "r2", count: 15, levelSetting: "mixed", avoid: new Set(asked) });
+  assert.equal(g2.filter((q) => asked.includes(q.key)).length, 0, "game 2 is all new");
+  asked.push(...g2.map((q) => q.key));
+  // All 30 used: game 3 must reuse, and should pick from game 1 (oldest), not game 2 (just played)
+  const g3 = buildGame(t, { seed: "r3", count: 5, levelSetting: "mixed", avoid: new Set(asked) });
+  const fromLatest = g3.filter((q) => g2.some((x) => x.key === q.key)).length;
+  assert.ok(fromLatest <= 1, `game 3 reused ${fromLatest} questions from the round just played`);
+});
+
 test("flags: lots of variety - 50 games of 10 touch most of the 195 countries", () => {
   const seen = new Set();
   for (let i = 0; i < 50; i++) buildGame(TOPIC_BY_ID.flags, { seed: "v" + i, count: 10, levelSetting: "mixed" }).forEach((q) => seen.add(q.key));

@@ -19,6 +19,7 @@ const GRACE_MS = 700;             // a little wiggle room for slow Wi-Fi after t
 const ROOM_REVEAL_MS = 9000;      // challenge: time to read the fact + see the scoreboard (host can skip)
 const SOLO_REVEAL_MAX_MS = 60000; // solo: auto-continue if nobody taps "Next"
 const IDLE_TTL_MS = 3 * 60 * 60 * 1000; // tidy up games nobody has touched for 3 hours
+const RECONNECT_GRACE_MS = 5000;   // if someone's Wi-Fi blips mid-question, wait this long for them to come back
 
 export class GameRoom extends DurableObject {
   constructor(ctx, env) {
@@ -33,8 +34,16 @@ export class GameRoom extends DurableObject {
   }
 
   save() {
+    clearTimeout(this.saveT);
+    this.saveT = null;
     this.s.lastActive = Date.now();
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.s));
+  }
+
+  // Answers often arrive in a burst: save them together a moment later instead of one write each.
+  // (Cloudflare's free plan counts every write, so this lets far more games run per day.)
+  saveSoon() {
+    if (!this.saveT) this.saveT = setTimeout(() => { this.saveT = null; if (this.s) this.save(); }, 400);
   }
 
   // ---------- set up (called by the Worker over RPC) ----------
@@ -101,6 +110,7 @@ export class GameRoom extends DurableObject {
     }
     if (msg.t === "leave" && this.s.kind === "room") return this.onLeave(ws, pid);
     if (msg.t === "kick" && this.s.kind === "room" && isHost) return this.onKick(pid, msg.seat);
+    if (msg.t === "settings" && this.s.kind === "room" && isHost && this.s.phase === "lobby") return this.onSettings(msg);
     if (msg.t === "start" && this.s.phase === "lobby" && isHost) return this.startGame();
     if (msg.t === "next" && this.s.phase === "reveal" && (this.s.kind === "solo" || isHost)) return this.advance();
     if (msg.t === "rematch" && this.s.phase === "final" && isHost && this.s.kind === "room") return this.rematch();
@@ -109,8 +119,12 @@ export class GameRoom extends DurableObject {
   async webSocketClose(ws) {
     if (!this.s) return;
     try { ws.close(); } catch {}
-    // If everyone still here has answered, don't make them wait for the person who left.
-    if (this.s.phase === "question" && this.allAnswered(ws)) return this.reveal();
+    // Everyone still here has answered: give the person who dropped a few seconds to reconnect
+    // (iPads nap, Wi-Fi blips) before revealing, rather than ending the question on them.
+    if (this.s.phase === "question" && this.allAnswered(ws)) {
+      const at = Math.min(this.s.deadline + GRACE_MS, Date.now() + RECONNECT_GRACE_MS);
+      if (!this.s.wake || this.s.wake.at > at) await this.setWake(at, "timeup");
+    }
     this.broadcast("leave", ws);
   }
 
@@ -138,11 +152,25 @@ export class GameRoom extends DurableObject {
     this.broadcast("leave", ws);
   }
 
+  // The host changed the quiz in the lobby (topic, how many questions, timer, difficulty).
+  async onSettings(msg) {
+    const s = this.s;
+    const count = Number(msg.count), timer = Number(msg.timer), level = String(msg.level);
+    if (!TOPIC_BY_ID[msg.topic] || !ROOM_LIMITS.counts.includes(count) || !ROOM_LIMITS.timers.includes(timer) ||
+        !ROOM_LIMITS.levels.includes(level)) return; // not allowed: ignore
+    s.topic = msg.topic;
+    s.settings = { count, timer, level };
+    this.save();
+    this.broadcast("settings");
+  }
+
   // The host removed someone (e.g. a stranger who guessed the code). They can't come back to this room.
   async onKick(hostPid, seat) {
     const s = this.s;
     const pid = s.order.find((id) => s.players[id].seat === seat);
-    if (!pid || pid === hostPid) return;
+    // You can't remove yourself, and nobody can remove the room's real host
+    // (a stand-in host while the real one's Wi-Fi blips must not be able to lock them out).
+    if (!pid || pid === hostPid || pid === s.hostId) return;
     delete s.players[pid];
     s.order = s.order.filter((id) => id !== pid);
     s.banned = [...(s.banned || []), pid];
@@ -170,12 +198,25 @@ export class GameRoom extends DurableObject {
       }
     }
 
+    // Same connection, different player (they switched to a new player in the lobby):
+    // the old one shouldn't linger as a ghost, and if it was the host, the host role moves with them.
+    const prev = (ws.deserializeAttachment() || {}).pid;
+    if (prev && prev !== p.id && s.players[prev] && s.kind === "room") {
+      if (s.hostId === prev) s.hostId = p.id;
+      if (s.phase === "lobby" || s.phase === "final") {
+        delete s.players[prev];
+        s.order = s.order.filter((id) => id !== prev);
+      }
+    }
+
     let player = s.players[p.id];
     let event = "rejoin";
     if (player && (s.phase === "lobby" || s.phase === "final")) {
       // Changed your avatar in the lobby? Update it (scores are only kept during a game).
       const before = player.name;
       Object.assign(player, { adj: p.adj, animal: p.animal, color: p.color, emoji: p.emoji, name: this.uniqueName(p.name, p.id) });
+      if (Array.isArray(msg.avoid)) player.avoid = cleanKeys(msg.avoid, 300);
+      if (Array.isArray(msg.missed)) player.missed = cleanKeys(msg.missed, 100);
       if (player.name !== before) event = "update";
     }
     if (!player) {
@@ -211,10 +252,14 @@ export class GameRoom extends DurableObject {
     s.hall = null;
     s.quit = false;
     if (s.kind === "room") {
-      // Avoid questions ANY player in the room has seen recently, so it's fresh for everyone.
-      const avoid = new Set(s.order.flatMap((id) => s.players[id].avoid).slice(-800));
+      // Avoid questions ANY player has seen recently AND everything this room already asked in
+      // earlier rounds, so rematches are fresh. Oldest first, so when a topic runs out the
+      // questions asked longest ago come back first (see pickFresh in kit.js).
+      const asked = (s.asked && s.asked[s.topic]) || [];
+      const avoid = new Set([...s.order.flatMap((id) => s.players[id].avoid).slice(-800), ...asked]);
       const missed = new Set(s.order.flatMap((id) => s.players[id].missed).slice(-200));
       s.questions = buildGame(topic, { seed: s.seed, count: s.settings.count, levelSetting: s.settings.level, avoid, missed });
+      s.asked = { ...(s.asked || {}), [s.topic]: [...asked.filter((k) => !s.questions.some((q) => q.key === k)), ...s.questions.map((q) => q.key)].slice(-600) };
       // Anonymous counts for the stats page: one more challenge game, and how many played.
       try {
         const stats = this.env.STATS.get(this.env.STATS.idFromName("global"));
@@ -285,7 +330,7 @@ export class GameRoom extends DurableObject {
     if (!correct && s.kind === "solo") p.lives -= 1;
     answers[pid] = { choice, ms, correct, points, streak: p.streak };
     p.history.push({ key: q.key, correct });
-    this.save();
+    this.saveSoon();
 
     if (s.kind === "solo" || this.allAnswered()) return this.reveal();
     this.broadcast("answered");
@@ -299,9 +344,15 @@ export class GameRoom extends DurableObject {
   }
 
   async timeUp() {
+    if (this.s.phase !== "question") return;
+    return this.reveal();
+  }
+
+  // Anyone who didn't answer (ran out of time, dropped out, joined late) gets a "timed out":
+  // their streak resets and it counts as a miss, however the question ended.
+  markUnanswered() {
     const s = this.s;
-    if (s.phase !== "question") return;
-    const answers = s.answers[s.qi];
+    const answers = s.answers[s.qi] || (s.answers[s.qi] = {});
     const q = s.questions[s.qi];
     for (const id of s.order) {
       if (answers[id]) continue;
@@ -311,11 +362,12 @@ export class GameRoom extends DurableObject {
       answers[id] = { choice: -1, ms: s.settings.timer * 1000, correct: false, points: 0, streak: 0, timeout: true };
       p.history.push({ key: q.key, correct: false });
     }
-    return this.reveal();
   }
 
   async reveal() {
     const s = this.s;
+    if (s.phase !== "question") return;
+    this.markUnanswered();
     s.phase = "reveal";
     s.phaseAt = Date.now();
     const solo = s.kind === "solo";
