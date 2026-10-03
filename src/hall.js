@@ -19,7 +19,48 @@ export class HallOfFame extends DurableObject {
       );
       CREATE INDEX IF NOT EXISTS runs_topic_score ON runs (topic, score DESC);
       CREATE INDEX IF NOT EXISTS runs_topic_pid ON runs (topic, pid);
+      CREATE TABLE IF NOT EXISTS stickers (pid TEXT NOT NULL, id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (pid, id));
+      CREATE TABLE IF NOT EXISTS played (pid TEXT NOT NULL, topic TEXT NOT NULL, kind TEXT NOT NULL, n INTEGER NOT NULL,
+        PRIMARY KEY (pid, topic, kind));
+      CREATE TABLE IF NOT EXISTS devices (dev TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL);
     `);
+  }
+
+  // ---------- stickers (achievements) ----------
+  // A player's stickers, in the order they earned them.
+  stickers(pid) {
+    return this.sql.exec("SELECT id FROM stickers WHERE pid = ? ORDER BY at, id", pid).toArray().map((r) => r.id);
+  }
+
+  // Same, with when each one was earned (for the sticker book).
+  stickerDetails(pid) {
+    return this.sql.exec("SELECT id, at FROM stickers WHERE pid = ? ORDER BY at, id", pid).toArray();
+  }
+
+  // ---------- "remember me": a device's players, backed up so Safari wiping storage doesn't lose them ----------
+  getDevice(dev) {
+    const row = this.sql.exec("SELECT data FROM devices WHERE dev = ?", dev).toArray()[0];
+    return row ? JSON.parse(row.data) : null;
+  }
+
+  saveDevice(dev, data) {
+    this.sql.exec("INSERT OR REPLACE INTO devices (dev, data, at) VALUES (?, ?, ?)", dev, JSON.stringify(data), Date.now());
+  }
+
+  award(pid, ids) {
+    for (const id of ids) this.sql.exec("INSERT OR IGNORE INTO stickers (pid, id, at) VALUES (?, ?, ?)", pid, id, Date.now());
+  }
+
+  // Count a game someone played; returns what we need for "Explorer" and "Team Player".
+  recordPlay(pid, topic, kind) {
+    this.sql.exec(
+      `INSERT INTO played (pid, topic, kind, n) VALUES (?, ?, ?, 1)
+       ON CONFLICT (pid, topic, kind) DO UPDATE SET n = n + 1`, pid, topic, kind,
+    );
+    return {
+      topicsPlayed: this.sql.exec("SELECT COUNT(DISTINCT topic) AS n FROM played WHERE pid = ?", pid).one().n,
+      roomGames: this.sql.exec("SELECT COALESCE(SUM(n), 0) AS n FROM played WHERE pid = ? AND kind = 'room'", pid).one().n,
+    };
   }
 
   bestOf(topic, pid, since = 0) {

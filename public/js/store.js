@@ -34,9 +34,20 @@ export const store = {
   setActive(id) { set("rt_active", id); },
   saveProfile(p) {
     const list = this.profiles().filter((x) => x.id !== p.id);
-    list.unshift({ id: p.id, adj: p.adj, animal: p.animal, color: p.color, nick: p.nick || null });
+    list.unshift({ id: p.id, adj: p.adj, animal: p.animal, color: p.color, nick: p.nick || null, pins: p.pins || [] });
     set("rt_profiles", list.slice(0, MAX_PROFILES));
     this.setActive(p.id);
+  },
+  // Put back players restored from the server's "remember me" backup.
+  replaceProfiles(list, activeId) {
+    set("rt_profiles", list.slice(0, MAX_PROFILES));
+    if (activeId) this.setActive(activeId);
+  },
+  // The (up to 3) stickers a player shows off next to their name.
+  setPins(pid, pins) {
+    const list = this.profiles();
+    const p = list.find((x) => x.id === pid);
+    if (p) { p.pins = pins.slice(0, 3); set("rt_profiles", list); }
   },
 
   data(pid) { return Object.assign(blank(), get("rt_p_" + pid, {})); },

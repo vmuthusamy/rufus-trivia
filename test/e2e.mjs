@@ -224,6 +224,11 @@ async function reviewFixes() {
   await B.waitFor((s) => s.players.length === 2);
   const aSeat = (await A.waitFor((s) => s.me)).me;
 
+  // Junk messages are ignored (and don't break the room).
+  for (const junk of ["null", "42", "[]", '"x"', "{", '{"t":"answer","q":"x","choice":{}}']) A.ws.send(junk);
+  await sleep(300);
+  assert.equal(A.last().phase, "lobby", "room still fine after junk messages");
+
   // Changing the quiz: only the host, only allowed values.
   B.send({ t: "settings", topic: "math", count: 5, timer: 10, level: "easy" });
   A.send({ t: "settings", topic: "nope", count: 5, timer: 10, level: "easy" });
@@ -290,6 +295,94 @@ async function reviewFixes() {
   B.ws.close();
 }
 
+// Stickers: earned on the server, never early, and they follow you into the next room.
+async function stickersTest() {
+  const kids = [profile("Turbo", "Fox"), profile("Fuzzy", "Panda"), profile("Lucky", "Koala"), profile("Silly", "Frog")];
+  const { data } = await post("/api/rooms", { topic: "flags", count: 5, timer: 10, level: "easy", player: kids[0] });
+  const path = `/api/rooms/${data.code}/ws`;
+  const P = kids.map((k) => player(path, k));
+  await Promise.all(P.map((p) => p.ready));
+  await P[0].waitFor((s) => s.players.length === 4);
+  P[0].send({ t: "start" });
+  // Party Host: the host of a 4-player game
+  await P[0].waitFor((s) => (s.myStickers || []).includes("partyhost"));
+  for (let qi = 0; qi < 5; qi++) {
+    await P[0].waitFor((s) => s.phase === "question" && s.qi === qi);
+    // Each kid picks a different answer, so exactly one of them is right every time.
+    P.forEach((p, i) => p.send({ t: "answer", q: qi, choice: i, ms: 400 }));
+    const rv = await P[0].waitFor((s) => s.phase === "reveal" && s.qi === qi);
+    const winner = P[rv.reveal.answer];
+    // nobody got a sticker for this question before the reveal
+    for (const p of P) {
+      const before = p.states.filter((s) => s.qi === qi && s.phase === "question").pop();
+      if (qi === 0) assert.ok(!(before.myStickers || []).includes("speedy"), "no stickers before the reveal");
+    }
+    if (qi === 0) {
+      const w = await winner.waitFor((s) => s.phase === "reveal" && s.qi === 0);
+      assert.ok(w.myStickers.includes("speedy"), "the fast right answer earns Speedy Paws");
+      const loser = P[(rv.reveal.answer + 1) % 4].states.find((s) => s.phase === "reveal" && s.qi === 0);
+      assert.ok(!loser.myStickers.includes("speedy"), "wrong answers don't");
+    }
+    P[0].send({ t: "next" });
+  }
+  const fin = await P[0].waitFor((s) => s.phase === "final");
+  const champSeat = fin.final.ranking[0];
+  const champ = P.find((p) => p.last().me === champSeat);
+  await champ.waitFor((s) => s.phase === "final" && s.myStickers.includes("champion"));
+  P.forEach((p) => p.ws.close());
+
+  // Stickers follow you: the champion joins a brand-new room and shows them off.
+  const host2 = profile("Mega", "Llama");
+  const r2 = await post("/api/rooms", { topic: "space", count: 5, timer: 10, level: "easy", player: host2 });
+  const H = player(`/api/rooms/${r2.data.code}/ws`, host2);
+  const C = player(`/api/rooms/${r2.data.code}/ws`, champ.profile);
+  await Promise.all([H.ready, C.ready]);
+  const seen = await H.waitFor((s) => s.players.some((p) => (p.stickers || []).includes("champion")));
+  assert.ok(seen, "other kids see the champion's sticker");
+  const book = await post("/api/stickers", { player: champ.profile });
+  assert.ok(book.data.stickers.includes("champion"), "sticker book lists it");
+  assert.ok(book.data.earned.champion > 0, "with the date it was earned");
+  // Pinning: you can show off stickers you own, but not ones you don't.
+  C.send({ t: "hello", player: champ.profile, showcase: ["streak50", "champion"] });
+  const pinned = await H.waitFor((s) => s.players.some((p) => p.name === champ.last().players.find((x) => x.id === champ.last().me)?.name && p.stickers.length === 1));
+  const shown = pinned.players.find((p) => p.stickers.includes("champion")).stickers;
+  assert.deepEqual(shown, ["champion"], "only owned stickers can be pinned");
+  H.ws.close(); C.ws.close();
+
+  // Explorer: play every topic once (quitting straight away still counts as playing).
+  const explorer = profile("Daring", "Owl");
+  let last = null;
+  for (const topic of ["flags", "world", "space", "math"]) {
+    const { data: g } = await post("/api/solo", { topic, player: explorer });
+    last = player(`/api/solo/${g.id}/ws`, explorer);
+    await last.ready;
+    await last.waitFor((s) => s.phase === "countdown");
+    if (topic !== "math") { last.send({ t: "quit" }); await last.waitFor((s) => s.phase === "final"); last.ws.close(); }
+  }
+  await last.waitFor((s) => (s.myStickers || []).includes("globetrotter"));
+  last.send({ t: "quit" });
+  last.ws.close();
+  console.log(`  stickers: party host, speedy paws (only after the reveal), champion follows them to a new room, explorer`);
+}
+
+// "Remember me": the device's players come back from the server via the cookie.
+async function rememberMe() {
+  const p1 = profile("Turbo", "Fox"), p2 = { ...profile("Shiny", "Kitty"), nick: "renard", pins: ["champion", "fake"] };
+  const save = await fetch(BASE + "/api/me", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ profiles: [p1, p2, { id: "x", adj: "Rude", animal: "Fox" }], active: p2.id }) });
+  const cookie = (save.headers.get("set-cookie") || "").split(";")[0];
+  assert.match(cookie, /^rt_dev=d[a-z0-9]+$/, "sets a remember-me cookie");
+  assert.match(save.headers.get("set-cookie"), /HttpOnly/i, "the cookie is HttpOnly");
+  const back = await (await fetch(BASE + "/api/me", { headers: { cookie } })).json();
+  assert.equal(back.profiles.length, 2, "bad profiles are dropped");
+  assert.equal(back.active, p2.id);
+  assert.equal(back.profiles[1].nick, "Renard", "typed names come back (tidied)");
+  assert.deepEqual(back.profiles[1].pins, ["champion"], "unknown sticker pins are dropped");
+  const none = await (await fetch(BASE + "/api/me")).json();
+  assert.deepEqual(none.profiles, [], "no cookie, no players");
+  console.log("  remember me: cookie restores the device's players");
+}
+
 const t0 = Date.now();
 console.log("solo run…");
 await soloRun();
@@ -299,5 +392,9 @@ console.log("challenge room…");
 await challenge();
 console.log("review fixes…");
 await reviewFixes();
+console.log("stickers…");
+await stickersTest();
+console.log("remember me…");
+await rememberMe();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);

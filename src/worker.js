@@ -8,6 +8,8 @@
 //   GET  /api/rooms/:code/ws            websocket for that room
 //   GET  /api/hall?topic=&period=&pid=  Hall of Fame top 10
 //   POST /api/hall/rename               update my name on my Hall of Fame scores
+//   POST /api/stickers                  my sticker collection
+//   GET/POST /api/me                    "remember me": this device's players, via a cookie
 //   POST /api/names/check               is this typed-in name allowed?
 //   POST /api/visit                     "this device opened the site today" (anonymous)
 //   GET  /api/stats                     private visitor/game stats (needs the x-stats-key header)
@@ -16,6 +18,20 @@ import { TOPICS, TOPIC_BY_ID, topicCard } from "./shared/topics/index.js";
 import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick } from "./shared/names.js";
 import { SOLO, ROOM_LIMITS } from "./shared/scoring.js";
 import { COUNTRIES } from "./shared/data/countries.js";
+import { STICKERS } from "./shared/stickers.js";
+
+const STICKER_IDS = new Set(STICKERS.map((s) => s.id));
+
+function readCookie(request, name) {
+  const m = (request.headers.get("cookie") || "").match(new RegExp("(?:^|;\\s*)" + name + "=([a-z0-9]+)"));
+  return m ? m[1] : null;
+}
+
+function newDeviceId() {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return "d" + [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, 30);
+}
 
 export { GameRoom } from "./room.js";
 export { HallOfFame } from "./hall.js";
@@ -75,6 +91,7 @@ export default {
           names: { adjectives: ADJECTIVES, animals: ANIMALS, colors: COLORS },
           solo: SOLO,
           room: ROOM_LIMITS,
+          stickers: STICKERS,
           // Every flag picture, shuffled, with NO names: used to decorate the menus and
           // to preload flags so questions appear instantly. Gives away nothing.
           gallery: shuffled(COUNTRIES.map((c) => c.img)),
@@ -152,6 +169,41 @@ export default {
       if (path === "/api/names/check" && request.method === "POST") {
         const b = await body(request);
         return json(checkNick(b.nick));
+      }
+
+      // My sticker collection (for the sticker book). Needs my private player id, so only I can ask.
+      if (path === "/api/stickers" && request.method === "POST") {
+        const b = await body(request);
+        const player = cleanPlayer(b.player);
+        if (!player) return json({ error: "Pick a nickname first." }, 400);
+        const rows = await env.HALL.get(env.HALL.idFromName("global")).stickerDetails(player.id);
+        return json({ stickers: rows.map((r) => r.id), earned: Object.fromEntries(rows.map((r) => [r.id, r.at])) });
+      }
+
+      // "Remember me": this device's players, backed up on the server and found again with a cookie.
+      // The cookie is only a random device id (HttpOnly, so page scripts can't read it). No tracking.
+      if (path === "/api/me") {
+        const hall = env.HALL.get(env.HALL.idFromName("global"));
+        const dev = readCookie(request, "rt_dev");
+        if (request.method === "GET") {
+          const data = dev ? await hall.getDevice(dev) : null;
+          return json(data || { profiles: [] });
+        }
+        if (request.method === "POST") {
+          const b = await body(request);
+          const profiles = (Array.isArray(b.profiles) ? b.profiles : []).slice(0, 6).map((p) => {
+            const c = cleanPlayer(p);
+            if (!c) return null;
+            const pins = Array.isArray(p.pins) ? p.pins.filter((x) => typeof x === "string" && STICKER_IDS.has(x)).slice(0, 3) : [];
+            return { id: c.id, adj: c.adj, animal: c.animal, color: c.color, nick: c.nick, pins };
+          }).filter(Boolean);
+          const active = profiles.some((p) => p.id === b.active) ? b.active : profiles[0] && profiles[0].id;
+          const id = dev && /^d[a-z0-9]{20,40}$/.test(dev) ? dev : newDeviceId();
+          await hall.saveDevice(id, { profiles, active });
+          const res = json({ ok: true, saved: profiles.length });
+          res.headers.append("set-cookie", `rt_dev=${id}; Path=/api; Max-Age=34560000; HttpOnly; SameSite=Lax${url.protocol === "https:" ? "; Secure" : ""}`);
+          return res;
+        }
       }
 
       // Put my new name/avatar on all my Hall of Fame scores.

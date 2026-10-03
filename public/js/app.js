@@ -127,6 +127,187 @@ function renderMe() {
   $("meAv").textContent = p ? emojiFor(p.animal) : "❔";
   $("meChip").style.setProperty("--pc", p ? p.color : "");
   $("meName").textContent = p ? displayName(p) : "Pick a name";
+  const n = p ? (store.pref("stk_" + p.id, []) || []).length : 0;
+  $("meStk").textContent = `🎖️ ${n}`;
+  $("meStk").classList.toggle("hidden", !n);
+}
+
+// ---------- REMEMBER ME ----------
+// Players live in this browser's storage. Safari can wipe that (e.g. after a week away), so we also
+// keep a backup on the server, found again by a "remember me" cookie (just a random device id).
+function backupProfiles() {
+  const profiles = store.profiles();
+  if (!profiles.length) return;
+  post("/api/me", { profiles, active: S.profile && S.profile.id })
+    .then(() => store.setPref("backupDay", new Date().toISOString().slice(0, 10)))
+    .catch(() => {});
+}
+async function restoreProfiles() {
+  if (store.profiles().length) {
+    if (store.pref("backupDay", "") !== new Date().toISOString().slice(0, 10)) backupProfiles(); // keep it fresh
+    return;
+  }
+  try {
+    const r = await api("/api/me");
+    if (r.profiles && r.profiles.length) {
+      store.replaceProfiles(r.profiles, r.active);
+      S.profile = store.active();
+      if (S.profile) setTimeout(() => toast(`Welcome back, ${displayName(S.profile)}! 🦊`, 3500), 900);
+    }
+  } catch {}
+}
+
+// ---------- STICKERS ----------
+const stickerInfo = (id) => (S.meta && S.meta.stickers.find((x) => x.id === id)) || null;
+function stickerEl(id) {
+  const info = stickerInfo(id);
+  const st = el("i", "sticker", info ? info.emoji : "❔");
+  if (info) st.title = `${info.name}: ${info.how}`;
+  st.style.setProperty("--rot", ((id.length * 7) % 15) - 7 + "deg"); // each sticker sits at its own little angle
+  return st;
+}
+function stickerRow(ids) {
+  const row = el("div", "stk-row");
+  (ids || []).forEach((id) => row.append(stickerEl(id)));
+  return row;
+}
+function saveMyStickers(list) {
+  if (S.profile) store.setPref("stk_" + S.profile.id, list);
+  renderMe();
+}
+
+// Spot newly earned stickers in a game update. During the game they get a small note in the
+// corner (nothing blocks the question); the real fun is peeling them onto your book at the end.
+const stickerQueue = [];
+let stickerBusy = false;
+function handleStickers(g, st) {
+  const mine = st.myStickers || [];
+  if (!g.knownStickers) { g.knownStickers = new Set(mine); saveMyStickers(mine); return; } // what we had when we joined
+  const fresh = mine.filter((id) => !g.knownStickers.has(id));
+  if (!fresh.length) return;
+  fresh.forEach((id) => g.knownStickers.add(id));
+  g.earned = [...(g.earned || []), ...fresh];
+  saveMyStickers(mine);
+  stickerQueue.push(...fresh);
+  setTimeout(nextSticker, st.phase === "reveal" ? 1900 : 400); // after the streak banner
+}
+function nextSticker() {
+  if (stickerBusy || !stickerQueue.length) return;
+  const info = stickerInfo(stickerQueue.shift());
+  if (!info) { nextSticker(); return; }
+  stickerBusy = true;
+  const t = $("stickerToast");
+  $("stEmoji").textContent = info.emoji;
+  $("stName").textContent = info.name;
+  $("stHow").textContent = info.how;
+  t.classList.remove("hidden", "open");
+  restartAnim(t, "in");
+  sound.play("sticker");
+  hideStickerToast(3600);
+}
+function hideStickerToast(ms) {
+  const t = $("stickerToast");
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => {
+    t.classList.add("hidden");
+    stickerBusy = false;
+    restartAnim($("meStk"), "bump");
+    nextSticker();
+  }, ms);
+}
+
+// Results screen: a sheet of the stickers earned this game. Tap one to peel it off and stick it in your book.
+function renderStickerSheet(g) {
+  const ids = [...new Set(g.earned || [])].filter(stickerInfo);
+  const row = $("sheetRow");
+  row.innerHTML = "";
+  $("stickerSheet").classList.toggle("hidden", !ids.length);
+  ids.forEach((id, k) => {
+    const info = stickerInfo(id);
+    const b = el("button", "peel");
+    b.style.setProperty("--k", k);
+    b.setAttribute("aria-label", `Stick ${info.name} in your book`);
+    b.append(stickerEl(id), el("span", "pn", info.name));
+    b.onclick = () => stickIt(b, info);
+    row.append(b);
+  });
+}
+function stickIt(btn, info) {
+  if (btn.classList.contains("stuck")) return;
+  sound.play("sticker");
+  const from = btn.querySelector(".sticker").getBoundingClientRect(), to = $("meChip").getBoundingClientRect();
+  const fly = el("i", "sticker flying", info.emoji);
+  fly.style.left = from.left + "px";
+  fly.style.top = from.top + "px";
+  document.body.append(fly);
+  const dx = to.left + to.width / 2 - from.left - from.width / 2, dy = to.top + to.height / 2 - from.top - from.height / 2;
+  fly.animate(
+    [{ transform: "translate(0, 0) rotate(-8deg) scale(1)" }, { transform: `translate(${dx * 0.4}px, ${dy * 0.4 - 80}px) rotate(120deg) scale(1.2)`, offset: 0.4 },
+      { transform: `translate(${dx}px, ${dy}px) rotate(300deg) scale(.3)`, opacity: 0.4 }],
+    { duration: 800, easing: "cubic-bezier(.5, 0, .3, 1)" },
+  ).onfinish = () => { fly.remove(); restartAnim($("meStk"), "bump"); sound.play("coin"); };
+  btn.classList.add("stuck");
+  btn.querySelector(".pn").textContent = "In your book ✓";
+  if (![...$("sheetRow").children].some((b) => !b.classList.contains("stuck"))) {
+    host.say("All stuck in your book! Open 🎖️ Sticker book to show them off.", { mood: "cheer" });
+  }
+}
+
+// The sticker book: every sticker; tap one to look at it, pin up to 3 to show off in rooms.
+async function openStickers() {
+  show("stickers");
+  host.say("Collect them all! Tap one to look at it.", { mood: "happy" });
+  S.book = { have: new Set(S.profile ? store.pref("stk_" + S.profile.id, []) : []), earned: {}, sel: null };
+  $("inspect").classList.add("hidden");
+  renderBook();
+  if (!S.profile) { $("bookProgress").textContent = "Pick a player first, then start collecting!"; return; }
+  try {
+    const r = await post("/api/stickers", { player: playerPayload() });
+    saveMyStickers(r.stickers);
+    S.book.have = new Set(r.stickers);
+    S.book.earned = r.earned || {};
+    renderBook();
+  } catch {}
+}
+function renderBook() {
+  const { have, sel } = S.book, all = S.meta.stickers, pins = (S.profile && S.profile.pins) || [];
+  const grid = $("bookGrid");
+  grid.innerHTML = "";
+  $("bookProgress").textContent = `${all.filter((x) => have.has(x.id)).length} of ${all.length} stickers collected`;
+  for (const info of all) {
+    const got = have.has(info.id);
+    const slot = el("button", "slot " + (got ? "got" : "locked") + (pins.includes(info.id) ? " pinned" : "") + (sel === info.id ? " sel" : ""));
+    slot.append(el("span", "rar", "★".repeat(info.rarity)), stickerEl(info.id), el("b", null, got ? info.name : "???"), el("small", null, info.how));
+    slot.onclick = () => { S.book.sel = info.id; sound.play(got ? "sticker" : "click"); renderInspect(); renderBook(); };
+    grid.append(slot);
+  }
+}
+function renderInspect() {
+  const id = S.book.sel, info = stickerInfo(id), box = $("inspect");
+  if (!info) { box.classList.add("hidden"); return; }
+  const got = S.book.have.has(id), pins = (S.profile && S.profile.pins) || [], pinned = pins.includes(id);
+  box.innerHTML = "";
+  box.className = "inspect" + (got ? "" : " locked");
+  const ix = el("div", "ix");
+  ix.append(el("b", null, got ? info.name : "Not yet!"), el("small", null, got
+    ? `${info.how}${S.book.earned[id] ? " · earned " + new Date(S.book.earned[id]).toLocaleDateString() : ""}`
+    : `How to get it: ${info.how}`));
+  if (got) {
+    const pin = el("button", "btn ghost", pinned ? "📌 Showing off (tap to unpin)" : pins.length >= 3 ? "📌 Pin (unpin one first)" : "📌 Show off next to my name");
+    pin.disabled = !pinned && pins.length >= 3;
+    pin.onclick = () => {
+      const next = pinned ? pins.filter((x) => x !== id) : [...pins, id];
+      store.setPins(S.profile.id, next);
+      S.profile = store.active();
+      backupProfiles();
+      sound.play("coin");
+      toast(next.length ? `Showing off: ${next.map((x) => stickerInfo(x).emoji).join(" ")}` : "No pins: your rarest stickers show instead");
+      renderInspect();
+      renderBook();
+    };
+    ix.append(pin);
+  }
+  box.append(stickerEl(id), ix);
 }
 
 // ---------- HOME ----------
@@ -448,6 +629,7 @@ async function saveProfile() {
         .then((r) => { if (r.updated) toast(`Hall of Fame updated: you're now ${displayName(d)}! 🏆`, 3500); })
         .catch(() => {});
     }
+    backupProfiles();
     const next = S.after;
     S.after = null;
     if (next) next();
@@ -674,7 +856,7 @@ function editAvatar(g, opts = {}) {
 
 function helloMsg(g) {
   return {
-    t: "hello", player: playerPayload(),
+    t: "hello", player: playerPayload(), showcase: (S.profile && S.profile.pins) || [],
     avoid: store.seen(S.profile.id, g.topicId), missed: store.missed(S.profile.id, g.topicId),
   };
 }
@@ -798,6 +980,7 @@ function onMessage(g, m) {
   const st = m;
   g.st = st;
   g.offset = st.serverNow - Date.now();
+  handleStickers(g, st);
 
   if (st.phase === "lobby") return renderLobby(g, st);
   if (st.phase === "countdown") return renderCountdown(g, st);
@@ -873,6 +1056,7 @@ function renderLobby(g, st) {
     const av = avatar("av", p);
     av.style.setProperty("--dl", -i * 0.3 + "s");
     card.append(av, el("div", "nm", p.name));
+    if (p.stickers && p.stickers.length) card.append(stickerRow(p.stickers));
     if (p.id === st.hostId) card.append(el("span", "tag", "👑 HOST"));
     else if (p.id === st.me) card.append(el("span", "tag", "YOU"));
     // The host can remove someone (a stranger who guessed the code, or a name that isn't OK).
@@ -1359,6 +1543,7 @@ function standingRow(p, st, rankShown) {
   const li = el("li", "srow" + (p.id === st.me ? " me" : ""));
   li.dataset.id = p.id;
   const nm = el("span", "n", p.name);
+  (p.stickers || []).forEach((id) => nm.append(stickerEl(id)));
   if (p.streak >= 3) nm.append(el("span", "stk", badge(p.streak).text)); // show friends' streaks too
   li.append(el("span", "r", rankShown ? String(p.rank) : "·"), avatar("av", p), nm);
   const s = el("span", "s", p.score.toLocaleString());
@@ -1451,6 +1636,7 @@ function renderFinal(g, st, key) {
       const av = avatar("av", p);
       if (place === 1) av.append(el("span", "crown", "👑"));
       who.append(av, el("span", "nm", p.name), el("span", "sc", p.score.toLocaleString()));
+      if (p.stickers && p.stickers.length) who.append(stickerRow(p.stickers));
       const block = el("div", "block", String(place));
       block.style.setProperty("--gd", [0.4, 0.9, 0.1][k] + "s");
       col.append(who, block);
@@ -1471,6 +1657,7 @@ function renderFinal(g, st, key) {
     again.onclick = () => { g.conn.send({ t: "rematch" }); sound.play("click"); };
   }
 
+  renderStickerSheet(g);
   const lr = $("learnedRow");
   lr.innerHTML = "";
   (f.learned || []).forEach((L, k) => {
@@ -1605,6 +1792,10 @@ function wire() {
   $("challengeBtn").onclick = () => { sound.play("click"); requireProfile(() => { renderSetup(); show("setup"); host.say("Pick the rules, then share the code with your friends!", { mood: "happy" }); }); };
   $("joinBtn").onclick = () => { sound.play("click"); openJoin(); };
   $("hallBtn").onclick = () => { sound.play("click"); openHall(); };
+  $("stickerBtn").onclick = () => { sound.play("click"); openStickers(); };
+  $("stickerToast").onclick = () => { $("stickerToast").classList.toggle("open"); hideStickerToast(4500); };
+  $("bookPlayBtn").onclick = () => { sound.play("click"); requireProfile(startSolo); };
+  $("meStk").onclick = (e) => { e.stopPropagation(); if (!S.g) { sound.play("click"); openStickers(); } };
   $("finalHallBtn").onclick = () => { const t = S.g ? S.g.topicId : S.topicId; leaveGame(false); history.replaceState(null, "", "/"); openHall(t); };
   $("hallPlayBtn").onclick = () => { S.topicId = S.hall.topic; renderTopics(); requireProfile(startSolo); };
   $("createRoomBtn").onclick = createRoom;
@@ -1688,6 +1879,7 @@ async function boot() {
     toast("Can't reach the game server. Is it running?", 10000);
     return;
   }
+  await restoreProfiles();
   S.topicId = topic(store.pref("topic", "flags")).id;
   themeFor(topic(S.topicId));
   preloadFlags(S.meta.gallery);

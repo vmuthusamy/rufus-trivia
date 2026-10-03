@@ -8,7 +8,8 @@
 //   - Scores reach the Hall of Fame straight from here, never from a browser.
 
 import { DurableObject } from "cloudflare:workers";
-import { TOPIC_BY_ID, topicCard } from "./shared/topics/index.js";
+import { TOPICS, TOPIC_BY_ID, topicCard } from "./shared/topics/index.js";
+import { STICKER_BY_ID, stickersForAnswer, stickersForFinish, stickersForStart, showcase } from "./shared/stickers.js";
 import { freshSeed } from "./shared/rng.js";
 import { buildGame, buildQuestion, publicQuestion } from "./shared/game.js";
 import { SOLO, ROOM_LIMITS, scoreAnswer } from "./shared/scoring.js";
@@ -88,6 +89,7 @@ export class GameRoom extends DurableObject {
     if (!this.s || typeof raw !== "string" || raw.length > 30000) return;
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
+    if (!msg || typeof msg !== "object" || Array.isArray(msg)) return; // junk like `null` or `42`: ignore quietly
     if (msg.t === "hello") return this.onHello(ws, msg);
     // "lurk" = I've opened the join link and I'm still picking my avatar. The host sees
     // a "picking an avatar…" card so they know to wait before pressing Start.
@@ -211,6 +213,13 @@ export class GameRoom extends DurableObject {
 
     let player = s.players[p.id];
     let event = "rejoin";
+    let owned = [];
+    if (!player) {
+      // Bring their sticker collection along (kept on the server, so it follows them into every room).
+      owned = await this.hall().stickers(p.id).catch(() => []);
+      if (!this.s) return;
+      player = s.players[p.id]; // they might have been added while we waited
+    }
     if (player && (s.phase === "lobby" || s.phase === "final")) {
       // Changed your avatar in the lobby? Update it (scores are only kept during a game).
       const before = player.name;
@@ -225,10 +234,13 @@ export class GameRoom extends DurableObject {
         ...p, name: this.uniqueName(p.name), seat: this.newSeat(),
         score: 0, streak: 0, bestStreak: 0, correct: 0, lives: SOLO.lives,
         avoid: cleanKeys(msg.avoid, 300), missed: cleanKeys(msg.missed, 100),
-        joinedAt: Date.now(), history: [],
+        joinedAt: Date.now(), history: [], stickers: owned,
       };
       s.order.push(p.id);
       event = "join"; // joining late is fine: you just start with 0 points
+    }
+    if (Array.isArray(msg.showcase)) {
+      player.pins = msg.showcase.filter((id) => typeof id === "string" && (player.stickers || []).includes(id)).slice(0, 3);
     }
     ws.serializeAttachment({ pid: p.id });
     this.save();
@@ -270,6 +282,17 @@ export class GameRoom extends DurableObject {
       } catch {}
     } else {
       s.questions = [];
+    }
+    // Count this game in each player's history, for the Explorer / Team Player / Party Host stickers.
+    const here = this.connectedPids();
+    for (const id of s.order) {
+      if (!here.has(id)) continue;
+      this.hall().recordPlay(id, s.topic, s.kind).then((h) => {
+        const pl = this.s && this.s.players[id];
+        if (!pl) return;
+        const ids = stickersForStart({ kind: s.kind, isHost: id === s.hostId, players: here.size, topicsPlayed: h.topicsPlayed, allTopics: TOPICS.length, roomGames: h.roomGames });
+        if (this.give(pl, ids)) { this.saveSoon(); this.broadcast("sticker"); }
+      }).catch(() => {});
     }
     s.phase = "countdown";
     s.phaseAt = Date.now();
@@ -368,6 +391,12 @@ export class GameRoom extends DurableObject {
     const s = this.s;
     if (s.phase !== "question") return;
     this.markUnanswered();
+    // Stickers for this question (streaks, speedy paws, topic master) - only now, at the reveal,
+    // so a sticker popping up can't tell anyone who got it right before they see the answer.
+    for (const id of s.order) {
+      const a = (s.answers[s.qi] || {})[id], pl = s.players[id];
+      if (a && !a.timeout) this.give(pl, stickersForAnswer({ topic: s.topic, correct: a.correct, streak: a.streak, ms: a.ms, correctSoFar: pl.correct }));
+    }
     s.phase = "reveal";
     s.phaseAt = Date.now();
     const solo = s.kind === "solo";
@@ -383,6 +412,13 @@ export class GameRoom extends DurableObject {
 
   async finish() {
     const s = this.s;
+    if (s.kind === "room") {
+      const ranking = this.standings();
+      ranking.forEach((id, i) => {
+        const pl = s.players[id];
+        this.give(pl, stickersForFinish({ kind: "room", rank: i + 1, players: ranking.length, score: pl.score, correct: pl.correct, count: s.qi + 1 }));
+      });
+    }
     s.phase = "final";
     s.phaseAt = Date.now();
     s.deadline = null;
@@ -479,6 +515,19 @@ export class GameRoom extends DurableObject {
     return this.s.order.find((id) => here.has(id)) || this.s.hostId;
   }
 
+  hall() {
+    return this.env.HALL.get(this.env.HALL.idFromName("global"));
+  }
+
+  // Give a player stickers they don't have yet (saved on the server for good).
+  give(p, ids) {
+    const fresh = ids.filter((id) => STICKER_BY_ID[id] && !(p.stickers || []).includes(id));
+    if (!fresh.length) return false;
+    p.stickers = [...(p.stickers || []), ...fresh];
+    this.hall().award(p.id, fresh).catch(() => {});
+    return true;
+  }
+
   // Everyone in a room sees each other's public "seat" id, never the private player id
   // (the private one is like a password: it's what proves who you are).
   newSeat() {
@@ -534,6 +583,8 @@ export class GameRoom extends DurableObject {
         answered: !!a,
       };
       if (s.kind === "solo") out.lives = p.lives;
+      // the stickers they show off: the ones they pinned, or else their 3 rarest
+      out.stickers = p.pins && p.pins.length ? p.pins : showcase(p.stickers);
       if (showAnswers && a) out.last = { choice: a.choice, correct: a.correct, points: a.points, timeout: !!a.timeout };
       return out;
     });
@@ -545,6 +596,7 @@ export class GameRoom extends DurableObject {
       phaseAt: s.phaseAt, deadline: s.deadline, serverNow: Date.now(),
       players,
       choosing: s.kind === "room" ? this.choosingCount(except) : 0,
+      myStickers: (s.players[pid] && s.players[pid].stickers) || [],
       question: q && (s.phase === "question" || s.phase === "reveal") ? publicQuestion(q) : null,
       mine: answers[pid] ? { choice: answers[pid].choice } : null,
     };

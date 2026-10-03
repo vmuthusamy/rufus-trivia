@@ -83,6 +83,12 @@ const SFX = {
     }
   },
   heart(t) { tone(NOTE.E5, t, 0.12, { vol: 0.14 }); tone(NOTE.C5, t + 0.12, 0.12, { vol: 0.14 }); tone(NOTE.A4, t + 0.24, 0.3, { vol: 0.14, slide: 0.7 }); },
+  // a sticker being peeled and slapped on, with a sparkle
+  sticker(t) {
+    noise(t, 0.22, { vol: 0.12, freq: 2600, type: "bandpass" });
+    tone(NOTE.C5, t + 0.2, 0.08, { vol: 0.16, type: "triangle" });
+    ["E6", "G6", "C7", "E7"].forEach((n, i) => tone(NOTE[n], t + 0.28 + i * 0.07, 0.2, { vol: 0.1, type: "triangle" }));
+  },
   coin(t) { tone(NOTE.B5, t, 0.06, { vol: 0.1 }); tone(NOTE.E6, t + 0.06, 0.18, { vol: 0.1 }); },
   fanfare(t) {
     const mel = [["C5", 0, 0.12], ["E5", 0.12, 0.12], ["G5", 0.24, 0.12], ["C6", 0.36, 0.3], ["G5", 0.7, 0.12], ["C6", 0.84, 0.6]];

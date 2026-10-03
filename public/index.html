@@ -45,7 +45,7 @@
       </div>
       <button class="icon-btn" id="soundBtn" aria-label="Sound effects" aria-pressed="true" title="Sound effects">🔊</button>
       <button class="me-chip" id="meChip" aria-label="Change player">
-        <span class="av" id="meAv">🦊</span><span class="nm" id="meName">Pick a name</span>
+        <span class="av" id="meAv">🦊</span><span class="nm" id="meName">Pick a name</span><span class="stk-n hidden" id="meStk"></span>
       </button>
     </header>
 
@@ -67,6 +67,7 @@
             <div class="actions small anim">
               <button class="btn ghost" id="joinBtn">🔑 Join with a code</button>
               <button class="btn ghost" id="hallBtn">🏆 Hall of Fame</button>
+              <button class="btn ghost" id="stickerBtn">🎖️ Sticker book</button>
             </div>
           </div>
 
@@ -256,6 +257,11 @@
             <ol class="rest" id="restList"></ol>
           </div>
 
+          <div class="sheet hidden" id="stickerSheet">
+            <p class="label">You earned stickers! Tap each one to stick it in your book</p>
+            <div class="sheet-row" id="sheetRow"></div>
+          </div>
+
           <div class="learned anim" id="learnedBox">
             <p class="label">Rufus's study cards: the ones that got away</p>
             <div class="learned-row" id="learnedRow"></div>
@@ -267,6 +273,22 @@
             <button class="btn ghost hidden" id="newQuizBtn">🔀 New quiz</button>
             <button class="btn primary" id="againBtn">Play again ▶</button>
             <p class="waiting hidden" id="waitRematch">Waiting for the host…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== STICKER BOOK ===================== -->
+      <section class="screen" id="scr-stickers" data-accent="#f472b6">
+        <div class="panel book">
+          <p class="eyebrow anim">Your collection</p>
+          <h2 class="h anim">🎖️ Sticker book</h2>
+          <p class="sub anim" id="bookProgress">Loading your stickers…</p>
+          <div class="inspect hidden" id="inspect" aria-live="polite"></div>
+          <div class="book-grid anim" id="bookGrid"></div>
+          <p class="fine anim">Tap a sticker to look at it. Pin up to 3 with 📌 to show them off next to your name in every room.</p>
+          <div class="row-end anim">
+            <button class="btn ghost" data-go="home">Back</button>
+            <button class="btn primary" id="bookPlayBtn">Go earn more ▶</button>
           </div>
         </div>
       </section>
@@ -314,6 +336,10 @@
       </div>
     </div>
   </div>
+  <button class="sticker-toast hidden" id="stickerToast" aria-live="polite">
+    <i class="sticker" id="stEmoji">🎩</i>
+    <span class="st-txt"><b>New sticker!</b><span id="stName"></span><small id="stHow"></small></span>
+  </button>
   <div class="countdown hidden" id="countdown"><div class="cd-ring"></div><span id="cdNum">3</span></div>
   <div class="banner hidden" id="banner"><span class="b-emoji" id="bannerEmoji">🔥</span><span id="bannerText">ON FIRE!</span><small id="bannerSub"></small></div>
   <div class="toast hidden" id="toast" role="status"></div>
