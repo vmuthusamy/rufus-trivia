@@ -490,7 +490,35 @@ function renderSetup() {
   seg($("segLevel"), r.levels, S.setup.level, (v) => LEVEL_NAMES[v] || v, (v) => { S.setup.level = v; renderSetup(); });
 }
 
+// The host changes the quiz from the lobby (or picks a new one after a game): same setup screen, "Save" instead of "Create".
+function openQuizEditor() {
+  const g = S.g;
+  if (!g || !g.st || g.st.hostId !== g.st.me) return;
+  S.setupMode = "edit";
+  S.topicId = g.st.topic.id;
+  S.setup = { ...g.st.settings };
+  g.editing = true;
+  renderSetup();
+  $("createRoomBtn").textContent = "Save changes ▶";
+  show("setup", { accent: topic(S.topicId).color });
+  host.say("Pick a new quiz! Everyone in the room will see it change.", { mood: "happy" });
+}
+
+function closeQuizEditor(save) {
+  const g = S.g;
+  S.setupMode = null;
+  $("createRoomBtn").textContent = "Create room ▶";
+  if (!g) { show("home"); return; }
+  g.editing = false;
+  if (save) {
+    g.conn.send({ t: "settings", topic: S.topicId, ...S.setup });
+    sound.play("coin");
+  }
+  show("lobby", { accent: topic(S.topicId).color });
+}
+
 async function createRoom() {
+  if (S.setupMode === "edit") { closeQuizEditor(true); return; }
   const btn = $("createRoomBtn");
   btn.disabled = true;
   try {
@@ -799,6 +827,17 @@ function renderLobby(g, st) {
   if (st.event === "rematch") {
     g.lastQi = -1; g.revealedQi = -1; g.prevRank = {}; g.hallShown = false;
   }
+  // The host changed the quiz: follow along (music, and send our "seen recently" list for the new topic).
+  if (g.topicId !== st.topic.id) {
+    g.topicId = st.topic.id;
+    applyMusic(st.topic);
+    if (!g.lurking) g.conn.send(helloMsg(g));
+    if (st.hostId !== st.me) {
+      toast(`The host switched the quiz to ${st.topic.emoji} ${st.topic.title}!`, 3500);
+      host.say(`New quiz: ${st.topic.emoji} ${st.topic.title}! Get ready!`, { mood: "cheer" });
+    }
+  }
+  if (g.openQuizOnLobby && st.hostId === st.me) { g.openQuizOnLobby = false; setTimeout(openQuizEditor, 50); }
   if (g.lobbyCode !== st.code) {
     g.lobbyCode = st.code;
     const tiles = $("codeTiles");
@@ -875,6 +914,7 @@ function renderLobby(g, st) {
     ? "🎨 1 friend is still picking an avatar. Give them a moment!"
     : `🎨 ${st.choosing} friends are still picking avatars. Give them a moment!`;
   $("startBtn").classList.toggle("hidden", !isHost);
+  $("changeQuizBtn").classList.toggle("hidden", !isHost);
   $("startBtn").classList.toggle("pulse", !st.choosing);
   $("waitHost").classList.toggle("hidden", isHost);
 }
@@ -1390,6 +1430,7 @@ function renderFinal(g, st, key) {
     $("hallResult").append(el("span", "medal", "📡"), el("span", "txt", "Sending your score to the Hall of Fame…"));
     g.localRecord = store.recordGame(S.profile.id, g.topicId, f.me.score, false);
     session.set("rt_solo", ""); // the run is over: nothing to pick back up after a reload
+    $("newQuizBtn").classList.add("hidden");
     again.textContent = "Play again ▶";
     again.onclick = () => { S.topicId = g.topicId; startSolo(); };
     sound.play(out ? "sad" : "fanfare");
@@ -1425,6 +1466,7 @@ function renderFinal(g, st, key) {
     const isHost = st.hostId === st.me;
     again.textContent = "Rematch ▶";
     again.classList.toggle("hidden", !isHost);
+    $("newQuizBtn").classList.toggle("hidden", !isHost);
     $("waitRematch").classList.toggle("hidden", isHost);
     again.onclick = () => { g.conn.send({ t: "rematch" }); sound.play("click"); };
   }
@@ -1566,7 +1608,15 @@ function wire() {
   $("finalHallBtn").onclick = () => { const t = S.g ? S.g.topicId : S.topicId; leaveGame(false); history.replaceState(null, "", "/"); openHall(t); };
   $("hallPlayBtn").onclick = () => { S.topicId = S.hall.topic; renderTopics(); requireProfile(startSolo); };
   $("createRoomBtn").onclick = createRoom;
-  $("setupBack").onclick = () => { sound.play("click"); leaveGame(true); };
+  $("setupBack").onclick = () => { sound.play("click"); if (S.setupMode === "edit") closeQuizEditor(false); else leaveGame(true); };
+  $("changeQuizBtn").onclick = () => { sound.play("click"); openQuizEditor(); };
+  $("newQuizBtn").onclick = () => {
+    // After a game: back to the lobby, then straight into picking a new quiz.
+    if (!S.g) return;
+    S.g.openQuizOnLobby = true;
+    S.g.conn.send({ t: "rematch" });
+    sound.play("click");
+  };
   $("joinGoBtn").onclick = joinRoom;
   $("startBtn").onclick = pressStart;
   $("leaveLobbyBtn").onclick = () => leaveGame(true);

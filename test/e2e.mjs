@@ -213,6 +213,83 @@ async function challenge() {
   for (const p of [A, B, lateP]) p.ws.close();
 }
 
+// Fixes from the multiplayer review + changing the quiz + fresh rematches.
+async function reviewFixes() {
+  const a = profile("Brave", "Lion"), b = profile("Jolly", "Frog");
+  const { data } = await post("/api/rooms", { topic: "flags", count: 10, timer: 10, level: "mixed", player: a });
+  const path = `/api/rooms/${data.code}/ws`;
+  let A = player(path, a);
+  const B = player(path, b);
+  await Promise.all([A.ready, B.ready]);
+  await B.waitFor((s) => s.players.length === 2);
+  const aSeat = (await A.waitFor((s) => s.me)).me;
+
+  // Changing the quiz: only the host, only allowed values.
+  B.send({ t: "settings", topic: "math", count: 5, timer: 10, level: "easy" });
+  A.send({ t: "settings", topic: "nope", count: 5, timer: 10, level: "easy" });
+  A.send({ t: "settings", topic: "space", count: 7, timer: 10, level: "easy" });
+  await sleep(400);
+  assert.equal(B.last().topic.id, "flags", "non-host and invalid quiz changes are ignored");
+  A.send({ t: "settings", topic: "space", count: 5, timer: 15, level: "easy" });
+  const changed = await B.waitFor((s) => s.event === "settings");
+  assert.deepEqual([changed.topic.id, changed.settings.count, changed.settings.timer], ["space", 5, 15]);
+
+  // A stand-in host (while the real host's Wi-Fi blips) can't remove the real host.
+  A.ws.close();
+  await B.waitFor((s) => s.hostId === s.me);
+  B.send({ t: "kick", seat: aSeat });
+  await sleep(400);
+  A = player(path, a);
+  await A.ready;
+  const back = await A.waitFor((s) => s.me === aSeat);
+  assert.equal(A.errors.length, 0, "real host wasn't banned");
+  assert.equal(back.hostId, aSeat, "real host is host again");
+
+  // Switching to a new player on the same connection: no ghost left behind, and they stay host.
+  A.send({ t: "hello", player: profile("Mega", "Llama") });
+  const sw = await B.waitFor((s) => s.players.some((p) => p.name === "Mega Llama"));
+  assert.ok(!sw.players.some((p) => p.name === "Brave Lion"), "old player isn't left as a ghost");
+  assert.equal(sw.hostId, sw.players.find((p) => p.name === "Mega Llama").id, "host role moved with them");
+
+  // Round 1. Someone's connection drops mid-question: wait a few seconds for them, then a proper timeout.
+  A.send({ t: "start" });
+  await B.waitFor((s) => s.phase === "question" && s.qi === 0 && s.round === 1);
+  B.send({ t: "answer", q: 0, choice: 0, ms: 500 });
+  A.ws.close();
+  const dropAt = Date.now();
+  await sleep(1500);
+  assert.equal(B.last().phase, "question", "the question doesn't end the instant someone drops");
+  const rv = await B.waitFor((s) => s.phase === "reveal" && s.qi === 0 && s.round === 1, 10000);
+  const graceMs = Date.now() - dropAt;
+  assert.ok(graceMs >= 4000, "waited for them to come back");
+  const dropped = rv.players.find((p) => p.name === "Mega Llama");
+  assert.ok(dropped.last && dropped.last.timeout, "the dropped player gets a timeout");
+  assert.equal(dropped.streak, 0, "and their streak resets");
+  const keysOf = (round) => B.states.filter((s) => s.phase === "reveal" && s.round === round).map((s) => s.reveal.key);
+  for (let qi = 0; qi < 5; qi++) {
+    await B.waitFor((s) => s.qi === qi && s.round === 1 && (s.phase === "question" || s.phase === "reveal"));
+    if (B.last().phase === "question") B.send({ t: "answer", q: qi, choice: 1, ms: 700 });
+    await B.waitFor((s) => s.phase === "reveal" && s.qi === qi && s.round === 1);
+    B.send({ t: "next" });
+  }
+  await B.waitFor((s) => s.phase === "final" && s.round === 1);
+
+  // Round 2 (rematch, same topic): every question is new.
+  B.send({ t: "rematch" });
+  await B.waitFor((s) => s.phase === "lobby" && s.event === "rematch");
+  B.send({ t: "start" });
+  for (let qi = 0; qi < 5; qi++) {
+    await B.waitFor((s) => s.phase === "question" && s.qi === qi && s.round === 2);
+    B.send({ t: "answer", q: qi, choice: 2, ms: 700 });
+    await B.waitFor((s) => s.phase === "reveal" && s.qi === qi && s.round === 2);
+    B.send({ t: "next" });
+  }
+  const r1 = [...new Set(keysOf(1))], r2 = [...new Set(keysOf(2))];
+  assert.equal(r2.filter((k) => r1.includes(k)).length, 0, "rematch questions are all new");
+  console.log(`  quiz change, host protection, no ghosts, drop grace (${(graceMs / 1000).toFixed(1)}s), fresh rematch (${r1.length}+${r2.length} different questions)`);
+  B.ws.close();
+}
+
 const t0 = Date.now();
 console.log("solo run…");
 await soloRun();
@@ -220,5 +297,7 @@ console.log("solo quit…");
 await soloQuit();
 console.log("challenge room…");
 await challenge();
+console.log("review fixes…");
+await reviewFixes();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);
