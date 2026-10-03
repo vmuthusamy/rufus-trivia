@@ -9,7 +9,6 @@ import { makeHost, makeFox, line } from "./rufus.js";
 import * as fx from "./fx.js";
 import { openGame } from "./net.js";
 import { celebrate, streakBroken, badge } from "./streaks.js";
-import qrcode from "./vendor/qrcode.mjs";
 
 const $ = (id) => document.getElementById(id);
 function el(tag, cls, text) {
@@ -449,14 +448,6 @@ function pingVisit() {
     .catch(() => {});
 }
 
-function preloadFlags(list) {
-  let i = 0;
-  const step = () => {
-    for (let k = 0; k < 10 && i < list.length; k++, i++) { const im = new Image(); im.src = list[i]; }
-    if (i < list.length) setTimeout(step, 300);
-  };
-  setTimeout(step, 1800);
-}
 
 // ---------- PROFILE ----------
 function randomDraft() {
@@ -1028,10 +1019,13 @@ function renderLobby(g, st) {
     [...st.code].forEach((ch, k) => { const s = el("span", null, ch); s.style.setProperty("--k", k); tiles.append(s); });
     const url = `${location.origin}/join/${st.code}`;
     $("joinUrlText").textContent = `${location.host}/join/${st.code}`;
-    const qr = qrcode(0, "M");
-    qr.addData(url);
-    qr.make();
-    $("qrBox").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true, alt: "QR code to join room " + st.code });
+    // The QR maker is only needed by hosts, so it's loaded only now.
+    import("./vendor/qrcode.mjs").then(({ default: qrcode }) => {
+      const qr = qrcode(0, "M");
+      qr.addData(url);
+      qr.make();
+      $("qrBox").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true, alt: "QR code to join room " + st.code });
+    }).catch(() => {});
     $("copyLinkBtn").onclick = async () => {
       try { await navigator.clipboard.writeText(url); toast("Link copied! 📋"); } catch { toast(url, 6000); }
       sound.play("coin");
@@ -1465,6 +1459,20 @@ function renderReveal(g, st) {
   fb.classList.remove("hidden");
   restartAnim(fb, "fact");
   typeText($("factText"), r.fact);
+  // Load the next question's pictures now, while everyone reads the answer.
+  (r.next || []).forEach((src) => { const im = new Image(); im.src = src; });
+  // 🐾 Fastest paw: the quickest right answer in the room
+  if (st.kind === "room" && r.fastest) {
+    const fp = st.players.find((p) => p.id === r.fastest.seat);
+    const secs = (r.fastest.ms / 1000).toFixed(1);
+    if (fp) setTimeout(() => {
+      const who = [...document.querySelectorAll("#answers .who span")].find((x) => x.title === fp.name);
+      if (who) who.classList.add("fastest");
+      if (!(mine && mine.correct && fp.id === st.me)) return;
+      host.say(`You had the fastest paws! 🐾 ${secs}s`, { mood: "cheer" });
+    }, 600);
+    if (fp && fp.id !== st.me) setTimeout(() => host.say(`🐾 Fastest paws: ${fp.emoji} ${fp.name} in ${secs}s!`, { mood: "happy" }), 2600);
+  }
   // Photo credits (landmark photos are shared by photographers on Wikimedia Commons)
   const cr = $("factCredit");
   cr.innerHTML = "";
@@ -1528,6 +1536,10 @@ function renderReveal(g, st) {
   if (st.kind === "solo") {
     next.textContent = me.lives <= 0 ? "See results ▶" : "Next ▶";
     next.classList.remove("hidden");
+    // Solo keeps flowing: a ring on the button shows when it'll move on by itself (tap to go sooner).
+    const left = Math.max(0, st.deadline - g.offset - Date.now());
+    next.style.setProperty("--auto", left + "ms");
+    restartAnim(next, "auto");
     if (me.lives <= 0) host.say("Out of hearts! Let's see your score…", { mood: "sad" });
     setTimeout(() => next.focus({ preventScroll: true }), 150);
   } else {
@@ -1874,15 +1886,13 @@ async function boot() {
   sound.init({ sfx: store.pref("sfx", true), music: store.pref("music", true) });
   wire();
   try {
-    S.meta = await api("/api/meta");
+    [S.meta] = await Promise.all([api("/api/meta"), restoreProfiles()]); // both at once: faster first screen
   } catch {
     toast("Can't reach the game server. Is it running?", 10000);
     return;
   }
-  await restoreProfiles();
   S.topicId = topic(store.pref("topic", "flags")).id;
   themeFor(topic(S.topicId));
-  preloadFlags(S.meta.gallery);
   pingVisit();
   renderMe();
   renderTopics();

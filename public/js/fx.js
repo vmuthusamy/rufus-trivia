@@ -23,10 +23,13 @@ export function setSpeed(s) { speedTarget = s; }
 export function initBackdrop() {
   const gc = document.getElementById("grid"), gx = gc.getContext("2d");
   const pc = document.getElementById("particles"), px = pc.getContext("2d");
-  let W, H, parts = [], scroll = 0, last = 0;
+  let W, H, parts = [], scroll = 0, last = 0, running = true;
+  // Battery-friendly: the soft background is drawn at normal (not Retina) resolution, 30 times a second,
+  // not at all while the tab is hidden, and almost frozen if the device asks for less motion.
+  const FRAME_MS = reduce ? 500 : 33;
 
   function resize() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = 1;
     W = innerWidth; H = innerHeight;
     for (const c of [gc, pc]) { c.width = W * dpr; c.height = H * dpr; }
     gx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -37,6 +40,8 @@ export function initBackdrop() {
   }
 
   function frame(t) {
+    if (document.hidden) { running = false; return; } // stop completely until the tab is visible again
+    if (last && t - last < FRAME_MS) { requestAnimationFrame(frame); return; }
     const dt = Math.min(50, t - (last || t));
     last = t;
     for (let i = 0; i < 3; i++) accent[i] += (target[i] - accent[i]) * 0.04;
@@ -74,6 +79,9 @@ export function initBackdrop() {
     requestAnimationFrame(frame);
   }
   addEventListener("resize", resize);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !running) { running = true; last = 0; requestAnimationFrame(frame); }
+  });
   resize();
   requestAnimationFrame(frame);
 }

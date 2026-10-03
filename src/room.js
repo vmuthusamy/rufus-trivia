@@ -18,7 +18,7 @@ import { cleanPlayer, cleanKeys } from "./shared/names.js";
 const COUNTDOWN_MS = 3500;        // "3, 2, 1, GO!"
 const GRACE_MS = 700;             // a little wiggle room for slow Wi-Fi after the timer ends
 const ROOM_REVEAL_MS = 9000;      // challenge: time to read the fact + see the scoreboard (host can skip)
-const SOLO_REVEAL_MAX_MS = 60000; // solo: auto-continue if nobody taps "Next"
+const SOLO_REVEAL_MS = 8000;      // solo: keep the game flowing (tap "Next" to go sooner)
 const IDLE_TTL_MS = 3 * 60 * 60 * 1000; // tidy up games nobody has touched for 3 hours
 const RECONNECT_GRACE_MS = 5000;   // if someone's Wi-Fi blips mid-question, wait this long for them to come back
 
@@ -308,14 +308,7 @@ export class GameRoom extends DurableObject {
     if (s.qi + 1 >= total || (solo && solo.lives <= 0)) return this.finish();
 
     s.qi += 1;
-    if (solo) {
-      const topic = TOPIC_BY_ID[s.topic];
-      const used = new Set(s.questions.map((q) => q.key));
-      s.questions.push(buildQuestion(topic, {
-        seed: s.seed, index: s.qi, levelSetting: "ramp", total, used,
-        avoid: new Set(solo.avoid), missed: new Set(solo.missed),
-      }));
-    }
+    if (solo && !s.questions[s.qi]) this.prepareNextSolo(s.qi);
     s.answers[s.qi] = {};
     s.phase = "question";
     s.phaseAt = Date.now();
@@ -400,9 +393,21 @@ export class GameRoom extends DurableObject {
     s.phase = "reveal";
     s.phaseAt = Date.now();
     const solo = s.kind === "solo";
-    s.deadline = s.phaseAt + (solo ? SOLO_REVEAL_MAX_MS : ROOM_REVEAL_MS);
+    s.deadline = s.phaseAt + (solo ? SOLO_REVEAL_MS : ROOM_REVEAL_MS);
+    if (solo) this.prepareNextSolo(); // make the next question now, so its pictures can load during the reveal
     await this.setWake(s.deadline, "advance");
     this.broadcast("reveal");
+  }
+
+  // Solo questions are made one at a time (the run is endless). index defaults to "the next one".
+  prepareNextSolo(index = this.s.qi + 1) {
+    const s = this.s, solo = s.players[s.hostId];
+    if (!solo || s.questions[index] || index >= SOLO.maxQuestions) return;
+    const used = new Set(s.questions.map((q) => q.key));
+    s.questions[index] = buildQuestion(TOPIC_BY_ID[s.topic], {
+      seed: s.seed, index, levelSetting: "ramp", total: SOLO.maxQuestions, used,
+      avoid: new Set(solo.avoid), missed: new Set(solo.missed),
+    });
   }
 
   async advance() {
@@ -418,6 +423,11 @@ export class GameRoom extends DurableObject {
         const pl = s.players[id];
         this.give(pl, stickersForFinish({ kind: "room", rank: i + 1, players: ranking.length, score: pl.score, correct: pl.correct, count: s.qi + 1 }));
       });
+    }
+    // Save everyone's stickers once more (safe to repeat), in case an earlier save hiccuped.
+    for (const id of s.order) {
+      const pl = s.players[id];
+      if (pl.stickers && pl.stickers.length) this.hall().award(id, pl.stickers).catch(() => {});
     }
     s.phase = "final";
     s.phaseAt = Date.now();
@@ -603,6 +613,17 @@ export class GameRoom extends DurableObject {
 
     if (s.phase === "reveal" && q) {
       view.reveal = { answer: q.answer, fact: q.fact, labels: q.reveal || null, key: q.key, learn: q.learn, credits: q.credits || null };
+      // 🐾 Fastest paw: the quickest right answer in the room
+      let fast = null;
+      for (const id of s.order) {
+        const a = answers[id];
+        if (a && a.correct && (!fast || a.ms < fast.ms)) fast = { seat: s.players[id].seat, ms: a.ms };
+      }
+      if (s.kind === "room" && fast) view.reveal.fastest = fast;
+      // The next question's pictures (file names are scrambled, so this gives nothing away):
+      // browsers load them now, during the reveal, so the next question pops up instantly.
+      const nq = s.questions[s.qi + 1];
+      if (nq) view.reveal.next = [nq.media && nq.media.img, ...nq.choices.map((c) => c.img)].filter(Boolean);
       view.mine = answers[pid] || null;
     }
     if (s.phase === "final") {

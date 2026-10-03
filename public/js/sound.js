@@ -283,11 +283,22 @@ function playStep(t, at, stepDur) {
 function scheduleMusic() {
   const t = track;
   const stepDur = 60 / (t.bpm * (gameMode ? 1.05 : 1)) / 4;
+  // If the browser paused our timer (background tab), don't play all the missed notes in one burst.
+  if (nextAt < ctx.currentTime - 0.1) nextAt = ctx.currentTime + 0.05;
   while (nextAt < ctx.currentTime + 0.15) {
     playStep(t, nextAt, stepDur);
     nextAt += stepDur;
     step++;
   }
+}
+
+// Hide the tab -> the band stops; come back -> it picks up again.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (!ctx || !musicOn) return;
+    if (document.hidden) { clearInterval(musicTimer); musicTimer = null; }
+    else if (!musicTimer) { nextAt = ctx.currentTime + 0.05; musicTimer = setInterval(scheduleMusic, 30); }
+  });
 }
 
 export const sound = {

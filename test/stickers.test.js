@@ -43,3 +43,8 @@ test("party host, explorer and team player", () => {
 test("showcase: rarest first, newest breaks ties, unknown ids ignored", () => {
   assert.deepEqual(showcase(["streak3", "speedy", "perfect", "nope", "streak5"]), ["perfect", "streak5", "speedy"]);
 });
+
+test("every topic's song exists (a typo would silently fall back to the default song)", async () => {
+  const { MUSIC } = await import("../public/js/sound.js");
+  for (const t of TOPICS) assert.ok(MUSIC[t.music || "adventure"], `${t.id}: no song called "${t.music}"`);
+});

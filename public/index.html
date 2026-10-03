@@ -18,6 +18,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
+  <!-- start fetching the game data and code right away, in parallel -->
+  <link rel="preload" href="/api/meta" as="fetch" crossorigin="anonymous">
+  <link rel="modulepreload" href="/js/app.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/js/sound.js">
+  <link rel="modulepreload" href="/js/rufus.js">
+  <link rel="modulepreload" href="/js/store.js">
+  <link rel="modulepreload" href="/js/net.js">
+  <link rel="modulepreload" href="/js/streaks.js">
+  <link rel="modulepreload" href="/js/config.js">
 </head>
 <body>
   <!-- ===== Background layers (nebula, synthwave grid, particles, confetti) ===== -->
@@ -45,8 +55,9 @@
       </div>
       <button class="icon-btn" id="soundBtn" aria-label="Sound effects" aria-pressed="true" title="Sound effects">🔊</button>
       <button class="me-chip" id="meChip" aria-label="Change player">
-        <span class="av" id="meAv">🦊</span><span class="nm" id="meName">Pick a name</span><span class="stk-n hidden" id="meStk"></span>
+        <span class="av" id="meAv">🦊</span><span class="nm" id="meName">Pick a name</span>
       </button>
+      <button class="stk-n hidden" id="meStk" aria-label="My sticker book"></button>
     </header>
 
     <main class="screens">

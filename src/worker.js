@@ -86,7 +86,7 @@ export default {
 
     try {
       if (path === "/api/meta") {
-        return json({
+        const meta = json({
           topics: TOPICS.map(topicCard),
           names: { adjectives: ADJECTIVES, animals: ANIMALS, colors: COLORS },
           solo: SOLO,
@@ -96,6 +96,8 @@ export default {
           // to preload flags so questions appear instantly. Gives away nothing.
           gallery: shuffled(COUNTRIES.map((c) => c.img)),
         });
+        meta.headers.set("cache-control", "public, max-age=300"); // only changes when we deploy
+        return meta;
       }
 
       if (path === "/api/solo" && request.method === "POST") {

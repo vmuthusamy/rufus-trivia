@@ -56,7 +56,8 @@ a { color: var(--a); }
 
 /* floating flags behind the home screen */
 .parade { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; transition: opacity .8s; }
-.parade.off { opacity: 0; }
+.parade.off { opacity: 0; visibility: hidden; transition: opacity .8s, visibility 0s linear .8s; }
+.parade.off img, .parade.off .pe { animation-play-state: paused; }
 .parade img {
   position: absolute; width: var(--w); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; opacity: var(--o);
   filter: blur(var(--b)) saturate(1.1); box-shadow: 0 10px 30px -10px #000;
@@ -255,7 +256,7 @@ a { color: var(--a); }
 .reel-row.off { opacity: .35; pointer-events: none; }
 .name-reel .own { color: var(--gold); }
 .name-reel .own:empty { display: none; }
-.link-btn { margin-top: 12px; border: 0; background: none; color: var(--a); font-weight: 900; font-size: 15px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+.link-btn { min-height: 44px; margin-top: 12px; border: 0; background: none; color: var(--a); font-weight: 900; font-size: 15px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .link-btn:hover { color: #fff; }
 .own-name { width: 100%; max-width: 380px; margin-top: 10px; display: flex; flex-direction: column; align-items: center; }
 .own-name input {
@@ -515,7 +516,14 @@ a { color: var(--a); }
 .answered-row:empty { display: none; }
 .answered-row .mini-av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; background: var(--pc); opacity: .3; transition: opacity .3s, transform .3s; }
 .answered-row .mini-av.done { opacity: 1; transform: scale(1.1); box-shadow: 0 0 12px -2px var(--pc); }
-#nextBtn { margin-left: auto; flex: none; min-height: 58px; padding: 0 26px; font-size: 19px; }
+#nextBtn { margin-left: auto; flex: none; min-height: 58px; padding: 0 26px; font-size: 19px; overflow: hidden; }
+#nextBtn.auto::after { content: ""; position: absolute; left: 0; bottom: 0; height: 5px; width: 100%; background: rgba(255, 255, 255, .7);
+  transform-origin: left; animation: autoNext var(--auto, 8000ms) linear forwards; }
+@keyframes autoNext { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+/* 🐾 fastest paw */
+.ans .who span.fastest { box-shadow: 0 0 0 3px var(--gold), 0 0 16px var(--gold); transform: scale(1.25); }
+.ans .who span.fastest::after { content: "🐾"; position: absolute; top: -14px; right: -10px; font-size: 14px; }
+.ans .who span { position: relative; transition: transform .3s, box-shadow .3s; }
 /* phones: Next floats in the corner so it's never off-screen */
 @media (max-width: 640px) {
   #nextBtn { position: fixed; right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 55; box-shadow: 0 5px 0 var(--edge), 0 18px 40px -8px rgba(0, 0, 0, .8); }
@@ -720,8 +728,9 @@ a { color: var(--a); }
 .stk-row { display: flex; justify-content: center; gap: 6px; margin-top: 6px; min-height: 0; }
 .stk-row .sticker { --sz: 18px; }
 .srow .n .sticker, .pod .stk-row .sticker { --sz: 15px; margin-left: 4px; }
-.me-chip .stk-n { font-size: 12px; font-weight: 900; padding: 3px 8px; border-radius: 999px; background: rgba(244, 114, 182, .22); color: #ffd1e8; }
-.me-chip .stk-n.bump { animation: bump .6s ease; }
+.stk-n { height: 42px; min-width: 44px; padding: 0 12px; border-radius: 13px; cursor: pointer; font-size: 14px; font-weight: 900;
+  border: 1px solid rgba(244, 114, 182, .55); background: rgba(244, 114, 182, .16); color: #ffd1e8; }
+.stk-n.bump { animation: bump .6s ease; }
 
 /* in-game: a small "new sticker" note in the corner that doesn't get in the way */
 .sticker-toast {
