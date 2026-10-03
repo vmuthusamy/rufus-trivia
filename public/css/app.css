@@ -267,6 +267,15 @@ a { color: var(--a); }
 .own-name input.bad { border-color: var(--bad); animation: shake .4s; }
 .own-name .hint { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
 .own-name .hint.bad { color: #ff8fa3; }
+.unlock { width: 100%; margin-top: 6px; }
+.unlock-row { display: flex; gap: 8px; }
+.unlock-row input { flex: 1; min-width: 0; height: 52px; padding: 0 14px; border-radius: 14px; border: 2px solid var(--line); background: rgba(0, 0, 0, .3); color: #fff; font: 700 16px var(--mono); }
+.unlock-row input.bad { border-color: var(--bad); animation: shake .4s; }
+.unlock-row .btn { min-height: 52px; padding: 0 16px; white-space: nowrap; }
+.name-key { margin: 12px 0 0; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; text-align: center; color: var(--muted); background: rgba(61, 220, 151, .08); border: 1px dashed rgba(61, 220, 151, .45); }
+.name-key b { color: #fff; }
+.name-key code { font: 800 14px var(--mono); color: var(--good); padding: 1px 6px; border-radius: 6px; background: rgba(0, 0, 0, .3); user-select: all; }
+.name-key span { display: block; }
 
 /* quit button + friendly "are you sure?" card */
 .quit-btn {
@@ -434,6 +443,46 @@ a { color: var(--a); }
 .media:has(.photo-card) { padding: 22px; }
 .emoji-card { font-size: clamp(110px, 16vw, 190px); line-height: 1; filter: drop-shadow(0 20px 30px rgba(0, 0, 0, .5)); animation: floaty 3s ease-in-out infinite; }
 
+/* characters from Rufus's game, drawn as crisp pixel art (see js/sprites.js) */
+.pal { position: relative; display: grid; place-items: center; animation: floaty 3s ease-in-out infinite; }
+.pal .sprite { display: block; height: clamp(72px, 46cqh, 210px); width: auto; filter: drop-shadow(0 16px 14px rgba(0, 0, 0, .45)); }
+.story-card .pal .sprite { height: clamp(70px, 40cqh, 210px); }
+.pal-badge { position: absolute; right: -18%; bottom: -4%; font-size: clamp(28px, 12cqh, 58px); line-height: 1; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .5)); }
+.media:has(.story-card .pal) .story-card { gap: clamp(8px, 4cqh, 22px); }
+
+/* "make the number": the character says the number it needs, with a little pile of the things */
+.make-card { display: grid; grid-template-columns: auto auto; grid-template-areas: "pal bubble" "pile pile"; align-items: center; column-gap: clamp(18px, 6cqw, 48px); row-gap: clamp(6px, 3cqh, 18px); }
+.make-card .pal { grid-area: pal; }
+.make-card .bubble {
+  grid-area: bubble; position: relative; display: flex; align-items: center; gap: .25em; padding: .18em .5em; border-radius: 22px;
+  font-family: var(--display); font-size: clamp(34px, min(16cqh, 12cqw), 96px); line-height: 1; color: #1b1340; background: #fff;
+  box-shadow: 0 16px 30px -14px #000, 0 0 50px -12px rgba(var(--a-rgb), .9); animation: bubbleIn .6s cubic-bezier(.2, 1.6, .4, 1) .15s both;
+}
+.make-card .bubble b { font-weight: 400; }
+.make-card .bubble span { font-size: .55em; }
+.make-card .bubble::before { content: ""; position: absolute; left: -16px; top: 50%; margin-top: -12px; border: 12px solid transparent; border-right: 16px solid #fff; border-left: 0; }
+.make-card .pile { grid-area: pile; display: flex; justify-content: center; font-size: clamp(18px, 8cqh, 38px); line-height: 1; }
+.make-card .pile span { display: inline-block; margin: 0 -.12em; transform: rotate(calc(var(--i) * 23deg - 60deg)) translateY(calc(var(--i) * 1px)); animation: pileIn .45s cubic-bezier(.2, 1.6, .4, 1) calc(.3s + var(--i) * 60ms) both; }
+@keyframes bubbleIn { from { opacity: 0; transform: scale(.4) rotate(-8deg); } }
+@keyframes pileIn { from { opacity: 0; translate: 0 -40px; } }
+
+/* mystery-number equations on a balance scale */
+.balance-card { width: min(100%, 620px); display: flex; flex-direction: column; align-items: center; }
+.beam { position: relative; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: clamp(8px, 3cqw, 22px); padding-bottom: 12px; transform-origin: 50% 100%; animation: tilt 3.4s ease-in-out infinite; }
+.beam::after { content: ""; position: absolute; left: 3%; right: 3%; bottom: 0; height: 10px; border-radius: 6px; background: linear-gradient(#ffe08a, #c98a1a); box-shadow: 0 8px 16px -6px #000; }
+.pan { flex: 0 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.pan .eq {
+  font-family: var(--display); font-size: clamp(22px, min(15cqh, calc(120cqw / var(--chars, 12))), 72px); line-height: 1.1; white-space: nowrap; padding: .25em .45em; border-radius: 16px;
+  background: rgba(255, 255, 255, .08); border: 1px solid var(--line); text-shadow: 0 3px 0 rgba(0, 0, 0, .35);
+}
+.pan .dish { width: 78%; height: 14px; margin-top: 6px; border-radius: 0 0 50% 50% / 0 0 100% 100%; background: linear-gradient(#ffe08a, #c98a1a); }
+.eqsign { align-self: center; font-family: var(--display); font-size: clamp(26px, 12cqh, 58px); color: var(--muted); margin-bottom: 14px; }
+.mystery { font-style: normal; display: inline-block; color: #ffd23f; text-shadow: 0 0 18px rgba(255, 210, 63, .9), 0 3px 0 rgba(0, 0, 0, .35); animation: mystery 1.8s ease-in-out infinite; }
+.fulcrum { --fh: clamp(30px, 13cqh, 58px); position: relative; width: 0; height: 0; border-left: 34px solid transparent; border-right: 34px solid transparent; border-bottom: var(--fh) solid #c98a1a; }
+.fulcrum::after { content: ""; position: absolute; top: var(--fh); left: -60px; width: 120px; height: 10px; border-radius: 6px; background: linear-gradient(#ffe08a, #a86e10); box-shadow: 0 10px 18px -8px #000; }
+@keyframes tilt { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+@keyframes mystery { 50% { transform: scale(1.18) rotate(-6deg); } }
+
 .qside { min-width: 0; display: flex; flex-direction: column; }
 .q-head { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; }
 .timer { position: relative; width: 68px; height: 68px; flex: none; }
@@ -447,7 +496,9 @@ a { color: var(--a); }
 .q-anim { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; }
 .q-anim.d2 { animation-delay: .08s; }
 
-.answers { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px, 1.4vw, 16px); }
+/* minmax(0, 1fr): long names ("United Arab Emirates") wrap instead of pushing the grid off a phone screen */
+.answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 1.4vw, 16px); }
+.ans .txt { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
 .ans {
   --c: #ff8a1f; --c2: #e0600a; --edge: #8a3300;
   position: relative; min-height: clamp(74px, 11vh, 104px); border-radius: 20px; border: 0; cursor: pointer; color: #fff;
@@ -481,6 +532,7 @@ a { color: var(--a); }
 .answers.pics .ans .lbl { font-size: 14px; min-height: 1.2em; text-align: center; width: 100%; }
 @media (max-width: 980px) { .answers.pics .ans .pic { height: clamp(54px, 14vh, 130px); } }
 /* states */
+.ans .add { opacity: .8; white-space: nowrap; animation: pileIn .4s ease both; }
 .answers.locked .ans:not(.picked) { opacity: .4; filter: grayscale(.6); }
 .ans.picked { box-shadow: 0 7px 0 var(--edge), 0 0 0 5px #fff, 0 18px 40px -10px var(--c); }
 .ans .lock { position: absolute; top: -12px; right: -8px; padding: 4px 10px; border-radius: 999px; background: #fff; color: #1a1033; font-size: 12px; font-weight: 900; box-shadow: 0 6px 14px -6px #000; animation: popIn .35s cubic-bezier(.2, 1.6, .4, 1); }
@@ -510,6 +562,18 @@ a { color: var(--a); }
 .photo-card { flex-direction: column; gap: 10px; }
 .photo-card .caption-pill { font-family: var(--display); font-size: 22px; padding: 4px 14px; border-radius: 12px; background: rgba(0, 0, 0, .45); text-shadow: 0 2px 0 rgba(0, 0, 0, .4); }
 .answers.pics .ans .pic img[src^="/l/"] { object-fit: cover; }
+/* map questions: a framed little map (one country glowing orange) with a wobbly compass */
+.media:has(.map-card) { padding: 22px; }
+.map-card {
+  position: relative; width: min(100cqw - 44px, (100cqh - 44px) * 4 / 3); aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 24px 50px -20px #000, 0 0 0 3px rgba(255, 255, 255, .85), 0 0 46px -8px rgba(var(--a-rgb), .6);
+  animation: mediaIn .55s cubic-bezier(.2, .9, .3, 1.2);
+}
+.map-card img { width: 100%; height: 100%; display: block; }
+.map-card::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 50px rgba(0, 0, 0, .5); pointer-events: none; }
+.map-card .compass { position: absolute; top: 10px; right: 12px; font-size: clamp(22px, 3vw, 32px); filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .6)); animation: compass 5s ease-in-out infinite; }
+@keyframes compass { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+.answers.pics .ans .pic:has(img[src^="/m/"]) { background: #0c1a3d; }
 /* the row under the answers is always the same height, so nothing jumps when the fact appears */
 .after { display: flex; align-items: center; gap: 14px; margin-top: 14px; min-height: 72px; }
 .answered-row { flex: 1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
@@ -691,6 +755,10 @@ a { color: var(--a); }
   .hearts span { font-size: 24px; }
   .q-head { gap: 10px; } .timer { width: 54px; height: 54px; } .timer span { font-size: 20px; }
   .ans { padding: 10px 12px; } .ans .shape { width: 30px; height: 30px; font-size: 14px; }
+  .ans:has(.mini) .shape { display: none; } .ans .mini { width: 38px; } /* a little flag is clue enough; give the name the room */
+  /* picture answers (flags, maps): a smaller clue card up top so all four pictures fit on the screen */
+  .stage:has(.answers.pics) .media-card { height: 22vh; min-height: 160px; }
+  .answers.pics .ans .pic { height: clamp(54px, 12vh, 120px); }
   .btn.big { min-height: 72px; } .btn.big b { font-size: 22px; }
 }
 @media (max-height: 760px) and (min-width: 981px) {

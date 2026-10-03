@@ -9,3 +9,6 @@
 
 /l/*
   Cache-Control: public, max-age=2592000, immutable
+
+/m/*
+  Cache-Control: public, max-age=2592000, immutable

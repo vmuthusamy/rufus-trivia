@@ -9,6 +9,8 @@ const BASE = process.env.BASE || "http://127.0.0.1:8787";
 const WS = BASE.replace(/^http/, "ws");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rid = () => "t" + Math.random().toString(36).slice(2, 14);
+// Typed-in names are one-of-a-kind (the first player keeps them), so every test run uses new ones.
+const newNick = (start = "Kid") => start + Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
 
 async function post(path, body) {
   const r = await fetch(BASE + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -101,12 +103,15 @@ async function soloRun() {
   // Put my real name on my scores.
   assert.equal((await post("/api/names/check", { nick: "poop" })).data.ok, false, "rude names refused");
   const ok = await post("/api/names/check", { nick: "arvind" });
-  assert.deepEqual(ok.data, { ok: true, nick: "Arvind" });
-  const renamed = await post("/api/hall/rename", { player: { ...me, nick: "Arvind" } });
+  assert.deepEqual(ok.data, { ok: true, nick: "Arvind" }, "without a player it only checks the name");
+  const nick = newNick("Arvind");
+  const claimed = await post("/api/names/check", { nick: nick.toLowerCase(), player: me });
+  assert.equal(claimed.data.nick, nick);
+  const renamed = await post("/api/hall/rename", { player: { ...me, nick } });
   assert.ok(renamed.data.updated >= 1, "my runs got renamed");
   const board2 = await (await fetch(`${BASE}/api/hall?topic=flags&period=all&pid=${me.id}`)).json();
-  if (board2.rows.some((r) => r.me)) assert.equal(board2.rows.find((r) => r.me).name, "Arvind");
-  console.log(`  solo: ${answered} questions, ${lastScore} points, hall rank #${hall.final.hall.rank}, renamed to Arvind`);
+  if (board2.rows.some((r) => r.me)) assert.equal(board2.rows.find((r) => r.me).name, nick);
+  console.log(`  solo: ${answered} questions, ${lastScore} points, hall rank #${hall.final.hall.rank}, renamed to ${nick}`);
 }
 
 async function soloQuit() {
@@ -383,6 +388,52 @@ async function rememberMe() {
   console.log("  remember me: cookie restores the device's players");
 }
 
+// One-of-a-kind names: the first player keeps a typed-in name; the name key brings them to another device.
+async function namesTest() {
+  const nick = newNick("Zelda");
+  const owner = profile("Brave", "Owl"), copycat = profile("Sneaky", "Owl");
+  const claim = await post("/api/names/check", { nick, player: owner });
+  assert.equal(claim.data.ok, true);
+  assert.match(claim.data.key, /^[a-z]+-[a-z]+-\d{3}$/, "the owner gets a name key");
+  assert.equal(claim.data.fresh, true);
+  assert.equal((await post("/api/names/check", { nick, player: owner })).data.fresh, false, "asking again keeps the same key");
+  const again = await post("/api/names/check", { nick: nick.toUpperCase(), player: copycat });
+  assert.equal(again.data.ok, false, "someone else can't take the name, whatever the capitals");
+  assert.equal(again.data.taken, true);
+  assert.deepEqual((await post("/api/names/mine", { player: copycat })).data, {}, "no key for the copycat");
+  assert.equal((await post("/api/names/mine", { player: owner })).data.key, claim.data.key, "the owner can see their key");
+
+  // Sneaking in through a room with the name doesn't work either: they show up as their secret agent name.
+  const { data } = await post("/api/rooms", { topic: "flags", count: 5, timer: 10, level: "mixed", player: owner });
+  const path = `/api/rooms/${data.code}/ws`;
+  const O = player(path, { ...owner, nick }), C = player(path, { ...copycat, nick });
+  const notes = [];
+  C.ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); if (m.t === "nameTaken") notes.push(m.nick); });
+  await Promise.all([O.ready, C.ready]);
+  await O.waitFor((s) => s.players.length === 2);
+  await sleep(300);
+  const names = O.last().players.map((p) => p.name).sort();
+  assert.deepEqual(names, [nick, "Sneaky Owl"].sort(), "only the owner shows as " + nick);
+  assert.deepEqual(notes, [nick], "the copycat is told the name is taken");
+  O.ws.close(); C.ws.close();
+
+  // The name key works on another device; wrong guesses get locked out.
+  assert.equal((await post("/api/names/unlock", { nick, key: "wrong-key-000" })).data.ok, false);
+  const unlocked = await post("/api/names/unlock", { nick, key: claim.data.key.replace(/-/g, " ").toUpperCase() });
+  assert.equal(unlocked.data.ok, true, "the right key (typed any old way) unlocks it");
+  assert.equal(unlocked.data.player.id, owner.id, "...and gives back the owner's player");
+  for (let i = 0; i < 5; i++) await post("/api/names/unlock", { nick, key: `nope-nope-${100 + i}` });
+  const locked = await post("/api/names/unlock", { nick, key: claim.data.key });
+  assert.equal(locked.data.ok, false, "after 5 wrong keys even the right one waits");
+  assert.match(locked.data.reason, /Too many tries/);
+
+  // Picking a new name frees the old one.
+  const other = newNick("Link");
+  assert.equal((await post("/api/names/check", { nick: other, player: owner })).data.ok, true);
+  assert.equal((await post("/api/names/check", { nick, player: copycat })).data.ok, true, "the old name is free again");
+  console.log("  names: one-of-a-kind, enforced in rooms, name key unlocks, guessing locked out");
+}
+
 const t0 = Date.now();
 console.log("solo run…");
 await soloRun();
@@ -396,5 +447,7 @@ console.log("stickers…");
 await stickersTest();
 console.log("remember me…");
 await rememberMe();
+console.log("names…");
+await namesTest();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);

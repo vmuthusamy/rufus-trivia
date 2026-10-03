@@ -28,6 +28,7 @@
   <link rel="modulepreload" href="/js/net.js">
   <link rel="modulepreload" href="/js/streaks.js">
   <link rel="modulepreload" href="/js/config.js">
+  <link rel="modulepreload" href="/js/sprites.js">
 </head>
 <body>
   <!-- ===== Background layers (nebula, synthwave grid, particles, confetti) ===== -->
@@ -117,6 +118,14 @@
             <div class="own-name hidden" id="ownNameBox">
               <input id="ownNameInput" maxlength="14" placeholder="Your first name" autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="ownNameHint">
               <p class="hint" id="ownNameHint">First name only, please. Never your full name or where you live.</p>
+              <div class="unlock hidden" id="unlockBox">
+                <p class="hint">Is this you? Type the name key from your other device:</p>
+                <div class="unlock-row">
+                  <input id="unlockInput" maxlength="40" placeholder="word-animal-123" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Name key">
+                  <button class="btn blue" id="unlockBtn">It's me! 🔓</button>
+                </div>
+              </div>
+              <p class="name-key hidden" id="nameKeyLine">🔒 <b id="nameKeyNick"></b> is saved just for you. Your secret name key: <code id="nameKeyCode"></code><span>Type it on another device to be you there too.</span></p>
               <button class="link-btn" id="useSecretName">🎲 Use a secret agent name instead</button>
             </div>
             <p class="label">Pick your animal</p>

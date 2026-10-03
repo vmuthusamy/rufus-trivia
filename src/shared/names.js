@@ -58,6 +58,12 @@ export function checkNick(raw) {
   return { ok: true, nick: nick.toLowerCase().replace(/(^|[ '-])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase()) };
 }
 
+// The part of a name that makes it "the same name": "Zoë", "zoe" and "Z'oe" are all "zoe".
+export function nameKey(nick) {
+  if (typeof nick !== "string") return "";
+  return nick.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}]/gu, "");
+}
+
 // Check a player profile sent by a browser. Returns a clean copy, or null if it's not allowed.
 // A typed-in name that breaks the rules is quietly ignored (they keep their secret agent name).
 export function cleanPlayer(p) {

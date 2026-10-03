@@ -6,6 +6,7 @@ import { CONFIG } from "./config.js";
 import { store } from "./store.js";
 import { sound, MUSIC } from "./sound.js";
 import { makeHost, makeFox, line } from "./rufus.js";
+import { spriteSVG } from "./sprites.js";
 import * as fx from "./fx.js";
 import { openGame } from "./net.js";
 import { celebrate, streakBroken, badge } from "./streaks.js";
@@ -464,6 +465,7 @@ function openProfile(after, opts = {}) {
   S.ownNameOpen = !!(S.draft.nick || opts.ownName);
   renderSaved();
   renderBuilder(true);
+  loadNameKey();
   show("profile", { accent: S.draft.color });
   if (opts.ownName) {
     host.say("Type your first name and it'll show on the leaderboard!", { mood: "happy" });
@@ -482,7 +484,7 @@ function renderSaved() {
     const av = avatar("av", { emoji: emojiFor(p.animal), color: p.color });
     av.style.background = p.color;
     b.append(av, document.createTextNode(displayName(p)));
-    b.onclick = () => { S.draft = { ...p }; S.ownNameOpen = !!p.nick; sound.play("pick"); renderSaved(); renderBuilder(true); };
+    b.onclick = () => { S.draft = { ...p }; S.ownNameOpen = !!p.nick; sound.play("pick"); renderSaved(); renderBuilder(true); loadNameKey(); };
     box.append(b);
   }
   const add = el("button", null, "＋ New player");
@@ -502,6 +504,11 @@ function renderBuilder(pop) {
   $("ownNameToggle").classList.toggle("hidden", !!S.ownNameOpen);
   const input = $("ownNameInput");
   if (document.activeElement !== input) input.value = d.nick || "";
+  const k = S.nameKey;
+  const showKey = !!(k && d.nick && k.pid === d.id && nameKeyOf(k.nick) === nameKeyOf(d.nick));
+  $("nameKeyLine").classList.toggle("hidden", !showKey);
+  if (showKey) { $("nameKeyNick").textContent = k.nick; $("nameKeyCode").textContent = k.key; }
+  $("unlockBox").classList.toggle("hidden", !(S.takenNick && d.nick && nameKeyOf(S.takenNick) === nameKeyOf(d.nick)));
   $("pvAvatar").style.setProperty("--pc", d.color);
   if (pop) restartAnim($("pvAvatar"), "pop");
   fx.setAccent(d.color);
@@ -584,14 +591,68 @@ function useSecretName() {
   renderBuilder(true);
 }
 
-function rejectName(reason) {
+function rejectName(reason, { quiet = false } = {}) {
   const input = $("ownNameInput"), hint = $("ownNameHint");
   hint.textContent = reason;
   hint.classList.add("bad");
   restartAnim(input, "bad");
-  input.focus();
+  if (!quiet) input.focus();
   sound.play("wrong");
-  host.say(reason, { mood: "think" });
+  if (!quiet) host.say(reason, { mood: "think" });
+}
+
+// "Zoë", "zoe" and "Z'oe" count as the same name (same rule as the server).
+const nameKeyOf = (n) => (n || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}]/gu, "");
+
+// Show "your name key" for a player whose typed-in name is saved for them.
+async function loadNameKey() {
+  const d = S.draft;
+  if (!d || !d.id || !d.nick) return;
+  const res = await post("/api/names/mine", { player: { id: d.id, adj: d.adj, animal: d.animal, color: d.color } }).catch(() => ({}));
+  if (res.key && S.draft === d) { S.nameKey = { pid: d.id, nick: res.nick, key: res.key }; renderBuilder(false); }
+}
+
+// "It's me!": the name key from your other device turns this device into that player (stickers and all).
+async function unlockName() {
+  const input = $("unlockInput"), btn = $("unlockBtn");
+  const key = input.value.trim();
+  if (!key) { input.focus(); return; }
+  btn.disabled = true;
+  try {
+    const res = await post("/api/names/unlock", { nick: S.takenNick, key }).catch(() => ({ ok: false, reason: "Can't check that right now. Try again!" }));
+    if (!res.ok) {
+      input.classList.add("bad");
+      restartAnim(input, "bad");
+      sound.play("wrong");
+      $("ownNameHint").textContent = res.reason;
+      $("ownNameHint").classList.add("bad");
+      return;
+    }
+    const p = res.player;
+    const known = store.profiles().find((x) => x.id === p.id);
+    // An older player on this device with the same name goes back to their secret agent name.
+    for (const x of store.profiles()) if (x.id !== p.id && nameKeyOf(x.nick) === nameKeyOf(p.nick)) store.saveProfile({ ...x, nick: null });
+    S.draft = { ...p, pins: (known && known.pins) || [] };
+    S.takenNick = null;
+    input.value = "";
+    input.classList.remove("bad");
+    $("ownNameInput").classList.remove("bad");
+    $("ownNameHint").classList.remove("bad");
+    $("ownNameHint").textContent = "First name only, please. Never your full name or where you live.";
+    store.saveProfile(S.draft);
+    S.profile = { ...S.draft };
+    S.nameKey = { pid: p.id, nick: p.nick, key: key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") };
+    renderSaved();
+    renderBuilder(true);
+    renderMe();
+    renderTopics();
+    backupProfiles();
+    sound.play("coin");
+    fx.burst(innerWidth / 2, innerHeight / 3, { count: 60 });
+    toast(`Welcome back, ${p.nick}! Your stickers came with you! 🦊`, 4000);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function saveProfile() {
@@ -599,16 +660,32 @@ async function saveProfile() {
   const btn = $("profileSave");
   btn.disabled = true;
   try {
-    // A typed-in name has to pass the server's check (letters only, nothing rude).
+    if (!d.id) d.id = store.newId();
+    // A typed-in name has to pass the server's check (letters only, nothing rude),
+    // and be free: the first player to use a name keeps it, so nobody can pretend to be you.
     if (d.nick) {
-      const res = await post("/api/names/check", { nick: d.nick }).catch(() => ({ ok: false, reason: "Can't check that name right now. Try again!" }));
-      if (!res.ok) { rejectName(res.reason); return; }
+      const look = { id: d.id, adj: d.adj, animal: d.animal, color: d.color };
+      const res = await post("/api/names/check", { nick: d.nick, player: look }).catch(() => ({ ok: false, reason: "Can't check that name right now. Try again!" }));
+      if (!res.ok) {
+        S.takenNick = res.taken ? d.nick : null;
+        renderBuilder(false);
+        // Taken: no speech bubble (it would cover the name key box on phones), just point at the box.
+        rejectName(res.reason, { quiet: !!res.taken });
+        if (res.taken) {
+          host.hide();
+          $("unlockBox").scrollIntoView({ block: "center", behavior: "smooth" });
+          setTimeout(() => $("unlockInput").focus({ preventScroll: true }), 50);
+        }
+        return;
+      }
       d.nick = res.nick;
+      if (res.key) S.nameKey = { pid: d.id, nick: res.nick, key: res.key };
+      if (res.fresh) setTimeout(() => toast(`🔒 "${res.nick}" is now saved just for you!`, 3500), 600);
     } else {
       d.nick = null;
     }
+    S.takenNick = null;
     const before = S.profile && S.profile.id === d.id ? S.profile : null;
-    if (!d.id) d.id = store.newId();
     store.saveProfile(d);
     S.profile = { ...d };
     renderMe();
@@ -959,6 +1036,16 @@ function onStatus(g, s, closeCode) {
 function onMessage(g, m) {
   if (S.g !== g) return;
   if (m.t === "error") { toast(m.message, 4000); return; }
+  if (m.t === "nameTaken") {
+    // Someone else owns this typed-in name, so the room shows our secret agent name instead.
+    if (S.profile && S.profile.nick === m.nick) {
+      S.profile = { ...S.profile, nick: null };
+      store.saveProfile(S.profile);
+      renderMe();
+    }
+    toast(`Someone else already plays as ${m.nick}, so you're ${S.profile ? displayName(S.profile) : "a secret agent"} for now. Got a name key? Use it in your profile!`, 6000);
+    return;
+  }
   if (m.t === "peek") {
     // We're still picking an avatar. If the game already started, tell them to hurry.
     if (m.phase !== "lobby" && !g.hurried) {
@@ -1228,9 +1315,49 @@ function renderMedia(m, fallbackEmoji) {
     box.append(pole);
     if (m.caption) box.append(el("div", "caption", m.caption));
   } else if (m && m.kind === "story") {
-    // A Rufus story problem: big picture + which level of his game it happens in
+    // A Rufus story problem: the character from his game (or a big emoji) + which level it happens in
     const w = el("div", "story-card");
-    w.append(el("div", "emoji-card", m.text), el("div", "place", `📍 ${m.place}`));
+    if (m.who) {
+      const pal = el("div", "pal");
+      pal.innerHTML = spriteSVG(m.who);
+      pal.append(el("span", "pal-badge", m.text));
+      w.append(pal);
+    } else w.append(el("div", "emoji-card", m.text));
+    w.append(el("div", "place", `📍 ${m.place}`));
+    box.append(w);
+  } else if (m && m.kind === "make") {
+    // "Make the number": a character from Rufus's game holding up the number they need
+    const w = el("div", "make-card");
+    const bubble = el("div", "bubble");
+    bubble.append(el("b", "", String(m.n)), el("span", "", m.item));
+    const pal = el("div", "pal");
+    pal.innerHTML = spriteSVG(m.who);
+    const pile = el("div", "pile");
+    for (let i = 0; i < 7; i++) {
+      const it = el("span", "", m.item);
+      it.style.setProperty("--i", (i * 3) % 7); // jumbled tilts, like a real pile
+      pile.append(it);
+    }
+    w.append(bubble, pal, pile);
+    box.append(w);
+  } else if (m && m.kind === "balance") {
+    // A mystery-number equation on a balance scale: both sides weigh the same
+    const w = el("div", "balance-card");
+    const side = (text, cls) => {
+      const pan = el("div", `pan ${cls}`);
+      const eq = el("div", "eq");
+      // Make the mystery letter glow
+      for (const part of text.split(new RegExp(`(\\b${m.letter}\\b)`))) {
+        eq.append(part === m.letter ? el("i", "mystery", part) : document.createTextNode(part));
+      }
+      pan.append(eq, el("div", "dish"));
+      return pan;
+    };
+    const beam = el("div", "beam");
+    beam.append(side(m.left, "l"), el("div", "eqsign", "="), side(m.right, "r"));
+    w.append(beam, el("div", "fulcrum"));
+    w.style.setProperty("--chars", m.left.length + m.right.length + 3); // long equations get smaller writing
+    w.setAttribute("aria-label", m.text);
     box.append(w);
   } else if (m && m.kind === "photo") {
     // A landmark photo (with the photographer's credit, shown after answering)
@@ -1240,6 +1367,14 @@ function renderMedia(m, fallbackEmoji) {
     img.alt = m.caption || "Mystery landmark";
     w.append(img);
     if (m.caption) w.append(el("div", "caption-pill", m.caption));
+    box.append(w);
+  } else if (m && m.kind === "map") {
+    // A little map with one country lit up in orange
+    const w = el("div", "map-card");
+    const img = new Image();
+    img.src = m.img;
+    img.alt = "Map with one country highlighted in orange";
+    w.append(img, el("span", "compass", "🧭"));
     box.append(w);
   } else if (m && m.kind === "word") {
     const w = el("div", "word-card");
@@ -1305,10 +1440,11 @@ function renderQuestion(g, st, silent) {
       const pic = el("div", "pic");
       const img = new Image();
       img.src = c.img;
-      img.alt = `Flag ${i + 1}`;
+      const what = c.img.startsWith("/m/") ? "Map" : "Flag"; // map pictures live in /m/, flags in /f/
+      img.alt = `${what} ${i + 1}`;
       pic.append(img);
       b.append(pic, el("span", "lbl", ""));
-      b.setAttribute("aria-label", `Flag option ${i + 1}`);
+      b.setAttribute("aria-label", `${what} option ${i + 1}`);
     } else {
       if (c.img) { const im = new Image(); im.src = c.img; im.className = "mini"; im.alt = ""; b.append(im); }
       if (c.emoji) b.append(el("span", "em", c.emoji));
@@ -1429,7 +1565,8 @@ function renderReveal(g, st) {
       const L = r.labels[i];
       if (!L) return;
       const lbl = b.querySelector(".lbl");
-      if (lbl) lbl.textContent = L.label;
+      if (L.add) b.querySelector(".txt")?.append(el("span", "add", L.add)); // "33 + 20" becomes "33 + 20 = 53"
+      else if (lbl) lbl.textContent = L.label;
       else if (L.img && !b.querySelector(".mini")) {
         const im = new Image();
         im.src = L.img;
@@ -1797,6 +1934,9 @@ function wire() {
     setTimeout(() => $("ownNameInput").focus(), 50);
   };
   $("ownNameInput").addEventListener("input", onOwnNameInput);
+  $("unlockBtn").onclick = unlockName;
+  $("unlockInput").addEventListener("keydown", (e) => { if (e.key === "Enter") unlockName(); });
+  $("unlockInput").addEventListener("input", () => $("unlockInput").classList.remove("bad"));
   $("ownNameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") saveProfile(); });
   $("useSecretName").onclick = useSecretName;
   $("editAvatarBtn").onclick = () => { sound.play("click"); if (S.g) editAvatar(S.g); };

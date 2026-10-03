@@ -11,13 +11,18 @@
     "test": "node --test test/*.test.js",
     "test:e2e": "node test/e2e.mjs",
     "build:landmarks": "node scripts/build-landmarks.mjs",
+    "build:maps": "node scripts/build-maps.mjs",
     "build:icons": "node scripts/build-icons.mjs",
     "test:load": "node test/load.mjs"
   },
   "license": "GPL-3.0-only",
   "devDependencies": {
+    "d3-geo": "^3.1.1",
     "flag-icons": "^7.5.0",
+    "i18n-iso-countries": "^7.14.0",
     "qrcode-generator": "^2.0.4",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2",
     "wrangler": "^4.147.0"
   },
   "engines": {

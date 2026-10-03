@@ -214,16 +214,22 @@ export class GameRoom extends DurableObject {
     let player = s.players[p.id];
     let event = "rejoin";
     let owned = [];
-    if (!player) {
-      // Bring their sticker collection along (kept on the server, so it follows them into every room).
-      owned = await this.hall().stickers(p.id).catch(() => []);
+    if (!player || (p.nick && p.nick !== player.nick)) {
+      // Bring their sticker collection along (kept on the server, so it follows them into every room),
+      // and check their typed-in name is really theirs: names are one-of-a-kind (see HallOfFame.claimName).
+      const w = await this.hall().welcome(p.id, p.nick ? p : null, !player).catch(() => null);
       if (!this.s) return;
+      owned = (w && w.stickers) || [];
+      if (w && w.name && !w.name.ok) {
+        try { ws.send(JSON.stringify({ t: "nameTaken", nick: p.nick })); } catch {}
+        Object.assign(p, { nick: null, name: `${p.adj} ${p.animal}` });
+      }
       player = s.players[p.id]; // they might have been added while we waited
     }
     if (player && (s.phase === "lobby" || s.phase === "final")) {
       // Changed your avatar in the lobby? Update it (scores are only kept during a game).
       const before = player.name;
-      Object.assign(player, { adj: p.adj, animal: p.animal, color: p.color, emoji: p.emoji, name: this.uniqueName(p.name, p.id) });
+      Object.assign(player, { adj: p.adj, animal: p.animal, color: p.color, emoji: p.emoji, nick: p.nick, name: this.uniqueName(p.name, p.id) });
       if (Array.isArray(msg.avoid)) player.avoid = cleanKeys(msg.avoid, 300);
       if (Array.isArray(msg.missed)) player.missed = cleanKeys(msg.missed, 100);
       if (player.name !== before) event = "update";

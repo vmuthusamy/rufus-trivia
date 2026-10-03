@@ -2,8 +2,21 @@
 // Only GameRoom (on the server) can submit scores, so nobody can post a fake score from their browser.
 
 import { DurableObject } from "cloudflare:workers";
+import { ADJECTIVES, ANIMALS, nameKey } from "./shared/names.js";
 
 const WEEK = 7 * 24 * 60 * 60 * 1000;
+const NAME_KEEP = 365 * 24 * 60 * 60 * 1000; // a name nobody has played with for a year is free again
+const LOCK_MS = 15 * 60 * 1000;
+const ANIMAL_BY_EMOJI = Object.fromEntries(ANIMALS.map(([name, emoji]) => [emoji, name]));
+
+// A name key kids can read out and type: "comet-otter-473".
+function newNameCode() {
+  const b = new Uint32Array(3);
+  crypto.getRandomValues(b);
+  return `${ADJECTIVES[b[0] % ADJECTIVES.length]}-${ANIMALS[b[1] % ANIMALS.length][0]}-${100 + (b[2] % 900)}`.toLowerCase();
+}
+// "Comet Otter 473" and "comet-otter-473" are the same key.
+const cleanCode = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
 export class HallOfFame extends DurableObject {
   constructor(ctx, env) {
@@ -23,7 +36,75 @@ export class HallOfFame extends DurableObject {
       CREATE TABLE IF NOT EXISTS played (pid TEXT NOT NULL, topic TEXT NOT NULL, kind TEXT NOT NULL, n INTEGER NOT NULL,
         PRIMARY KEY (pid, topic, kind));
       CREATE TABLE IF NOT EXISTS devices (dev TEXT PRIMARY KEY, data TEXT NOT NULL, at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS names (
+        nkey TEXT PRIMARY KEY, pid TEXT NOT NULL, nick TEXT NOT NULL, look TEXT NOT NULL, code TEXT NOT NULL,
+        at INTEGER NOT NULL, fails INTEGER NOT NULL DEFAULT 0, fail_at INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS names_pid ON names (pid);
     `);
+  }
+
+  // ---------- one-of-a-kind names ----------
+  // The first player to use a typed-in name ("Arvind") keeps it, so nobody else can show up
+  // on the leaderboard or in a challenge room as them. The owner gets a secret name key
+  // ("comet-otter-473") to be the same player on another device.
+  // Returns { ok: true, key, fresh } or { ok: false, taken: true }.
+  claimName(pid, { nick, adj, animal, color }) {
+    const nkey = nameKey(nick);
+    if (!nkey) return { ok: true };
+    const now = Date.now();
+    const row = this.sql.exec("SELECT pid, code, at FROM names WHERE nkey = ?", nkey).toArray()[0];
+    if (row && row.pid !== pid && row.at > now - NAME_KEEP) return { ok: false, taken: true };
+    const mine = row && row.pid === pid;
+    const code = mine ? row.code : newNameCode();
+    this.sql.exec("DELETE FROM names WHERE pid = ? AND nkey != ?", pid, nkey); // one name per player
+    this.sql.exec(
+      `INSERT INTO names (nkey, pid, nick, look, code, at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (nkey) DO UPDATE SET pid = excluded.pid, nick = excluded.nick, look = excluded.look, code = excluded.code, at = excluded.at`,
+      nkey, pid, nick, JSON.stringify({ adj, animal, color }), code, now,
+    );
+    if (!mine) this.unnameOthers(pid, nkey);
+    return { ok: true, key: code, fresh: !mine };
+  }
+
+  // Anyone else already on the board with this name (from before it was claimed) becomes a mystery animal.
+  unnameOthers(pid, nkey) {
+    const rows = this.sql.exec("SELECT DISTINCT pid, name, emoji FROM runs WHERE pid != ?", pid).toArray();
+    for (const r of rows) {
+      if (nameKey(r.name) !== nkey) continue;
+      this.sql.exec("UPDATE runs SET name = ? WHERE pid = ? AND name = ?", `Mystery ${ANIMAL_BY_EMOJI[r.emoji] || "Fox"}`, r.pid, r.name);
+    }
+  }
+
+  // My reserved name and its key (only asked for with my private player id).
+  myName(pid) {
+    const row = this.sql.exec("SELECT nick, code FROM names WHERE pid = ?", pid).toArray()[0];
+    return row ? { nick: row.nick, key: row.code } : {};
+  }
+
+  // "It's me!": the right name key gives back that player, so this device can play as them.
+  // 5 wrong guesses locks the name for 15 minutes, so a key can't be guessed by trying lots.
+  unlockName(nick, code) {
+    const nkey = nameKey(nick);
+    const row = nkey && this.sql.exec("SELECT * FROM names WHERE nkey = ?", nkey).toArray()[0];
+    if (!row) return { ok: false, reason: "Nobody has that name yet, so you can just use it!" };
+    const now = Date.now();
+    if (row.fails >= 5 && now - row.fail_at < LOCK_MS) return { ok: false, reason: "Too many tries! Wait 15 minutes, then try again." };
+    if (cleanCode(code) !== row.code) {
+      const fails = now - row.fail_at < LOCK_MS ? row.fails + 1 : 1;
+      this.sql.exec("UPDATE names SET fails = ?, fail_at = ? WHERE nkey = ?", fails, now, nkey);
+      return { ok: false, reason: "That key doesn't match. Check it on your other device!" };
+    }
+    this.sql.exec("UPDATE names SET fails = 0, at = ? WHERE nkey = ?", now, nkey);
+    return { ok: true, player: { id: row.pid, ...JSON.parse(row.look), nick: row.nick } };
+  }
+
+  // A player walking into a room: their stickers, and whether they may use their typed-in name.
+  welcome(pid, named, wantStickers) {
+    return {
+      stickers: wantStickers ? this.stickers(pid) : [],
+      name: named ? this.claimName(pid, named) : null,
+    };
   }
 
   // ---------- stickers (achievements) ----------

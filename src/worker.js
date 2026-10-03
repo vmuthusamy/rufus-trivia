@@ -10,7 +10,9 @@
 //   POST /api/hall/rename               update my name on my Hall of Fame scores
 //   POST /api/stickers                  my sticker collection
 //   GET/POST /api/me                    "remember me": this device's players, via a cookie
-//   POST /api/names/check               is this typed-in name allowed?
+//   POST /api/names/check               is this typed-in name allowed? (and claim it: names are one-of-a-kind)
+//   POST /api/names/mine                my reserved name and its name key
+//   POST /api/names/unlock              name + name key -> that player, to play as them on this device
 //   POST /api/visit                     "this device opened the site today" (anonymous)
 //   GET  /api/stats                     private visitor/game stats (needs the x-stats-key header)
 
@@ -168,9 +170,31 @@ export default {
       }
 
       // Is this typed-in name allowed? (The builder asks before saving.)
+      // With the player attached, it also claims the name: the first player to use a name keeps it.
       if (path === "/api/names/check" && request.method === "POST") {
         const b = await body(request);
-        return json(checkNick(b.nick));
+        const res = checkNick(b.nick);
+        const player = res.ok && res.nick && cleanPlayer({ ...b.player, nick: res.nick });
+        if (!player) return json(res);
+        const claim = await env.HALL.get(env.HALL.idFromName("global")).claimName(player.id, player);
+        if (!claim.ok) return json({ ok: false, taken: true, reason: `Someone already plays as ${res.nick}. Pick another name, or use your name key if it's you!` });
+        return json({ ...res, key: claim.key, fresh: claim.fresh });
+      }
+
+      // My reserved name and its key (needs my private player id, so only I can see it).
+      if (path === "/api/names/mine" && request.method === "POST") {
+        const b = await body(request);
+        const player = cleanPlayer(b.player);
+        if (!player) return json({});
+        return json(await env.HALL.get(env.HALL.idFromName("global")).myName(player.id));
+      }
+
+      // "It's me!" The name key from another device brings that player here.
+      if (path === "/api/names/unlock" && request.method === "POST") {
+        const b = await body(request);
+        const typed = checkNick(b.nick);
+        if (!typed.ok || !typed.nick || typeof b.key !== "string") return json({ ok: false, reason: "Type your name and your name key." });
+        return json(await env.HALL.get(env.HALL.idFromName("global")).unlockName(typed.nick, b.key));
       }
 
       // My sticker collection (for the sticker book). Needs my private player id, so only I can ask.
@@ -214,6 +238,8 @@ export default {
         const player = cleanPlayer(b.player);
         if (!player) return json({ error: "That name won't work." }, 400);
         const hall = env.HALL.get(env.HALL.idFromName("global"));
+        // Only the name's owner can put it on the board.
+        if (player.nick && !(await hall.claimName(player.id, player)).ok) player.name = `${player.adj} ${player.animal}`;
         return json(await hall.rename({ pid: player.id, name: player.name, emoji: player.emoji, color: player.color }));
       }
 

@@ -269,6 +269,19 @@ some public domain or CC0). Photos were only resized and re-saved; nothing else 
 ${rows.map((r) => `<li><img src="${r.img}" alt="${esc(r.name)}" loading="lazy"><div><b>${esc(r.name)}</b><br><small>Photo: ${esc(r.credit.author)} · ${r.credit.licenseUrl ? `<a href="${esc(r.credit.licenseUrl)}">${esc(r.credit.license)}</a>` : esc(r.credit.license)} · <a href="${esc(r.credit.url)}">source</a></small></div></li>`).join("\n")}
 </ul>
 
+<h2>🧭 Maps</h2>
+<div class="card"><b>Natural Earth</b> <span class="tag">Public domain</span><br>
+The country outlines in the map questions come from <a href="https://www.naturalearthdata.com">Natural Earth</a>, free map data made by mapmakers
+around the world. Natural Earth is in the public domain, so no permission is needed, but we're happy to say thanks. The maps follow Natural Earth's
+borders; a couple of places whose borders grown-ups still argue about are left out of the map questions. File names were changed so they don't give away quiz answers.</div>
+<div class="card"><b>world-atlas</b>, <b>topojson-client</b> and <b>d3-geo</b> by Mike Bostock <span class="tag">ISC License</span><br>
+world-atlas packages the Natural Earth outlines; topojson-client and d3-geo turn them into the little map pictures when we build the game.
+<a href="https://github.com/topojson/world-atlas">github.com/topojson/world-atlas</a> · <a href="https://github.com/topojson/topojson-client">github.com/topojson/topojson-client</a> · <a href="https://github.com/d3/d3-geo">github.com/d3/d3-geo</a>
+<details><summary>Full licence text</summary><pre>${["world-atlas", "topojson-client", "d3-geo"].map((p) => p + "\n" + mit(p + "/LICENSE")).join("\n\n")}</pre></details></div>
+<div class="card"><b>i18n-iso-countries</b> by Andreas Wittig / widdix <span class="tag">MIT License</span><br>
+Matches each country to its number in the map data. <a href="https://github.com/michaelwittig/node-i18n-iso-countries">github.com/michaelwittig/node-i18n-iso-countries</a>
+<details><summary>Full licence text</summary><pre>${mit("i18n-iso-countries/LICENSE")}</pre></details></div>
+
 <h2>📱 Code and fonts</h2>
 <div class="card"><b>qrcode-generator</b> by Kazuhiko Arase <span class="tag">MIT License</span><br>
 Makes the QR codes for joining a challenge. <a href="https://github.com/kazuhikoarase/qrcode-generator">github.com/kazuhikoarase/qrcode-generator</a>

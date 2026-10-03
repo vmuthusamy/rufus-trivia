@@ -9,9 +9,9 @@ everyone gets the same questions at the same moment, like Blooket.
 | Topic | What's in it | Where the questions come from |
 |---|---|---|
 | 🚩 Flag Frenzy | 195 countries, 4 question styles, lookalike flags on hard | flag-icons data, generated fresh every game |
-| 🗺️ Capitals & Landmarks | 185 capitals + ~190 world landmarks with photos | flag-icons + Wikidata + Wikimedia Commons |
+| 🗺️ Capitals & Landmarks | 185 capitals + ~190 world landmarks with photos + "find it on the map" for 193 countries | flag-icons + Wikidata + Wikimedia Commons + Natural Earth |
 | 🚀 Space Explorer | planets, stars and astronauts | a hand-written question bank |
-| 🧮 Math Blast | sums, times tables, fractions, Rufus story problems | random numbers, never runs out |
+| 🧮 Math Blast | sums, times tables, fractions, "make the number" puzzles (which sum makes 48?), mystery-number equations on a balance scale, Rufus story problems starring Fiery, Marthina, Renard and friends | random numbers, never runs out |
 
 - **No AI, no inference costs.** Questions come from open data, hand-written banks and random numbers.
 - **Fresh every game.** Each device remembers what it has seen, so the next game avoids it, and brings back missed questions for practice.
@@ -19,6 +19,9 @@ everyone gets the same questions at the same moment, like Blooket.
   Scores reach the Hall of Fame straight from the server; flag and photo file names are scrambled so they can't give answers away.
 - **Kid-safe.** No sign-up. Players get a "secret agent" name ("Turbo Fox") by default; they can choose to show their
   first name instead, which the server checks (letters only, nothing rude).
+- **One of a kind.** The first player to use a typed-in name keeps it, so nobody else can show up as "Arvind"
+  on the leaderboard or in a challenge room. The owner gets a secret name key ("comet-otter-473") in their
+  profile to be the same player (stickers and all) on another device.
 
 ## Run it on your computer
 
@@ -65,10 +68,11 @@ public/                      the website (plain HTML/CSS/JS, no build step)
   js/streaks.js              ✏️ streak names ("Hat Trick!" → "LEGENDARY!") and Rufus's jokes
   js/sound.js                ✏️ 8-bit sound effects + songs (made live, no audio files)
   js/rufus.js                Rufus (pixel art from his game) and the things he says
+  js/sprites.js              Rufus, Fiery, Marthina, Renard, Felix and the baddies, copied from his game's pixel art
   js/fx.js                   confetti, fireworks, the moving grid, number roll-ups
   js/config.js               ✏️ YouTube link and other easy settings
   credits.html               every source and licence (made by the landmarks script)
-  f/  l/                     flag and landmark pictures (scrambled names)
+  f/  l/  m/                 flag, landmark and map pictures (scrambled names)
 src/                         the server (a Cloudflare Worker)
   worker.js                  the front door: /api/...
   room.js                    GameRoom Durable Object: runs one game (solo or challenge)
@@ -79,6 +83,7 @@ src/                         the server (a Cloudflare Worker)
 scripts/build-icons.mjs      favicon.ico / app icons (the same pixel fox as rufusfamily.com)
 scripts/build-data.mjs       flag-icons → country data + flag pictures
 scripts/build-landmarks.mjs  Wikidata + Commons → landmark data, photos and the credits page
+scripts/build-maps.mjs       Natural Earth → a little map for every country (npm run build:maps)
 ```
 
 ## Adding things
@@ -90,6 +95,9 @@ scripts/build-landmarks.mjs  Wikidata + Commons → landmark data, photos and th
   (`npm run build:landmarks -- --discover 120` for more). It skips whole cities and sad or touchy places,
   and anything in `SKIP`.
 - **Math story problems:** `STORIES` in `src/shared/topics/math.js`, set in the real levels of Adventures of Rufus.
+  Give a story a `who:` (a sprite name from `public/js/sprites.js`) and that character shows up on screen.
+- **"Make the number" characters:** `CREW` in `math.js` says who needs how many of what (Fiery's marshmallows,
+  Marthina's cupcakes...). New ways to write a number go in `WAYS`.
 
 ## Credits and licences
 
@@ -98,6 +106,7 @@ The full list, with every photographer, is on the site at [/credits](https://ruf
 - Flags and country data: [flag-icons](https://github.com/lipis/flag-icons) (MIT)
 - Landmark data: [Wikidata](https://www.wikidata.org) (CC0)
 - Landmark photos: [Wikimedia Commons](https://commons.wikimedia.org), each under its own licence (CC BY, CC BY-SA, CC0 or public domain), credited in the game and on the credits page
+- Maps: [Natural Earth](https://www.naturalearthdata.com) (public domain) via [world-atlas](https://github.com/topojson/world-atlas), drawn with [topojson-client](https://github.com/topojson/topojson-client) and [d3-geo](https://github.com/d3/d3-geo) (ISC), matched with [i18n-iso-countries](https://github.com/michaelwittig/node-i18n-iso-countries) (MIT)
 - QR codes: [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) (MIT)
 - Fonts: Lilita One and Nunito (Google Fonts, SIL Open Font License 1.1)
 - Rufus: pixel art from Adventures of Rufus 🦊
