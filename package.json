@@ -1,0 +1,24 @@
+{
+  "name": "rufus-trivia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rufus Trivia: a flag quiz (and more) with live challenge rooms, starring Rufus the fox.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build:data": "node scripts/build-data.mjs",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node test/e2e.mjs",
+    "build:landmarks": "node scripts/build-landmarks.mjs"
+  },
+  "license": "GPL-3.0-only",
+  "devDependencies": {
+    "flag-icons": "^7.5.0",
+    "qrcode-generator": "^2.0.4",
+    "wrangler": "^4.147.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  // Cloudflare settings. `npm run dev` runs all of this on your computer;
+  // `npm run deploy` puts it on the internet (free Workers plan is enough).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rufus-trivia",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+
+  // The website files. /api/* goes to the Worker first; anything else that
+  // isn't a real file (like /join/BCDFG) gets index.html.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // GameRoom = one per game. HallOfFame = the shared scoreboard.
+  // Both keep their data in their own built-in SQLite database (free plan friendly).
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "GameRoom" },
+      { "name": "HALL", "class_name": "HallOfFame" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["GameRoom", "HallOfFame"] }
+  ],
+
+  "observability": { "enabled": true },
+
+  // rufustrivia.com is registered with Cloudflare, so its DNS is already here:
+  // deploying hooks the Worker up to these addresses automatically.
+  "routes": [
+    { "pattern": "rufustrivia.com", "custom_domain": true },
+    { "pattern": "www.rufustrivia.com", "custom_domain": true }
+  ]
+}
