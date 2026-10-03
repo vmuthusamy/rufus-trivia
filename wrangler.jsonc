@@ -31,6 +31,8 @@
 
   // rufustrivia.com is registered with Cloudflare, so its DNS is already here:
   // deploying hooks the Worker up to these addresses automatically.
+  // (No *.workers.dev backup address: that one would show part of the account's email.)
+  "workers_dev": false,
   "routes": [
     { "pattern": "rufustrivia.com", "custom_domain": true },
     { "pattern": "www.rufustrivia.com", "custom_domain": true }
