@@ -10,7 +10,9 @@
     "build:data": "node scripts/build-data.mjs",
     "test": "node --test test/*.test.js",
     "test:e2e": "node test/e2e.mjs",
-    "build:landmarks": "node scripts/build-landmarks.mjs"
+    "build:landmarks": "node scripts/build-landmarks.mjs",
+    "build:icons": "node scripts/build-icons.mjs",
+    "test:load": "node test/load.mjs"
   },
   "license": "GPL-3.0-only",
   "devDependencies": {

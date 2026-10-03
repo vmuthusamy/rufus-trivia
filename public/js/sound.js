@@ -28,9 +28,11 @@ function ensure() {
   return true;
 }
 
+// type can be "square"/"triangle"/... or a PeriodicWave (see pulse() below)
 function tone(freq, at, dur, { type = "square", vol = 0.2, slide = 0, bus = sfxBus, attack = 0.006 } = {}) {
   const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = type;
+  if (typeof type === "string") o.type = type;
+  else o.setPeriodicWave(type);
   o.frequency.setValueAtTime(freq, at);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * slide), at + dur);
   g.gain.setValueAtTime(0.0001, at);
@@ -90,51 +92,193 @@ const SFX = {
   sad(t) { [NOTE.G4, NOTE.F4, NOTE.E4].forEach((f, i) => tone(f, t + i * 0.3, 0.3, { type: "sawtooth", vol: 0.08 })); tone(NOTE.D4 * 1.0, t + 0.9, 0.9, { type: "sawtooth", vol: 0.08, slide: 0.9 }); },
 };
 
-// ---------- music: little chiptune loops (all original tunes) ----------
-// Want a new song? Add one here: 32 melody notes (eighth notes, null = rest) and
-// 16 bass notes, then use its name as `music:` in a topic file.
-// hold = how many eighth-notes each melody note rings for (big = dreamy, small = bouncy).
+// ============================================================
+// 🎵 MUSIC: an 8-bit "NES-style" band, just like Adventures of Rufus.
+// ------------------------------------------------------------
+// ALL OF THESE TUNES ARE ORIGINAL. What we borrow from the classic Nintendo-era games
+// (Contra, Mario...) is the *technique*, not their melodies:
+//    PULSE 1  -> the tune you hum   (a thin "pulse" wave, like the real NES chip)
+//    PULSE 2  -> a twin harmony under the tune (Contra's famous double leads)
+//    TRIANGLE -> a bouncy bassline (the Mario-style boom-chick bounce)
+//    NOISE    -> the drums (kick, snare, hi-hats)
+// Grooviness comes from SWING (every other 16th note lands a little late),
+// syncopation (notes between the beats), ghost snares and drum fills.
+//
+// A song is a little recipe. Want to remix one? Change the numbers!
+//   bpm    : speed            swing : 0 = straight, 0.2 = very bouncy
+//   duty   : lead tone (0.125 thin & buzzy, 0.25 classic NES, 0.5 round)
+//   chords : 4 chords, one per bar. root = bass note, notes = 4 notes the tune can use (MIDI numbers, 60 = middle C)
+//   bass   : 16 slots per bar: how far above the root (0 root, 7 fifth, 12 octave), -1 = rest
+//   lead   : 4 tune phrases, 16 slots each: which chord note (0-3), -1 = rest
+//   kick / snare / ghost : which of the 16 slots get a drum hit
+//   twin   : harmony this many semitones under the lead (Contra-style), 0 = off until you're on a streak
+// ============================================================
 export const MUSIC = {
+  // Sunny and bouncy, like a happy overworld level
   adventure: {
-    name: "Fox Adventure", emoji: "🦊", tempo: 132, lead: "square", hold: 0.9, bassType: "triangle", hats: true, kick: true,
-    melody: ["E5", "G5", "A5", "G5", "E5", "D5", "C5", "D5", "E5", "E5", "G5", "A5", "C6", "A5", "G5", null,
-             "A5", "G5", "E5", "D5", "C5", "D5", "E5", "G5", "D5", null, "C5", "D5", "E5", null, null, null],
-    bass: ["C3", "C3", "G2", "G2", "A2", "A2", "E2", "E2", "F2", "F2", "C3", "C3", "G2", "G2", "G2", "B2"],
+    name: "Fox Adventure", emoji: "🦊", bpm: 150, swing: 0.16, duty: 0.25, twin: 0, stab: true, hats: 2,
+    chords: [
+      { root: 36, notes: [64, 67, 72, 76] }, // C
+      { root: 33, notes: [64, 69, 72, 76] }, // Am
+      { root: 41, notes: [65, 69, 72, 77] }, // F
+      { root: 43, notes: [62, 67, 71, 74] }, // G
+    ],
+    bass: [0, -1, -1, 12, -1, -1, 7, -1, 0, -1, -1, 12, -1, 7, -1, -1],
+    lead: [
+      [2, -1, 2, -1, -1, 3, -1, 2, -1, 1, 2, -1, 0, -1, -1, -1],
+      [1, -1, 1, 2, -1, 3, -1, -1, 2, -1, 1, -1, 0, 1, 2, -1],
+      [3, -1, -1, 3, -1, 2, 3, -1, 2, 1, -1, 0, -1, 1, -1, -1],
+      [0, 1, 2, -1, 3, -1, 2, -1, 1, -1, 2, 3, -1, -1, 3, -1],
+    ],
+    kick: [0, 6, 8], snare: [4, 12], ghost: [10, 15],
   },
+  // Dreamy space groove with echoes
   cosmic: {
-    name: "Cosmic Drift", emoji: "🌌", tempo: 96, lead: "triangle", hold: 1.9, bassType: "sine", hats: false, kick: false, sparkle: ["A6", "C7", "E7", "G6"],
-    melody: ["A4", null, "C5", null, "E5", null, "G5", null, "F5", null, "E5", null, "C5", null, "D5", null,
-             "E5", null, "A5", null, "G5", null, "E5", null, "D5", null, null, null, "C5", null, "B4", null],
-    bass: ["A2", "A2", "A2", "A2", "F2", "F2", "F2", "F2", "C3", "C3", "C3", "C3", "G2", "G2", "E2", "E2"],
+    name: "Cosmic Groove", emoji: "🌌", bpm: 104, swing: 0.12, duty: 0.5, twin: 0, echo: true, hats: 2, hold: 3,
+    chords: [
+      { root: 36, notes: [64, 67, 71, 76] }, // Cmaj7
+      { root: 33, notes: [64, 67, 69, 72] }, // Am7
+      { root: 29, notes: [64, 65, 69, 72] }, // Fmaj7
+      { root: 31, notes: [62, 64, 67, 71] }, // G6
+    ],
+    bass: [0, -1, -1, 7, -1, -1, 12, -1, -1, -1, 0, -1, 7, -1, -1, -1],
+    lead: [
+      [0, -1, 1, -1, 2, -1, 3, -1, -1, -1, 2, -1, 1, -1, -1, -1],
+      [3, -1, -1, 2, -1, -1, 1, -1, 2, -1, -1, -1, -1, -1, -1, -1],
+      [0, 1, 2, 3, -1, -1, -1, -1, 3, 2, 1, -1, -1, -1, 0, -1],
+      [2, -1, -1, -1, 3, -1, -1, 2, -1, 1, -1, -1, 0, -1, -1, -1],
+    ],
+    kick: [0, 10], snare: [8], ghost: [14],
   },
+  // Funky city strut: syncopated, popping bass
   city: {
-    name: "City Groove", emoji: "🏙️", tempo: 112, lead: "square", hold: 0.6, bassType: "sawtooth", hats: true, kick: true, bassShort: true,
-    melody: ["D5", null, "F5", "D5", null, "A5", null, "G5", "F5", null, "D5", null, "C5", "D5", null, null,
-             "D5", null, "F5", "G5", null, "A5", "C6", "A5", "G5", null, "F5", null, "E5", "F5", "D5", null],
-    bass: ["D2", "D3", "D2", "A2", "G2", "G3", "G2", "D3", "F2", "F3", "F2", "C3", "A2", "A2", "G2", "E2"],
+    name: "City Funk", emoji: "🏙️", bpm: 112, swing: 0.22, duty: 0.125, twin: 0, hats: 1, openHat: 14, bassLen: 0.55, leadLen: 0.6,
+    chords: [
+      { root: 38, notes: [62, 65, 69, 72] }, // Dm7
+      { root: 43, notes: [62, 67, 71, 74] }, // G
+      { root: 33, notes: [60, 64, 67, 69] }, // Am7
+      { root: 43, notes: [62, 65, 67, 72] }, // Gsus
+    ],
+    bass: [0, -1, 12, 0, -1, 0, 12, -1, 0, -1, -1, 10, 12, -1, 7, -1],
+    lead: [
+      [-1, -1, 2, -1, 3, -1, -1, 2, -1, 3, -1, -1, 1, -1, 0, -1],
+      [0, -1, -1, 0, -1, 1, -1, 2, -1, -1, 3, -1, 2, 1, -1, -1],
+      [3, -1, 3, -1, -1, 2, -1, 3, -1, 1, -1, -1, 0, -1, 1, 2],
+      [-1, 2, -1, 3, -1, -1, 2, -1, 1, -1, 0, -1, -1, -1, -1, -1],
+    ],
+    kick: [0, 3, 8, 10], snare: [4, 12], ghost: [7, 11, 15],
   },
+  // Fast, heroic run-and-gun with twin leads
   brain: {
-    name: "Brain Beats", emoji: "🧮", tempo: 144, lead: "square", hold: 0.45, bassType: "triangle", hats: true, kick: true,
-    melody: ["E5", "G5", "B5", "G5", "E5", "G5", "B5", "D6", "C6", "B5", "A5", "G5", "F#5", "G5", "A5", null,
-             "E5", "G5", "B5", "G5", "E5", "B5", "E6", "D6", "C6", "A5", "F#5", "A5", "G5", null, "E5", null],
-    bass: ["E2", "E3", "C2", "C3", "A2", "A3", "B2", "B3", "E2", "E3", "C2", "C3", "A2", "B2", "E2", "B2"],
+    name: "Brain Blaster", emoji: "🧮", bpm: 160, swing: 0, duty: 0.25, twin: 3, hats: 2, bassLen: 0.5,
+    chords: [
+      { root: 40, notes: [64, 67, 71, 76] }, // Em
+      { root: 36, notes: [64, 67, 72, 76] }, // C
+      { root: 38, notes: [62, 66, 69, 74] }, // D
+      { root: 35, notes: [63, 66, 71, 75] }, // B
+    ],
+    bass: [0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 7, 12],
+    lead: [
+      [3, -1, 3, 2, 3, -1, 1, -1, 2, -1, 2, 1, 2, -1, 0, -1],
+      [0, 1, 2, -1, 3, -1, 2, 1, 2, -1, -1, 1, 0, -1, -1, -1],
+      [3, 2, 3, -1, 2, 1, 2, -1, 1, 0, 1, -1, 2, -1, 3, -1],
+      [0, -1, 0, 1, 2, -1, 2, 3, -1, 3, 2, 1, 0, -1, -1, -1],
+    ],
+    kick: [0, 3, 8, 11], snare: [4, 12], ghost: [14],
   },
 };
-let musicTimer = null, step = 0, nextAt = 0, track = MUSIC.adventure, gameMode = false;
+
+// The order phrases play in: verse A (8 bars), then verse B (8 bars), then round again.
+const FORM_A = [0, 1, 0, 2, 0, 1, 3, 2];
+const FORM_B = [2, 3, 2, 3, 1, 0, 3, 0];
+
+const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+// NES-style pulse waves: 12.5%, 25% and 50% "duty cycle" give the thin, classic and round sounds.
+const waves = {};
+function pulse(duty) {
+  if (!waves[duty]) {
+    const n = 40, real = new Float32Array(n), imag = new Float32Array(n);
+    for (let k = 1; k < n; k++) real[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+    waves[duty] = ctx.createPeriodicWave(real, imag);
+  }
+  return waves[duty];
+}
+
+// A held note (NES notes don't fade like a piano; they hold, then stop)
+function note(freq, at, dur, wave, vol) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  if (typeof wave === "string") o.type = wave; else o.setPeriodicWave(wave);
+  o.frequency.setValueAtTime(freq, at);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(vol, at + 0.004);
+  g.gain.setValueAtTime(vol * 0.85, at + Math.max(0.01, dur * 0.7));
+  g.gain.linearRampToValueAtTime(0.0001, at + dur);
+  o.connect(g); g.connect(musicBus);
+  o.start(at); o.stop(at + dur + 0.02);
+}
+function kick(at, vol) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(150, at);
+  o.frequency.exponentialRampToValueAtTime(42, at + 0.12);
+  g.gain.setValueAtTime(vol, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.16);
+  o.connect(g); g.connect(musicBus);
+  o.start(at); o.stop(at + 0.18);
+}
+const snare = (at, vol) => { noise(at, 0.11, { vol, freq: 1800, type: "bandpass", bus: musicBus }); note(190, at, 0.05, "triangle", vol * 0.5); };
+const hat = (at, vol, open) => noise(at, open ? 0.13 : 0.03, { vol, freq: 7500, bus: musicBus });
+
+let musicTimer = null, step = 0, nextAt = 0, track = MUSIC.adventure, gameMode = false, intensity = 0;
+
+// Play one 16th-note "slot" of the song.
+function playStep(t, at, stepDur) {
+  const s = step % 16, bar = Math.floor(step / 16);
+  const chord = t.chords[bar % t.chords.length];
+  const intro = bar < 2;                                  // first 2 bars: just drums + bass
+  const section = Math.floor(bar / 8) % 2;                // verse A or B
+  const phrase = t.lead[(section ? FORM_B : FORM_A)[bar % 8] % t.lead.length];
+  const when = at + (s % 2 === 1 ? t.swing * stepDur : 0); // swing!
+  const hot = intensity;                                  // 0 menu, 1 playing, 2 streak 5+, 3 streak 15+
+
+  // drums (with a fill at the end of every 8 bars)
+  const fill = bar % 8 === 7 && s >= 12;
+  if (t.kick.includes(s) || (hot >= 3 && (s === 10 || s === 14))) kick(when, 0.9);
+  if (fill) snare(when, 0.22 + (s - 12) * 0.12);
+  else if (t.snare.includes(s)) snare(when, 0.5);
+  else if (!intro && t.ghost && t.ghost.includes(s)) snare(when, 0.12);
+  const every = hot >= 2 ? 1 : t.hats;
+  if (every && s % every === 0) hat(when, s % 4 === 2 ? 0.2 : 0.1, t.openHat === s);
+
+  // bass
+  const b = t.bass[s];
+  if (b >= 0) note(midi(chord.root + b), when, stepDur * (t.bassLen || 0.85), "triangle", 0.8);
+
+  // a little chord "stab" on the first beat of every other bar
+  if (t.stab && s === 0 && bar % 2 === 0 && !intro) {
+    chord.notes.slice(0, 3).forEach((n) => note(midi(n - 12), when, stepDur * 1.4, pulse(0.125), 0.05));
+  }
+
+  // the tune
+  if (intro) return;
+  const idx = phrase[s];
+  if (idx < 0) return;
+  let rests = 0;
+  while (s + 1 + rests < 16 && phrase[s + 1 + rests] === -1 && rests < (t.hold || 2)) rests++;
+  const len = stepDur * (1 + rests) * (t.leadLen || 0.85);
+  const n = chord.notes[idx] + (hot >= 3 && section === 1 ? 12 : 0); // octave up on a mega streak
+  note(midi(n), when, len, pulse(t.duty), 0.26);
+  const twin = t.twin || (hot >= 2 ? 4 : 0);                         // twin harmony on a streak
+  if (twin) note(midi(n - twin), when, len, pulse(0.125), 0.12);
+  if (t.echo) note(midi(n + 12), when + stepDur * 3, len * 0.8, pulse(0.5), 0.06);
+}
 
 function scheduleMusic() {
   const t = track;
-  const stepDur = 60 / (t.tempo * (gameMode ? 1.1 : 1)) / 2; // eighth notes, a bit faster while playing
+  const stepDur = 60 / (t.bpm * (gameMode ? 1.05 : 1)) / 4;
   while (nextAt < ctx.currentTime + 0.15) {
-    const m = t.melody[step % t.melody.length];
-    if (m) tone(NOTE[m], nextAt, stepDur * t.hold, { type: t.lead, vol: t.lead === "triangle" ? 0.7 : 0.45, bus: musicBus });
-    if (step % 2 === 0) {
-      const b = t.bass[(step / 2) % t.bass.length];
-      if (b) tone(NOTE[b], nextAt, stepDur * (t.bassShort ? 0.8 : 1.8), { type: t.bassType, vol: t.bassType === "sawtooth" ? 0.35 : 0.9, bus: musicBus });
-    }
-    if (t.hats && step % 2 === 1) noise(nextAt, 0.04, { vol: 0.25, freq: 8000, bus: musicBus });
-    if (t.kick && step % 8 === 0) noise(nextAt, 0.12, { vol: 0.5, freq: 160, type: "lowpass", bus: musicBus });
-    if (t.sparkle && step % 4 === 2) tone(NOTE[t.sparkle[(step / 4) % t.sparkle.length | 0]], nextAt, 0.6, { type: "sine", vol: 0.12, bus: musicBus });
+    playStep(t, nextAt, stepDur);
     nextAt += stepDur;
     step++;
   }
@@ -166,9 +310,13 @@ export const sound = {
     if (ctx) nextAt = ctx.currentTime + 0.08;
   },
   get track() { return Object.keys(MUSIC).find((k) => MUSIC[k] === track); },
-  // quieter (and a little faster) while you're thinking, back up on menus
+  // quieter while you're thinking, back up on menus
   mood(kind) {
     gameMode = kind === "game";
-    if (musicBus) musicBus.gain.setTargetAtTime(gameMode ? 0.07 : 0.14, ctx.currentTime, 0.4);
+    if (!gameMode) intensity = 0;
+    else if (intensity === 0) intensity = 1;
+    if (musicBus) musicBus.gain.setTargetAtTime(gameMode ? 0.08 : 0.14, ctx.currentTime, 0.4);
   },
+  // The band gets hyped as your streak grows: 1 normal, 2 = twin leads + fast hats, 3 = MAX
+  setIntensity(level) { intensity = Math.max(0, Math.min(3, level)); },
 };

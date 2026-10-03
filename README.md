@@ -32,7 +32,12 @@ npm run dev          # http://127.0.0.1:8787
 ```bash
 npm test             # makes thousands of questions per topic and checks them all
 npm run test:e2e     # with `npm run dev` running: plays solo + a 3-player challenge over real WebSockets
+npm run test:load    # with `npm run dev` running: 6 rooms x 25 kids, checks every question is fair
+node test/load.mjs --base https://rufustrivia.com --rooms 2 --players 10   # a gentle check of the live site
 ```
+
+The load test checks that everyone in a room got the identical question and deadline, saw the same answer,
+and that scores add up. On a laptop, 150 players across 6 rooms got each question within ~5 ms of each other.
 
 ## Deploying (automatic)
 
@@ -71,6 +76,7 @@ src/                         the server (a Cloudflare Worker)
   shared/topics/             ✏️ the quiz topics; add new ones here
   shared/data/flag-notes.js  ✏️ flag fun facts, lookalike flags, easy/hard lists
   shared/data/landmark-notes.js  ✏️ which landmarks to include, their fun facts and nicer names
+scripts/build-icons.mjs      favicon.ico / app icons (the same pixel fox as rufusfamily.com)
 scripts/build-data.mjs       flag-icons → country data + flag pictures
 scripts/build-landmarks.mjs  Wikidata + Commons → landmark data, photos and the credits page
 ```

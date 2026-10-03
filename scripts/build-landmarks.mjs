@@ -232,7 +232,7 @@ writeFileSync(OUT_CREDITS, `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Credits · Rufus Trivia</title>
 <meta name="description" content="The open-source projects, open data and photographers behind Rufus Trivia, and their licences.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='6' y='0' width='6' height='8' fill='%23D2691E'/><rect x='20' y='0' width='6' height='8' fill='%23D2691E'/><rect x='4' y='6' width='24' height='18' fill='%23D2691E' rx='4'/><rect x='8' y='14' width='16' height='8' fill='%23F4A460'/><rect x='10' y='9' width='4' height='4' fill='%23000'/><rect x='18' y='9' width='4' height='4' fill='%23000'/></svg>">
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   :root{--ink:#fff7ec;--muted:#b9b3d6;--a:#ffb15c;--card:#1a1440;--line:rgba(255,255,255,.12)}
   *{box-sizing:border-box} body{margin:0;padding:28px 16px 70px;background:#0b0820;color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}

@@ -15,16 +15,18 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // GameRoom = one per game. HallOfFame = the shared scoreboard.
+  // GameRoom = one per game. HallOfFame = the shared scoreboard. Stats = private visitor counts.
   // Both keep their data in their own built-in SQLite database (free plan friendly).
   "durable_objects": {
     "bindings": [
       { "name": "ROOMS", "class_name": "GameRoom" },
-      { "name": "HALL", "class_name": "HallOfFame" }
+      { "name": "HALL", "class_name": "HallOfFame" },
+      { "name": "STATS", "class_name": "Stats" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["GameRoom", "HallOfFame"] }
+    { "tag": "v1", "new_sqlite_classes": ["GameRoom", "HallOfFame"] },
+    { "tag": "v2", "new_sqlite_classes": ["Stats"] }
   ],
 
   "observability": { "enabled": true },

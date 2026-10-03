@@ -27,6 +27,7 @@ export class GameRoom extends DurableObject {
     this.sql.exec("CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL)");
     const row = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
     this.s = row ? JSON.parse(row.v) : null;
+    if (this.s) for (const p of Object.values(this.s.players)) p.seat = p.seat || this.newSeat();
     // Keep-alive pings get answered without waking the game up.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"t":"ka"}', '{"t":"ka"}'));
   }
@@ -99,6 +100,7 @@ export class GameRoom extends DurableObject {
       return this.finish();
     }
     if (msg.t === "leave" && this.s.kind === "room") return this.onLeave(ws, pid);
+    if (msg.t === "kick" && this.s.kind === "room" && isHost) return this.onKick(pid, msg.seat);
     if (msg.t === "start" && this.s.phase === "lobby" && isHost) return this.startGame();
     if (msg.t === "next" && this.s.phase === "reveal" && (this.s.kind === "solo" || isHost)) return this.advance();
     if (msg.t === "rematch" && this.s.phase === "final" && isHost && this.s.kind === "room") return this.rematch();
@@ -136,11 +138,30 @@ export class GameRoom extends DurableObject {
     this.broadcast("leave", ws);
   }
 
+  // The host removed someone (e.g. a stranger who guessed the code). They can't come back to this room.
+  async onKick(hostPid, seat) {
+    const s = this.s;
+    const pid = s.order.find((id) => s.players[id].seat === seat);
+    if (!pid || pid === hostPid) return;
+    delete s.players[pid];
+    s.order = s.order.filter((id) => id !== pid);
+    s.banned = [...(s.banned || []), pid];
+    this.save();
+    for (const ws of this.ctx.getWebSockets()) {
+      if ((ws.deserializeAttachment() || {}).pid === pid) {
+        try { ws.send(JSON.stringify({ t: "error", message: "The host removed you from this room." })); ws.close(4003, "Removed by host"); } catch {}
+      }
+    }
+    if (s.phase === "question" && this.allAnswered()) return this.reveal();
+    this.broadcast("kick");
+  }
+
   async onHello(ws, msg) {
     const p = cleanPlayer(msg.player);
     const s = this.s;
     if (!p) return this.sendError(ws, "Pick a nickname first!");
     if (s.kind === "solo" && p.id !== s.hostId) return this.sendError(ws, "This is someone else's game.");
+    if ((s.banned || []).includes(p.id)) return this.sendError(ws, "The host removed you from this room.");
 
     // Only one connection per player (e.g. if they opened two tabs).
     for (const other of this.ctx.getWebSockets()) {
@@ -160,7 +181,7 @@ export class GameRoom extends DurableObject {
     if (!player) {
       if (s.order.length >= ROOM_LIMITS.maxPlayers) return this.sendError(ws, "This room is full!");
       player = s.players[p.id] = {
-        ...p, name: this.uniqueName(p.name),
+        ...p, name: this.uniqueName(p.name), seat: this.newSeat(),
         score: 0, streak: 0, bestStreak: 0, correct: 0, lives: SOLO.lives,
         avoid: cleanKeys(msg.avoid, 300), missed: cleanKeys(msg.missed, 100),
         joinedAt: Date.now(), history: [],
@@ -194,6 +215,14 @@ export class GameRoom extends DurableObject {
       const avoid = new Set(s.order.flatMap((id) => s.players[id].avoid).slice(-800));
       const missed = new Set(s.order.flatMap((id) => s.players[id].missed).slice(-200));
       s.questions = buildGame(topic, { seed: s.seed, count: s.settings.count, levelSetting: s.settings.level, avoid, missed });
+      // Anonymous counts for the stats page: one more challenge game, and how many played.
+      try {
+        const stats = this.env.STATS.get(this.env.STATS.idFromName("global"));
+        const n = this.connectedPids().size;
+        stats.count("room_game", s.topic).catch(() => {});
+        stats.count("room_players", s.topic, n).catch(() => {});
+        stats.max("room_size", n).catch(() => {});
+      } catch {}
     } else {
       s.questions = [];
     }
@@ -398,6 +427,19 @@ export class GameRoom extends DurableObject {
     return this.s.order.find((id) => here.has(id)) || this.s.hostId;
   }
 
+  // Everyone in a room sees each other's public "seat" id, never the private player id
+  // (the private one is like a password: it's what proves who you are).
+  newSeat() {
+    const b = new Uint8Array(6);
+    crypto.getRandomValues(b);
+    return "s" + [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, 9);
+  }
+
+  seatOf(pid) {
+    const p = this.s.players[pid];
+    return p ? p.seat : null;
+  }
+
   // How many people have the join link open but are still picking an avatar.
   choosingCount(except) {
     let n = 0;
@@ -435,7 +477,7 @@ export class GameRoom extends DurableObject {
       const p = s.players[id];
       const a = answers[id];
       const out = {
-        id, name: p.name, emoji: p.emoji, color: p.color, score: p.score, streak: p.streak,
+        id: p.seat, name: p.name, emoji: p.emoji, color: p.color, score: p.score, streak: p.streak,
         correct: p.correct, connected: here.has(id), rank: ranking.indexOf(id) + 1,
         answered: !!a,
       };
@@ -445,7 +487,7 @@ export class GameRoom extends DurableObject {
     });
 
     const view = {
-      t: "state", event, kind: s.kind, code: s.code, me: pid, hostId: this.effectiveHost(except),
+      t: "state", event, kind: s.kind, code: s.code, me: this.seatOf(pid), hostId: this.seatOf(this.effectiveHost(except)),
       topic: topicCard(TOPIC_BY_ID[s.topic]), settings: s.settings, phase: s.phase, round: s.round,
       qi: s.qi, total: s.kind === "room" ? s.settings.count : null,
       phaseAt: s.phaseAt, deadline: s.deadline, serverNow: Date.now(),
@@ -467,7 +509,7 @@ export class GameRoom extends DurableObject {
         for (const qq of s.questions) if (missedKeys.has(qq.key) && qq.learn) learned.push(qq.learn);
       }
       view.final = {
-        ranking,
+        ranking: ranking.map((id) => this.seatOf(id)),
         asked: s.kind === "solo" && p ? p.history.length : s.qi + 1,
         quit: !!s.quit,
         me: p ? { score: p.score, correct: p.correct, bestStreak: p.bestStreak, history: p.history } : null,

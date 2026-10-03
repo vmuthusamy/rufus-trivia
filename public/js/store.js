@@ -34,7 +34,7 @@ export const store = {
   setActive(id) { set("rt_active", id); },
   saveProfile(p) {
     const list = this.profiles().filter((x) => x.id !== p.id);
-    list.unshift({ id: p.id, adj: p.adj, animal: p.animal, color: p.color });
+    list.unshift({ id: p.id, adj: p.adj, animal: p.animal, color: p.color, nick: p.nick || null });
     set("rt_profiles", list.slice(0, MAX_PROFILES));
     this.setActive(p.id);
   },

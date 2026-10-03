@@ -244,6 +244,23 @@ function heroSay(msg) {
   restartAnim(b, "show");
 }
 
+// Once a day, tell the server "this device visited" for the stats page.
+// It's a random id made up right here: no name, no account, no cookie.
+function pingVisit() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (store.pref("visitDay", "") === today) return;
+  let vid = store.pref("vid", "");
+  if (!/^v[a-z0-9]{10,30}$/.test(vid)) {
+    const b = new Uint8Array(10);
+    crypto.getRandomValues(b);
+    vid = "v" + [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, 18);
+    store.setPref("vid", vid);
+  }
+  fetch("/api/visit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ vid }), keepalive: true })
+    .then((r) => { if (r.ok) store.setPref("visitDay", today); })
+    .catch(() => {});
+}
+
 function preloadFlags(list) {
   let i = 0;
   const step = () => {
@@ -263,7 +280,8 @@ function randomDraft() {
 function openProfile(after, opts = {}) {
   S.after = after || null;
   S.profileBack = opts.back || null;
-  S.draft = S.profile ? { ...S.profile } : randomDraft();
+  // fresh = start a brand-new player (e.g. a second player on the same computer)
+  S.draft = S.profile && !opts.fresh ? { ...S.profile } : randomDraft();
   S.ownNameOpen = !!(S.draft.nick || opts.ownName);
   renderSaved();
   renderBuilder(true);
@@ -533,21 +551,62 @@ async function checkCode(inputs) {
     const hostTxt = info.host ? `hosted by ${info.host.emoji} ${info.host.name}` : "";
     card.append(el("span", "e", info.topic.emoji), el("span", null, `${info.topic.title} · ${hostTxt} · ${info.players} playing`));
     prev.append(card);
+    // Who you'll join as, with a way to switch (handy when two kids share one computer).
+    if (S.profile) {
+      const as = el("div", "join-as");
+      as.append(document.createTextNode(`Joining as ${emojiFor(S.profile.animal)} ${displayName(S.profile)} · `));
+      const sw = el("button", "link-btn", "Switch player");
+      sw.onclick = () => openProfile(() => { show("join"); checkCode(inputs); }, { back: "join" });
+      as.append(sw);
+      prev.append(as);
+    }
     go.disabled = false;
     sound.play("coin");
     // Step into the room's "waiting room" right away, so the host sees someone is coming.
     if (!S.g || S.g.code !== code) startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, lurk: true });
-  } catch {
+  } catch (e) {
     if (S.join.code !== code) return;
-    prev.textContent = "Hmm, no room with that code. Check the letters!";
+    // Only say "no room" when the server really said so; otherwise it's a connection problem.
+    prev.textContent = e.status === 404
+      ? "Hmm, no room with that code. Check the letters! (Is your friend on rufustrivia.com too?)"
+      : "Can't reach the game server right now. Check the internet and try again!";
     restartAnim($("codeInputs"), "bad");
     sound.play("wrong");
   }
 }
 
-function joinRoom() {
+// Tabs in the same browser share one saved player. They talk to each other so the same player
+// can't accidentally join a room twice (which would kick the other tab out).
+const tabs = "BroadcastChannel" in window ? new BroadcastChannel("rufus-trivia") : null;
+if (tabs) {
+  tabs.addEventListener("message", (e) => {
+    const m = e.data || {};
+    if (m.t === "who" && S.g && S.g.code === m.code && !S.g.lurking && S.profile && S.profile.id === m.pid) {
+      tabs.postMessage({ t: "here", nonce: m.nonce });
+    }
+  });
+}
+function playingInAnotherTab(code) {
+  return new Promise((resolve) => {
+    if (!tabs || !S.profile) return resolve(false);
+    const nonce = Math.random().toString(36).slice(2);
+    const on = (e) => { if (e.data && e.data.t === "here" && e.data.nonce === nonce) { tabs.removeEventListener("message", on); resolve(true); } };
+    tabs.addEventListener("message", on);
+    tabs.postMessage({ t: "who", code, pid: S.profile.id, nonce });
+    setTimeout(() => { tabs.removeEventListener("message", on); resolve(false); }, 300);
+  });
+}
+
+async function joinRoom() {
   const { code, info } = S.join;
   if (!info) return;
+  if (await playingInAnotherTab(code)) {
+    // Same browser, same player, already in this room: make a second player for this tab instead.
+    toast(`${displayName(S.profile)} is already in this room in another tab. Make a second player for this tab!`, 5000);
+    const g = S.g && S.g.code === code ? S.g : startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, lurk: true });
+    editAvatar(g, { fresh: true });
+    return;
+  }
   history.replaceState(null, "", "/join/" + code);
   // We're usually already in the room's waiting room (see checkCode). If not, step in now.
   const g = S.g && S.g.code === code ? S.g : startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, lurk: true });
@@ -562,14 +621,14 @@ function joinRoom() {
 }
 
 // Open the nickname/avatar builder while connected to a room (new player, or changing it in the lobby).
-function editAvatar(g) {
+function editAvatar(g, opts = {}) {
   g.editing = true;
   openProfile(() => {
     g.editing = false;
     g.lurking = false;
     g.conn.send(helloMsg(g));
     if (g.st && g.st.phase === "lobby") show("lobby", { accent: g.st.topic.color });
-  });
+  }, { fresh: opts.fresh });
 }
 
 function helloMsg(g) {
@@ -664,6 +723,7 @@ function onStatus(g, s, closeCode) {
   if (s === "ended") {
     if (closeCode === 4000) toast("This game is open somewhere else.");
     else if (closeCode === 4001) toast("That room has closed.");
+    else if (closeCode === 4003) toast("The host removed you from this room.", 4000);
     leaveGame(true);
   }
 }
@@ -749,6 +809,20 @@ function renderLobby(g, st) {
     card.append(av, el("div", "nm", p.name));
     if (p.id === st.hostId) card.append(el("span", "tag", "👑 HOST"));
     else if (p.id === st.me) card.append(el("span", "tag", "YOU"));
+    // The host can remove someone (a stranger who guessed the code, or a name that isn't OK).
+    // Two taps, so nobody gets removed by accident.
+    if (st.hostId === st.me && p.id !== st.me) {
+      const x = el("button", "kick", "✕");
+      x.setAttribute("aria-label", `Remove ${p.name}`);
+      x.title = `Remove ${p.name}`;
+      x.onclick = () => {
+        if (x.classList.contains("armed")) { g.conn.send({ t: "kick", seat: p.id }); sound.play("click"); toast(`${p.name} was removed.`); return; }
+        x.classList.add("armed");
+        x.textContent = "Remove?";
+        setTimeout(() => { x.classList.remove("armed"); x.textContent = "✕"; }, 3000);
+      };
+      card.append(x);
+    }
     grid.append(card);
     if (!g.seenPlayers.has(p.id)) {
       g.seenPlayers.add(p.id);
@@ -1196,6 +1270,8 @@ function renderReveal(g, st) {
   }
   g.myStreak = me.streak;
   renderStreak(me.streak);
+  // The band gets hyped with your streak: twin leads at 5, everything at 15.
+  sound.setIntensity(me.streak >= 15 ? 3 : me.streak >= 5 ? 2 : 1);
 
   const next = $("nextBtn");
   if (st.kind === "solo") {
@@ -1470,8 +1546,12 @@ function wire() {
   $("profileCancel").onclick = () => {
     S.after = null;
     const g = S.g;
-    if (g && g.lurking) { leaveGame(true); return; }       // backed out before joining the room
-    if (g && g.editing) { g.editing = false; show(g.st && g.st.phase === "lobby" ? "lobby" : "game"); return; }
+    if (g && g.editing) {
+      g.editing = false;
+      if (g.lurking) { leaveGame(true); return; }           // backed out before joining the room
+      show(g.st && g.st.phase === "lobby" ? "lobby" : "game");
+      return;
+    }
     show(S.profileBack || "home");
   };
   $("adjPrev").onclick = () => stepAdj(-1);
@@ -1532,6 +1612,7 @@ async function boot() {
   S.topicId = topic(store.pref("topic", "flags")).id;
   themeFor(topic(S.topicId));
   preloadFlags(S.meta.gallery);
+  pingVisit();
   renderMe();
   renderTopics();
 

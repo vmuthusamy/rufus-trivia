@@ -9,6 +9,8 @@
 //   GET  /api/hall?topic=&period=&pid=  Hall of Fame top 10
 //   POST /api/hall/rename               update my name on my Hall of Fame scores
 //   POST /api/names/check               is this typed-in name allowed?
+//   POST /api/visit                     "this device opened the site today" (anonymous)
+//   GET  /api/stats                     private visitor/game stats (needs the x-stats-key header)
 
 import { TOPICS, TOPIC_BY_ID, topicCard } from "./shared/topics/index.js";
 import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick } from "./shared/names.js";
@@ -17,6 +19,17 @@ import { COUNTRIES } from "./shared/data/countries.js";
 
 export { GameRoom } from "./room.js";
 export { HallOfFame } from "./hall.js";
+export { Stats } from "./stats.js";
+
+const statsStub = (env) => env.STATS.get(env.STATS.idFromName("global"));
+
+// Compare the stats key without leaking how many characters matched.
+async function sameKey(a, b) {
+  const enc = new TextEncoder();
+  const [x, y] = [enc.encode(a || ""), enc.encode(b || "")];
+  if (!x.length || x.length !== y.length) return false;
+  return crypto.subtle.timingSafeEqual(x, y);
+}
 
 // No vowels, so a random room code can never spell a word.
 const CODE_LETTERS = "BCDFGHJKLMNPQRSTVWXZ";
@@ -50,7 +63,7 @@ async function body(request) {
 const roomStub = (env, code) => env.ROOMS.get(env.ROOMS.idFromName("room:" + code));
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     if (!path.startsWith("/api/")) return env.ASSETS.fetch(request);
@@ -74,6 +87,7 @@ export default {
         if (!TOPIC_BY_ID[b.topic] || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
         const id = env.ROOMS.newUniqueId();
         await env.ROOMS.get(id).init({ kind: "solo", topic: b.topic, hostId: player.id });
+        ctx.waitUntil(statsStub(env).count("solo", b.topic).catch(() => {}));
         return json({ id: id.toString() });
       }
 
@@ -94,7 +108,10 @@ export default {
         for (let tries = 0; tries < 8; tries++) {
           const code = newCode();
           const res = await roomStub(env, code).init({ kind: "room", code, topic: b.topic, settings, hostId: player.id });
-          if (res.ok) return json({ code });
+          if (res.ok) {
+            ctx.waitUntil(statsStub(env).count("room_created", b.topic).catch(() => {}));
+            return json({ code });
+          }
         }
         return json({ error: "Couldn't make a room right now. Try again!" }, 503);
       }
@@ -106,6 +123,22 @@ export default {
         if (m[2]) return roomStub(env, code).fetch(request);
         const info = await roomStub(env, code).peek();
         return json(info, info.exists ? 200 : 404);
+      }
+
+      // A device opened the site today (a random id the browser made up; no names, no IPs).
+      if (path === "/api/visit" && request.method === "POST") {
+        const b = await body(request);
+        if (typeof b.vid === "string" && /^v[a-z0-9]{10,30}$/.test(b.vid)) {
+          ctx.waitUntil(statsStub(env).visit(b.vid).catch(() => {}));
+        }
+        return new Response(null, { status: 204 });
+      }
+
+      // Private stats for the grown-ups: needs the STATS_KEY secret.
+      if (path === "/api/stats") {
+        if (!env.STATS_KEY) return json({ error: "The stats key hasn't been set up yet." }, 503);
+        if (!(await sameKey(request.headers.get("x-stats-key"), env.STATS_KEY))) return json({ error: "Wrong stats key." }, 401);
+        return json(await statsStub(env).report(url.searchParams.get("days") || 30));
       }
 
       // Is this typed-in name allowed? (The builder asks before saving.)

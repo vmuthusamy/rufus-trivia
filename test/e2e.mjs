@@ -142,7 +142,8 @@ async function challenge() {
   const A = player(path, a);
   await A.ready;
   await A.waitFor((s) => s.phase === "lobby" && s.players.length === 1);
-  assert.equal(A.last().hostId, a.id, "creator is host");
+  const aSeat = A.last().me;
+  assert.equal(A.last().hostId, aSeat, "creator is host");
 
   // B opens the link and is still picking an avatar: the host sees "1 choosing".
   const B = player(path, b, {}, { lurk: true });
@@ -152,7 +153,8 @@ async function challenge() {
   B.send({ t: "hello", player: { ...b, adj: "Silly" } }); // ...picks a name and joins
   await A.waitFor((s) => s.choosing === 0 && s.players.length === 2);
   B.send({ t: "hello", player: b }); // ...then changes their mind in the lobby
-  await A.waitFor((s) => s.players.some((p) => p.id === b.id && p.name === "Cosmic Otter"));
+  await A.waitFor((s) => s.players.some((p) => p.name === "Cosmic Otter"));
+  const bSeat = (await B.waitFor((s) => s.me)).me;
 
   B.send({ t: "start" }); // not the host: ignored
   await sleep(300);
@@ -167,14 +169,14 @@ async function challenge() {
     assert.deepEqual(qa.question, qb.question, "everyone gets the exact same question");
     if (qi === 1) { lateP = player(path, late); await lateP.ready; } // someone joins mid-game
     A.send({ t: "answer", q: qi, choice: 0, ms: 500 });
-    await A.waitFor((s) => s.qi === qi && s.event === "answered" && s.players.find((p) => p.id === a.id).answered);
+    await A.waitFor((s) => s.qi === qi && s.event === "answered" && s.players.find((p) => p.id === aSeat).answered);
     const mid = B.states.filter((s) => s.qi === qi && s.phase === "question").pop();
     assert.equal(mid.reveal, undefined, "no answer leaks before everyone has answered");
     B.send({ t: "answer", q: qi, choice: 1, ms: 2500 });
     if (lateP && qi >= 1) lateP.send({ t: "answer", q: qi, choice: 2, ms: 3000 });
     const ra = await A.waitFor((s) => s.phase === "reveal" && s.qi === qi);
     const ans = ra.reveal.answer;
-    const pa = ra.players.find((p) => p.id === a.id), pb = ra.players.find((p) => p.id === b.id);
+    const pa = ra.players.find((p) => p.id === aSeat), pb = ra.players.find((p) => p.id === bSeat);
     assert.equal(pa.last.correct, ans === 0);
     assert.equal(pb.last.correct, ans === 1);
     B.send({ t: "next" }); // not host: ignored (auto-advance still happens)
@@ -188,10 +190,25 @@ async function challenge() {
 
   A.send({ t: "rematch" });
   await B.waitFor((s) => s.phase === "lobby" && s.event === "rematch");
+  // Privacy: nobody's private player id is ever sent to anyone.
+  for (const st of [...A.states, ...B.states, ...lateP.states]) {
+    const txt = JSON.stringify(st);
+    for (const secret of [a.id, b.id, late.id]) assert.ok(!txt.includes(secret), "a private player id leaked to the room");
+  }
+  // The host removes a player: they're gone and can't come back to this room.
+  const lateSeat = lateP.states.at(-1).me;
+  A.send({ t: "kick", seat: lateSeat });
+  await A.waitFor((s) => s.event === "kick" && !s.players.some((p) => p.id === lateSeat));
+  await sleep(300);
+  assert.equal(lateP.closed, 4003, "removed player is disconnected");
+  const back = player(path, late);
+  await back.ready;
+  await sleep(400);
+  assert.ok(back.errors.some((e) => /removed/.test(e)), "removed player can't rejoin");
   // The host presses Leave in the lobby: they vanish from the list and B becomes host.
   A.send({ t: "leave" });
-  const after = await B.waitFor((s) => s.event === "leave" && !s.players.some((p) => p.id === a.id));
-  assert.equal(after.hostId, b.id, "host hands over to the next player");
+  const after = await B.waitFor((s) => s.event === "leave" && !s.players.some((p) => p.id === aSeat));
+  assert.equal(after.hostId, bSeat, "host hands over to the next player");
   console.log(`  challenge ${data.code}: final scores ${fa.players.map((p) => `${p.name}=${p.score}`).join(", ")}`);
   for (const p of [A, B, lateP]) p.ws.close();
 }
