@@ -32,6 +32,22 @@ const twins = (a, b) => TWINS.some(([x, y]) => (a.name === x && b.name === y) ||
 // ("A chick is a baby…" could be almost any bird, so we never ask it that way round.)
 const owners = (rows, field, word) => rows.filter((x) => x[field].includes(word)).length;
 
+// 🎯 BINGO (see shared/bingo.js): when the answer is an animal, these squares would ALSO be right, so a
+// bingo game never has both: the animal itself (and its plural), its twin (a panda IS a bear),
+// kinds of it from the question banks (a milk snake IS a snake), and lookalikes (the 🐆 emoji looks like a cheetah).
+const KINDS = {
+  Snake: ["Rattlesnake", "Cobra", "Milk snake", "Hognose snake", "Green anaconda", "Reticulated python",
+    "Inland taipan", "Sidewinder", "Paradise tree snake", "Barbados threadsnake", "Other snakes"],
+  Fox: ["Fennec fox", "Arctic fox", "Red fox", "Gray fox", "A vixen", "Felix", "Renard", "Marthina"],
+  Whale: ["Blue whale"],
+  Lizard: ["Chameleon"],
+  Leopard: ["Cheetah"],
+  Eagle: ["Peregrine falcon"],
+};
+const sameAs = (a) => [a.name, a.plural, ...ANIMALS.filter((x) => twins(a, x)).flatMap((x) => [x.name, x.plural]), ...(KINDS[a.name] || [])];
+// Every animal whose baby (or group) is called `word`: "A joey is a baby…" kangaroo AND koala are right.
+const sameWord = (rows, field, word) => rows.filter((x) => x[field].includes(word)).flatMap(sameAs);
+
 // ---------- baby animals ----------
 function babyQuestion({ rng, level, used, avoid, missed }) {
   const keyOf = (a) => "ab_" + slug(a.name);
@@ -44,13 +60,15 @@ function babyQuestion({ rng, level, used, avoid, missed }) {
     const others = [...new Set(WITH_BABY.map((x) => x.baby[0]))].filter((w) => !a.baby.includes(w));
     const { items, answer } = mixIn(rng, word, rng.shuffle(others).slice(0, 3));
     return { key: keyOf(a), level, eyebrow: "Baby animals", prompt: `What is a baby ${a.name.toLowerCase()} called?`,
-      media: { kind: "emoji", text: pic(a) }, choices: items.map((w) => ({ label: cap(w) })), answer, fact, learn };
+      media: { kind: "emoji", text: pic(a) }, choices: items.map((w) => ({ label: cap(w) })), answer, fact, learn,
+      alsoRight: a.baby.slice(1) }; // 🎯 a baby wolf is a pup, but also a cub, whelp or puppy
   }
   // "A joey is a baby..." -> kangaroo (never offering koala, which also has joeys)
   const wrong = pickDistractors(rng, a, WITH_BABY.filter((x) => !x.baby.includes(word) && x.emoji), [], 3, keyOf);
   const { items, answer } = mixIn(rng, a, wrong);
   return { key: keyOf(a), level, eyebrow: "Baby animals", prompt: `${cap(an(word))} is a baby…`,
-    media: { kind: "word", text: cap(word), sub: "🍼 is a baby what?" }, choices: choices(items), answer, fact, learn };
+    media: { kind: "word", text: cap(word), sub: "🍼 is a baby what?" }, choices: choices(items), answer, fact, learn,
+    alsoRight: sameWord(WITH_BABY, "baby", word) };
 }
 
 // ---------- groups of animals ----------
@@ -66,14 +84,16 @@ function groupQuestion({ rng, level, used, avoid, missed }) {
     const others = [...new Set(WITH_GROUP.map((x) => x.group[0]))].filter((w) => !a.group.includes(w));
     const { items, answer } = mixIn(rng, word, rng.shuffle(others).slice(0, 3));
     return { key: keyOf(a), level, eyebrow: "Animal groups", prompt: `What is a group of ${a.plural} called?`,
-      media: { kind: "word", text: herd, sub: `lots of ${a.plural}` }, choices: items.map((w) => ({ label: cap(w) })), answer, fact, learn };
+      media: { kind: "word", text: herd, sub: `lots of ${a.plural}` }, choices: items.map((w) => ({ label: cap(w) })), answer, fact, learn,
+      alsoRight: a.group.slice(1) }; // 🎯 a group of whales is a pod, or a school, a gam or a herd
   }
   // "A pride is a group of..." -> lions
   const wrong = pickDistractors(rng, a, WITH_GROUP.filter((x) => !x.group.includes(word) && x.emoji), [], 3, keyOf);
   const { items, answer } = mixIn(rng, a, wrong);
   return { key: keyOf(a), level, eyebrow: "Animal groups", prompt: `${cap(an(word))} is a group of…`,
     media: { kind: "word", text: cap(word), sub: "👀 a group of what?" },
-    choices: choices(items).map((c, i) => ({ ...c, label: cap(items[i].plural) })), answer, fact, learn };
+    choices: choices(items).map((c, i) => ({ ...c, label: cap(items[i].plural) })), answer, fact, learn,
+    alsoRight: sameWord(WITH_GROUP, "group", word) }; // 🎯 a pride of lions... or of peacocks!
 }
 
 // ---------- mammal, bird, reptile...? ----------
@@ -105,6 +125,7 @@ function classQuestion({ rng, level, used, avoid, missed }) {
     reveal: items.map((x) => ({ add: ` · ${CLASSES[x.cls] ? CLASSES[x.cls].label.toLowerCase() : x.kind || x.cls}` })),
     fact: `${a.name}: yes! ${info.what}` + (sneaky ? ` (${sneaky.note})` : a.note ? ` ${a.note}` : ""),
     learn: { label: `${a.name} = ${info.label.toLowerCase()}`, emoji: pic(a) },
+    noBingo: true, // 🎯 lots of animals on a bingo card could be mammals: it only works with its 4 choices
   };
 }
 
@@ -144,6 +165,7 @@ function whoQuestion({ rng, level, used, avoid, missed }) {
     media: { kind: "emoji", text: a.emoji }, choices: items.map((x) => ({ label: x.name })), answer,
     fact: a.note || `That's ${an(a.name.toLowerCase())}! ${CLASSES[a.cls] ? CLASSES[a.cls].what : ""}`.trim(),
     learn: { label: a.name, emoji: a.emoji },
+    alsoRight: sameAs(a), // 🎯 🐍 is a snake... and a milk snake is a snake too
   };
 }
 

@@ -96,6 +96,24 @@ const SFX = {
     noise(t + 0.84, 0.6, { vol: 0.06, freq: 6000 });
   },
   sad(t) { [NOTE.G4, NOTE.F4, NOTE.E4].forEach((f, i) => tone(f, t + i * 0.3, 0.3, { type: "sawtooth", vol: 0.08 })); tone(NOTE.D4 * 1.0, t + 0.9, 0.9, { type: "sawtooth", vol: 0.08, slide: 0.9 }); },
+  // 🎯 Quiz Bingo: the paw dauber thumping onto a square ("ka-THUNK!" + a sparkle)
+  stamp(t) {
+    noise(t, 0.09, { vol: 0.2, freq: 500, type: "lowpass" });
+    tone(150, t, 0.16, { vol: 0.22, slide: 0.45, type: "triangle" });
+    tone(NOTE.G5, t + 0.08, 0.08, { vol: 0.1 });
+    tone(NOTE.D6, t + 0.15, 0.16, { vol: 0.09, type: "triangle" });
+  },
+  // 🎯 a line just lit up on your card
+  line(t) { ["C6", "E6", "G6", "C7"].forEach((n, i) => tone(NOTE[n], t + i * 0.05, 0.18, { vol: 0.09, type: "triangle" })); },
+  // 🎯 BINGO! A bell, a drum roll and a big "ta-da-da-DAAA"
+  bingo(t) {
+    for (let i = 0; i < 8; i++) noise(t + i * 0.05, 0.05, { vol: 0.08 + i * 0.01, freq: 1200, type: "bandpass" });
+    const mel = [["G5", 0.42, 0.1], ["G5", 0.54, 0.1], ["G5", 0.66, 0.1], ["C6", 0.78, 0.22], ["E6", 1.02, 0.12], ["G6", 1.16, 0.7]];
+    mel.forEach(([n, at, d]) => { tone(NOTE[n], t + at, d + 0.05, { vol: 0.15 }); tone(NOTE[n] / 2, t + at, d + 0.05, { type: "triangle", vol: 0.12 }); });
+    [NOTE.C6, NOTE.E6, NOTE.G6].forEach((f) => tone(f, t + 1.16, 0.9, { vol: 0.06, type: "triangle" }));
+    tone(NOTE.C7 * 2, t + 1.16, 0.6, { vol: 0.05, type: "sine" });
+    noise(t + 1.16, 0.8, { vol: 0.07, freq: 6500 });
+  },
 };
 
 // ============================================================

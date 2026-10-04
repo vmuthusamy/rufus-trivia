@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { STICKERS, STICKER_BY_ID, stickersForAnswer, stickersForFinish, stickersForStart, showcase } from "../src/shared/stickers.js";
+import { STICKERS, STICKER_BY_ID, stickersForAnswer, stickersForBingo, stickersForCall, stickersForFinish, stickersForStart, showcase } from "../src/shared/stickers.js";
 import { TOPICS } from "../src/shared/topics/index.js";
 
 test("every sticker has a unique id, an emoji, a name, a hint and a rarity 1-5", () => {
@@ -38,6 +38,43 @@ test("party host, explorer and team player", () => {
   assert.deepEqual(stickersForStart({ kind: "room", isHost: true, players: 4, topicsPlayed: 1, allTopics: 4, roomGames: 1 }), ["partyhost"]);
   assert.deepEqual(stickersForStart({ kind: "solo", isHost: true, players: 1, topicsPlayed: 4, allTopics: 4, roomGames: 0 }), ["globetrotter"]);
   assert.deepEqual(stickersForStart({ kind: "room", isHost: false, players: 6, topicsPlayed: 2, allTopics: 4, roomGames: 5 }), ["social"]);
+});
+
+// 🎯 Quiz Bingo: the Rufus family stickers
+test("BINGO: a line or a blackout sticker, and Felix's socks only when it took 8 calls or fewer", () => {
+  const won = (extra) => stickersForBingo({ win: "line", calls: 12, perfect: false, again: false, ...extra });
+  assert.deepEqual(won({}), ["bingo_line"]);
+  assert.deepEqual(won({ win: "blackout" }), ["bingo_blackout"]);
+  assert.deepEqual(won({ calls: 8 }), ["bingo_line", "felix_socks"]);
+  assert.deepEqual(won({ calls: 4 }), ["bingo_line", "felix_socks"], "4 calls is the quickest line there is");
+  assert.deepEqual(won({ calls: 9 }), ["bingo_line"]);
+  assert.equal(STICKER_BY_ID.felix_socks.rarity, 3);
+});
+
+test("Marthina's pizza for a BINGO with every call right; the Golden Paw for one on a Second chance! call", () => {
+  assert.deepEqual(stickersForBingo({ win: "line", calls: 12, perfect: true, again: false }), ["bingo_line", "marthina_pizza"]);
+  assert.deepEqual(stickersForBingo({ win: "line", calls: 30, perfect: false, again: true }), ["bingo_line", "golden_paw"]);
+  assert.deepEqual(stickersForBingo({ win: "blackout", calls: 26, perfect: true, again: true }), ["bingo_blackout", "marthina_pizza", "golden_paw"]);
+  assert.equal(STICKER_BY_ID.marthina_pizza.rarity, 3);
+  assert.equal(STICKER_BY_ID.golden_paw.rarity, 3);
+});
+
+test("after a call: Fiery's double stomp for two lines with one stamp, Renard's eye at 5 right 'Not on my card' taps", () => {
+  assert.deepEqual(stickersForCall({ newLines: 0, spotted: 0 }), []);
+  assert.deepEqual(stickersForCall({ newLines: 1, spotted: 4 }), [], "one line is just a line");
+  assert.deepEqual(stickersForCall({ newLines: 2, spotted: 0 }), ["fiery_stomp"]);
+  assert.deepEqual(stickersForCall({ newLines: 3, spotted: 5 }), ["fiery_stomp", "renard_eye"]);
+  assert.deepEqual(stickersForCall({ newLines: 0, spotted: 5 }), ["renard_eye"]);
+  assert.equal(STICKER_BY_ID.fiery_stomp.rarity, 4);
+  assert.equal(STICKER_BY_ID.renard_eye.rarity, 2);
+});
+
+test("every bingo sticker is in the book (not retired) and has kid-sized words", () => {
+  for (const id of ["bingo_line", "bingo_blackout", "felix_socks", "marthina_pizza", "renard_eye", "fiery_stomp", "golden_paw"]) {
+    const s = STICKER_BY_ID[id];
+    assert.ok(s && !s.retired, id);
+    assert.ok(s.how.length <= 70, `${id}: "${s.how}" is a mouthful`);
+  }
 });
 
 test("showcase: rarest first, newest breaks ties, unknown ids ignored", () => {

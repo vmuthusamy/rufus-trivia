@@ -147,8 +147,12 @@
           <p class="eyebrow anim">Challenge room</p>
           <h2 class="h anim">Set up the showdown</h2>
           <p class="sub anim" id="setupTopic"></p>
-          <div class="opt anim"><span class="label">Quiz</span><div class="topics mini" id="quizCards" role="radiogroup" aria-label="Choose a quiz"></div></div>
-          <div class="opt anim"><span class="label">Questions</span><div class="seg" id="segCount"></div></div>
+          <!-- 🎯 Quiz or Quiz Bingo (Bingo: only some topics, and the host picks how to win) -->
+          <div class="opt anim"><span class="label">Game</span><div class="seg" id="segMode"></div><p class="opt-hint" id="modeHint"></p></div>
+          <div class="opt anim"><span class="label" id="quizLabel">Quiz</span><div class="topics mini" id="quizCards" role="radiogroup" aria-label="Choose a quiz"></div>
+            <p class="opt-hint hidden" id="bingoTopicHint">🎯 Bingo works with Flag Frenzy, Math Blast and Animal Kingdom.</p></div>
+          <div class="opt anim hidden" id="optWin"><span class="label">Win</span><div class="seg" id="segWin"></div><p class="opt-hint" id="winHint"></p></div>
+          <div class="opt anim" id="optCount"><span class="label">Questions</span><div class="seg" id="segCount"></div></div>
           <div class="opt anim"><span class="label">Seconds per question</span><div class="seg" id="segTimer"></div></div>
           <div class="opt anim"><span class="label">Difficulty</span><div class="seg" id="segLevel"></div></div>
           <div class="row-end anim">
@@ -194,6 +198,7 @@
               </div>
               <div class="chips" id="lobbySettings"></div>
             </div>
+            <p class="lobby-rules hidden" id="bingoRules"></p> <!-- 🎯 how bingo works -->
             <div class="player-grid" id="playerGrid"></div>
             <p class="choosing-note hidden" id="choosingNote"></p>
             <div class="row-end anim">
@@ -227,6 +232,9 @@
             <div class="timebar"><i id="timebar"></i></div>
             <div class="media" id="media"></div>
             <div class="level-tag" id="levelTag">Easy</div>
+            <!-- 🎯 bingo: the "Second chance!" ribbon, and the answer at the reveal -->
+            <div class="call-tag hidden" id="callTag">🔁 Second chance!</div>
+            <div class="call-answer hidden" id="callAnswer" aria-live="polite"></div>
           </div>
 
           <div class="qside">
@@ -241,6 +249,14 @@
               </div>
             </div>
             <div class="answers" id="answers"></div>
+            <!-- 🎯 Quiz Bingo: your card, shown instead of the answers (see "QUIZ BINGO" in app.js and app.css) -->
+            <div class="bcard" id="bcard">
+              <div class="bsheet">
+                <div class="bhead" aria-hidden="true"><span class="c0">▲</span><span class="c1">◆</span><span class="c2">●</span><span class="c3">★</span></div>
+                <div class="bgrid" id="bgrid" aria-label="Your bingo card"></div>
+              </div>
+              <button class="ans nothere" id="notHereBtn"><span class="em">✋</span><span class="txt">Not on my card</span></button>
+            </div>
             <!-- one row under the answers: who's answered (while playing), then Rufus's fact + Next (after) -->
             <div class="after">
               <div class="answered-row" id="answeredRow"></div>
@@ -274,6 +290,7 @@
             <p class="eyebrow anim">Final scores</p>
             <h2 class="final-title anim" id="roomTitle">And the winner is…</h2>
             <div class="podium" id="podium"></div>
+            <div class="bfinal hidden" id="bingoFinal"></div> <!-- 🎯 bingo: your card at the end -->
             <ol class="rest" id="restList"></ol>
           </div>
 

@@ -14,6 +14,12 @@ everyone gets the same questions at the same moment, like Blooket.
 | 🔬 Science & Space | 🧪 Science Lab, 🫀 Your Amazing Body, 🌋 Planet Earth and 🚀 Space (about 7 in 10 questions are science) | hand-written, fact-checked banks |
 | 🧮 Math Blast | sums, times tables, fractions, "make the number" puzzles (which sum makes 48?), mystery-number equations on a balance scale, Rufus story problems starring Fiery, Marthina, Renard and friends | random numbers, never runs out |
 
+**🎯 Quiz Bingo** (a challenge-room game for Flags, Math Blast and Animal Kingdom): the host picks *Game: Bingo* and
+*Win: Line* (first to fill a row, column or diagonal) or *Blackout* (all 16 squares). Everyone gets their own 4×4 card of
+answers from a shared pool of 24. Rufus calls a question with no choices: tap its answer on your card to stamp it 🐾, or
+"Not on my card ✋". Squares someone still needs come back as "Second chance!" calls. Every pool is built so that exactly
+one square is right for each call (see `src/shared/bingo.js`).
+
 Retired topics (🗺️ Capitals & Landmarks, 🚀 Space Explorer) are hidden from the menus but their code stays, so games that were
 already running can finish and old scores stay in the Hall of Fame. See `RETIRED` in `src/shared/topics/index.js`.
 
@@ -37,8 +43,8 @@ npm run dev          # http://127.0.0.1:8787
 ## Tests
 
 ```bash
-npm test             # makes thousands of questions per topic and checks them all
-npm run test:e2e     # with `npm run dev` running: plays solo + a 3-player challenge over real WebSockets
+npm test             # makes thousands of questions per topic (and bingo pools) and checks them all
+npm run test:e2e     # with `npm run dev` running: plays solo, a 3-player challenge and a 3-player bingo over real WebSockets
 npm run test:load    # with `npm run dev` running: 6 rooms x 25 kids, checks every question is fair
 node test/load.mjs --base https://rufustrivia.com --rooms 2 --players 10   # a gentle check of the live site
 ```
@@ -81,6 +87,7 @@ src/                         the server (a Cloudflare Worker)
   worker.js                  the front door: /api/...
   room.js                    GameRoom Durable Object: runs one game (solo or challenge)
   hall.js                    HallOfFame Durable Object: the shared scoreboard (SQLite)
+  shared/bingo.js            🎯 Quiz Bingo's rules: the pool of squares, cards, calls, lines, second chances
   shared/topics/             ✏️ the quiz topics; add new ones here
   shared/topics/animal-banks.js  ✏️ snake, fox, dino and amazing-animal questions
   shared/data/animals.js     ✏️ the animal facts table (baby names, group names, mammal/bird/reptile...)

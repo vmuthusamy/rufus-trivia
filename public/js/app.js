@@ -30,7 +30,7 @@ const S = {
   profile: store.active(),
   draft: null,
   after: null,
-  setup: { count: 10, timer: 15, level: "mixed" },
+  setup: { count: 10, timer: 15, level: "mixed", mode: "quiz", win: "line" },
   hall: { topic: "flags", period: "all" },
   join: { code: "", info: null },
   screen: null,
@@ -757,6 +757,7 @@ function renderSetup() {
     blurbs: false, best: false, // the line above already shows the description
     onPick: (t) => { S.topicId = t.id; fx.setAccent(t.color); renderSetup(); },
   });
+  renderSetupBingo(); // 🎯 Quiz or Bingo (see QUIZ BINGO below)
   seg($("segCount"), r.counts, S.setup.count, (v) => `${v}`, (v) => { S.setup.count = v; renderSetup(); });
   seg($("segTimer"), r.timers, S.setup.timer, (v) => `${v}s`, (v) => { S.setup.timer = v; renderSetup(); });
   seg($("segLevel"), r.levels, S.setup.level, (v) => LEVEL_NAMES[v] || v, (v) => { S.setup.level = v; renderSetup(); });
@@ -768,7 +769,7 @@ function openQuizEditor() {
   if (!g || !g.st || g.st.hostId !== g.st.me) return;
   S.setupMode = "edit";
   S.topicId = g.st.topic.id;
-  S.setup = { ...g.st.settings };
+  S.setup = { mode: "quiz", win: "line", ...g.st.settings };
   g.editing = true;
   renderSetup();
   $("createRoomBtn").textContent = "Save changes ▶";
@@ -862,7 +863,8 @@ async function checkCode(inputs) {
     prev.innerHTML = "";
     const card = el("div", "room-card");
     const hostTxt = info.host ? `hosted by ${info.host.emoji} ${info.host.name}` : "";
-    card.append(el("span", "e", info.topic.emoji), el("span", null, `${info.topic.title} · ${hostTxt} · ${info.players} playing`));
+    const kind = info.settings && info.settings.mode === "bingo" ? "🎯 Bingo · " : "";
+    card.append(el("span", "e", info.topic.emoji), el("span", null, `${kind}${info.topic.title} · ${hostTxt} · ${info.players} playing`));
     prev.append(card);
     // Who you'll join as, with a way to switch (handy when two kids share one computer).
     if (S.profile) {
@@ -1084,6 +1086,7 @@ function onMessage(g, m) {
 
   if (st.phase === "lobby") return renderLobby(g, st);
   if (st.phase === "countdown") return renderCountdown(g, st);
+  if (st.bingo && (st.phase === "question" || st.phase === "reveal")) return renderBingo(g, st); // 🎯
   if (st.phase === "question") {
     if (qKey(st) !== g.lastQi) renderQuestion(g, st, false);
     else renderWaiting(g, st);
@@ -1109,6 +1112,7 @@ function renderLobby(g, st) {
   }
   if (st.event === "rematch") {
     g.lastQi = -1; g.revealedQi = -1; g.prevRank = {}; g.hallShown = false;
+    g.linesLit = 0; g.prevAway = null; // 🎯 a fresh bingo card next game
   }
   // The host changed the quiz: follow along (music, and send our "seen recently" list for the new topic).
   if (g.topicId !== st.topic.id) {
@@ -1148,7 +1152,9 @@ function renderLobby(g, st) {
   $("lobbyCount").textContent = here <= 1 ? "Waiting for friends…" : `${here} players ready!`;
   const chips = $("lobbySettings");
   chips.innerHTML = "";
-  chips.append(el("span", "chip", `${st.settings.count} questions`), el("span", "chip", `${st.settings.timer}s each`), el("span", "chip", LEVEL_NAMES[st.settings.level] || st.settings.level));
+  chips.append(st.settings.mode === "bingo" ? el("span", "chip", `🎯 Bingo · ${WIN_NAMES[st.settings.win] || "Line"}`) : el("span", "chip", `${st.settings.count} questions`),
+    el("span", "chip", `${st.settings.timer}s each`), el("span", "chip", LEVEL_NAMES[st.settings.level] || st.settings.level));
+  renderBingoRules(st); // 🎯
 
   const grid = $("playerGrid");
   grid.innerHTML = "";
@@ -1224,6 +1230,7 @@ function pressStart() {
 
 // ---------- COUNTDOWN ----------
 function prepGame(g, { topic: t, kind }) {
+  $("scr-game").classList.remove("is-bingo"); // a quiz (prepBingo turns bingo back on)
   $("hudTopic").textContent = `${t.emoji} ${t.title}`;
   $("hudCount").innerHTML = "Get ready!";
   $("hudMid").innerHTML = "";
@@ -1252,6 +1259,7 @@ function renderCountdown(g, st) {
   }
   if (st.kind === "solo") renderHearts(meOf(st).lives);
   host.say(st.kind === "solo" ? "3 hearts. Don't lose them all! Go go go!" : "Here we go! Same questions for everyone!", { mood: "cheer", ms: 2600 });
+  if (st.bingo) prepBingo(g, st); // 🎯 show your card while the countdown runs
   const overlay = $("countdown"), num = $("cdNum");
   overlay.classList.remove("hidden");
   const end = st.deadline - g.offset;
@@ -1528,7 +1536,7 @@ function lockUI(choice, showBadge) {
 
 function answer(i) {
   const g = S.g;
-  if (!g || !g.st || g.st.phase !== "question" || g.locked) return;
+  if (!g || !g.st || g.st.phase !== "question" || g.locked || g.st.bingo) return;
   const ms = Math.round(performance.now() - g.shownAt);
   if (!g.conn.send({ t: "answer", q: g.st.qi, choice: i, ms })) { toast("Reconnecting… try again in a second!"); return; }
   g.locked = true;
@@ -1838,6 +1846,7 @@ function renderFinal(g, st, key) {
     $("waitRematch").classList.toggle("hidden", isHost);
     again.onclick = () => { g.conn.send({ t: "rematch" }); sound.play("click"); };
   }
+  renderBingoFinal(st); // 🎯 who got BINGO, and your card
 
   renderStickerSheet(g);
   const lr = $("learnedRow");
@@ -1940,6 +1949,417 @@ async function loadHall() {
   }
 }
 
+// ---------- 🎯 QUIZ BINGO ----------
+// Everyone gets their own 4×4 card of answers. Rufus calls a question (with NO choices): tap its answer
+// on your card to stamp it 🐾, or "Not on my card ✋" if it isn't there. One tap per call, no take-backs.
+// Line: first to fill a row, column or diagonal wins. Blackout: first to stamp all 16 squares.
+// The server decides everything (shared/bingo.js + the bingo part of room.js); this part just shows it,
+// with the quiz's own pieces: the call is the quiz's media card, and the squares are answer buttons.
+// The card is built once per game and then only updated, so it doesn't flicker on every call.
+
+const WIN_NAMES = { line: "Line", blackout: "Blackout" };
+const MODE_NAMES = { quiz: "❓ Quiz", bingo: "🎯 Bingo" };
+const MODE_HINTS = {
+  quiz: "Everyone answers the same questions at the same time. Fastest right answers win!",
+  bingo: "Everyone gets their own bingo card. Rufus calls out questions: find the answers on your card!",
+};
+const WIN_HINTS = { line: "Line: first to fill a row, column or diagonal", blackout: "Blackout: fill all 16 squares" };
+const MEDALS = ["🥇", "🥈", "🥉"];
+const BINGO_SAY = {
+  stamp: ["Stamp! 🐾 Paw-some!", "Splat! Another paw print!", "Stamped! Your card is filling up!"],
+  none: ["Good eye! It wasn't on your card.", "Not there! Well spotted!", "Right: not on your card!"],
+  again: ["Yep, that one's already yours!", "Already stamped, and you found it again!"],
+  oneAway: ["One more square for BINGO! 🔥", "So close! Just one more!"],
+  second: ["Second chance! Who still needs this one?", "This one's back! Listen carefully…"],
+};
+
+// ----- setting up a room: Quiz or Bingo (called from renderSetup) -----
+function renderSetupBingo() {
+  // (the fallbacks: right after an update, a browser can still have the old game info for a few minutes)
+  const r = { modes: ["quiz"], wins: ["line"], bingoTopics: [], ...S.meta.room }, bingo = S.setup.mode === "bingo";
+  seg($("segMode"), r.modes, S.setup.mode, (v) => MODE_NAMES[v] || v, (v) => {
+    S.setup.mode = v;
+    // Bingo works with some topics only: hop onto the first one if this topic can't do it
+    if (v === "bingo" && !r.bingoTopics.includes(S.topicId)) { S.topicId = r.bingoTopics[0]; fx.setAccent(topic(S.topicId).color); }
+    renderSetup();
+  });
+  $("modeHint").textContent = MODE_HINTS[S.setup.mode] || "";
+  $("quizLabel").textContent = bingo ? "Topic" : "Quiz";
+  $("optWin").classList.toggle("hidden", !bingo);
+  $("optCount").classList.toggle("hidden", bingo); // a bingo game ends when someone wins
+  $("bingoTopicHint").classList.toggle("hidden", !bingo);
+  seg($("segWin"), r.wins, S.setup.win, (v) => WIN_NAMES[v] || v, (v) => { S.setup.win = v; renderSetup(); });
+  $("winHint").textContent = WIN_HINTS[S.setup.win] || "";
+  if (!bingo) return;
+  // Grey out the topics bingo can't do (their answers don't make good squares)
+  [...$("quizCards").children].forEach((card, i) => {
+    const t = S.meta.topics[i];
+    if (!t || r.bingoTopics.includes(t.id)) return;
+    card.classList.add("off");
+    card.setAttribute("aria-disabled", "true");
+    card.onclick = () => { sound.play("wrong"); toast(`${t.emoji} ${t.title} can't do bingo. Pick Flags, Maths or Animals!`); };
+  });
+}
+
+// The lobby of a bingo room: how to play, in one line, for everyone who just joined.
+function renderBingoRules(st) {
+  const box = $("bingoRules"), bingo = st.settings.mode === "bingo";
+  box.classList.toggle("hidden", !bingo);
+  if (!bingo) return;
+  box.innerHTML = "";
+  box.append(el("b", null, "🎯 Bingo! "), document.createTextNode("Everyone gets their own card. Rufus calls a question: tap the answer on your card, or ✋ if it isn't there. "),
+    el("b", null, st.settings.win === "blackout" ? "Blackout: first to fill all 16 squares wins!" : "First to fill a row, column or diagonal wins!"));
+}
+
+// ----- the card -----
+// Long answers shrink to fit their square: --u is about how many letters wide the words need (see .bsq .txt).
+function fitUnits(text) {
+  const longest = Math.max(...text.split(/\s+/).map((w) => w.length));
+  return Math.max(4, longest, text.length > 9 ? Math.ceil(text.length / 2) + 1 : text.length);
+}
+
+// What a square shows: a flag picture, or its words (with an emoji if it has one).
+function fillSquare(box, sq) {
+  if (sq.img && !sq.label) {
+    const pic = el("div", "pic");
+    const img = new Image();
+    img.src = sq.img;
+    img.alt = ""; // the file name is scrambled, and so is the label: it mustn't say which flag it is
+    pic.append(img);
+    box.append(pic);
+    return;
+  }
+  if (sq.img) { const im = new Image(); im.src = sq.img; im.className = "mini"; im.alt = ""; box.append(im); }
+  if (sq.emoji) box.append(el("span", "em", sq.emoji));
+  const txt = el("span", "txt", sq.label);
+  txt.style.setProperty("--u", fitUnits(sq.label));
+  box.append(txt);
+}
+
+// The paw-print stamp (the "dauber") on a square you got right.
+function daub() {
+  const d = el("span", "daub");
+  d.append(el("b", null, "🐾"));
+  return d;
+}
+
+function renderCard(g, st) {
+  const box = $("bgrid"), b = st.bingo;
+  if (!b.card) return;
+  if (g.cardRound !== st.round || box.children.length !== b.card.length) {
+    g.cardRound = st.round;
+    box.innerHTML = "";
+    $("bcard").classList.remove("ready");
+    b.card.forEach((sq, k) => {
+      const t = el("button", `ans bsq c${k % 4}`); // one colour per column, like the quiz's 4 answer colours
+      t.style.setProperty("--k", k);
+      fillSquare(t, sq);
+      t.onclick = () => markCell(k);
+      box.append(t);
+    });
+    // Once the squares have popped in, switch that off, so a ✓ or ✗ coming and going doesn't replay it.
+    clearTimeout(g.readyT);
+    g.readyT = setTimeout(() => $("bcard").classList.add("ready"), 1300);
+  }
+  updateCard(st);
+}
+
+// Bring the card up to date: stamps, glowing lines, and whether you can tap.
+function updateCard(st) {
+  const b = st.bingo, box = $("bgrid"), nh = $("notHereBtn");
+  const lit = new Set(b.lines.flat());
+  const open = st.phase === "question" && !st.mine;
+  $("bcard").classList.remove("locked", "revealed");
+  box.classList.toggle("won", !!(b.winners && b.winners.some((w) => w.seat === st.me)));
+  [...box.children].forEach((t, k) => {
+    const sq = b.card[k];
+    t.classList.remove("picked", "right", "wrong");
+    t.querySelectorAll(".mark, .lock").forEach((x) => x.remove());
+    t.classList.toggle("stamped", !!sq.on);
+    t.classList.toggle("inline", lit.has(k));
+    const d = t.querySelector(".daub");
+    if (sq.on && !d) t.append(daub());
+    if (!sq.on && d) d.remove();
+    t.disabled = !open;
+    t.setAttribute("aria-label", `${sq.label || "Flag " + (k + 1)}${sq.on ? ", stamped" : ""}`);
+  });
+  nh.classList.remove("picked", "right", "wrong");
+  nh.querySelectorAll(".mark, .lock").forEach((x) => x.remove());
+  nh.disabled = !open;
+}
+
+// Who's closest to BINGO, as little avatar chips in the middle of the top bar (where the quiz shows its progress dots).
+function renderRace(g, st) {
+  const box = $("hudMid"), before = g.prevAway || {};
+  box.innerHTML = "";
+  const race = el("div", "race");
+  const order = (p) => (p.bingo || 99) * 100 + p.away;
+  const list = st.players.filter((p) => p.connected || p.bingo).sort((x, y) => order(x) - order(y) || (y.id === st.me) - (x.id === st.me));
+  const shown = list.slice(0, innerWidth < 520 ? 3 : 4);
+  const me = list.find((p) => p.id === st.me);
+  if (me && !shown.includes(me)) shown[shown.length - 1] = me; // you can always see yourself
+  for (const p of shown) {
+    const chip = el("span", "rc" + (p.id === st.me ? " me" : "") + (p.bingo ? " won" : p.away === 1 ? " hot" : ""));
+    chip.title = p.name;
+    const won = st.bingo.win === "blackout" ? "BLACKOUT!" : "BINGO!";
+    chip.append(avatar("av", p), el("b", null, p.bingo ? `${won} ${MEDALS[p.bingo - 1] || "🎯"}` : p.away === 1 ? "1 away! 🔥" : `${p.away} away`));
+    if (before[p.id] != null && p.away < before[p.id]) chip.classList.add("closer");
+    race.append(chip);
+  }
+  if (list.length > shown.length) race.append(el("span", "rc more", `+${list.length - shown.length}`));
+  box.append(race);
+  g.prevAway = Object.fromEntries(st.players.map((p) => [p.id, p.away]));
+}
+
+// ----- the game -----
+// The countdown: the card appears, so you can have a good look at it.
+function prepBingo(g, st) {
+  $("scr-game").classList.add("is-bingo");
+  $("hudCount").innerHTML = "Get ready!";
+  $("callTag").classList.add("hidden");
+  $("callAnswer").classList.add("hidden");
+  renderRace(g, st);
+  renderCard(g, st);
+  $("qEyebrow").textContent = `Quiz Bingo · ${WIN_NAMES[st.bingo.win]}`;
+  $("qPrompt").textContent = st.bingo.win === "blackout" ? "Stamp all 16 squares to win!" : "First to fill a row, column or diagonal wins!";
+  fx.alignGlass(); // the call card moved: line up its painted glass again
+  host.say("Bingo time! Find each answer on your card, or tap ✋ if it isn't there!", { mood: "cheer", ms: 3200 });
+}
+
+function renderBingo(g, st) {
+  if (qKey(st) !== g.lastQi) renderCall(g, st, st.phase === "reveal");
+  else if (st.phase === "question") renderWaiting(g, st); // someone locked in
+  if (st.phase === "reveal" && g.revealedQi !== qKey(st)) renderBingoReveal(g, st);
+}
+
+// Rufus calls a question: the same call card and timer as the quiz, but no answer buttons. Your card is the answers.
+function renderCall(g, st, silent) {
+  $("countdown").classList.add("hidden");
+  clearInterval(g.cdT);
+  $("banner").classList.add("hidden");
+  if (S.screen !== "game") show("game", { accent: st.topic.color });
+  if (!$("scr-game").classList.contains("is-bingo")) { $("scr-game").classList.add("is-bingo"); fx.alignGlass(); }
+  g.lastQi = qKey(st);
+  g.revealedQi = null;
+  g.locked = !!st.mine;
+  const q = st.question, me = meOf(st), b = st.bingo;
+  const [lvlName, lvlColor] = LEVEL[q.level] || LEVEL[2];
+  fx.setAccent(lvlColor || st.topic.color);
+  $("levelTag").textContent = lvlName;
+  $("hudTopic").textContent = `${st.topic.emoji} ${st.topic.title}`;
+  $("hudCount").innerHTML = `Call <b>${b.call}</b>`;
+  const sc = $("hudScore");
+  sc.dataset.v = me.score;
+  sc.textContent = me.score.toLocaleString();
+  renderStreak(me.streak);
+  renderRace(g, st);
+
+  renderMedia(q.media, st.topic.emoji);
+  $("callTag").classList.toggle("hidden", !b.again);
+  if (b.again) restartAnim($("callTag"), "in");
+  $("callAnswer").classList.add("hidden");
+  $("qEyebrow").textContent = q.eyebrow;
+  $("qPrompt").textContent = q.prompt;
+  restartAnim($("qEyebrow"), "q-anim");
+  restartAnim($("qPrompt"), "q-anim");
+
+  renderCard(g, st);
+  $("factBox").classList.add("hidden");
+  $("nextBtn").classList.add("hidden");
+  renderWaiting(g, st);
+  if (st.mine) lockCard(st.mine.cell);
+
+  if (silent) { stopTimer(g); return; }
+  g.shownAt = performance.now();
+  // Start your stopwatch when the call's picture has loaded, so slow Wi-Fi isn't unfair.
+  waitForImages($("mediaCard")).then(() => { if (g.lastQi === qKey(st) && !g.locked) g.shownAt = performance.now(); });
+  startTimer(g, st);
+  if (b.again) host.say(pick(BINGO_SAY.second), { mood: "think", ms: 2200 });
+  else if (Math.random() < 0.25) host.say(line("think"), { mood: "think", ms: 1500 });
+  else host.hide();
+  announce(`Call ${b.call}${b.again ? ", second chance" : ""}. ${q.prompt}`);
+}
+
+// One tap per call: a square (0-15), or "none" = "Not on my card".
+function markCell(cell) {
+  const g = S.g;
+  if (!g || !g.st || !g.st.bingo || g.st.phase !== "question" || g.locked) return;
+  const ms = Math.round(performance.now() - g.shownAt);
+  if (!g.conn.send({ t: "mark", call: g.st.qi, cell, ms })) { toast("Reconnecting… try again in a second!"); return; }
+  g.locked = true;
+  lockCard(cell);
+  sound.play("lock");
+  host.say(line("locked"), { mood: "think", ms: 0 });
+}
+
+function lockCard(cell) {
+  const box = $("bgrid"), nh = $("notHereBtn");
+  $("bcard").classList.add("locked");
+  [...box.children].forEach((t) => { t.disabled = true; });
+  nh.disabled = true;
+  const t = cell === "none" ? nh : box.children[cell];
+  if (!t) return;
+  t.classList.add("picked");
+  t.append(el("span", "lock", cell === "none" ? "🔒 Locked in!" : "🔒"));
+}
+
+// The answer, shown at the bottom of the call card: what it was, whether it was on your card, and who got it.
+function showCallAnswer(st) {
+  const r = st.reveal, box = $("callAnswer");
+  box.innerHTML = "";
+  const sq = el("span", "ca-sq");
+  fillSquare(sq, r.square);
+  box.append(el("span", "ca-ok", "✓"), sq, el("span", "ca-note", r.cell >= 0 ? "on your card!" : "not on your card"));
+  const who = el("span", "ca-who");
+  st.players.filter((p) => p.last && p.last.right).slice(0, 6).forEach((p, k) => {
+    const a = avatar("", p);
+    a.style.setProperty("--k", k);
+    a.title = p.name;
+    who.append(a);
+  });
+  if (who.children.length) box.append(who);
+  box.classList.remove("hidden");
+  restartAnim(box, "in");
+}
+
+// The reveal: where the answer was on YOUR card, your stamp, points, and maybe… BINGO!
+function renderBingoReveal(g, st) {
+  g.revealedQi = qKey(st);
+  stopTimer(g);
+  const r = st.reveal, mine = st.mine || {}, me = meOf(st), b = st.bingo;
+  updateCard(st); // the new stamp and any new line arrive here
+  const tiles = [...$("bgrid").children], nh = $("notHereBtn");
+  $("bcard").classList.add("revealed");
+  const where = r.cell >= 0 ? tiles[r.cell] : nh;
+  where.classList.add("right");
+  where.append(el("span", "mark", "✓"));
+  const tapped = mine.cell === "none" ? nh : Number.isInteger(mine.cell) ? tiles[mine.cell] : null;
+  if (tapped && tapped !== where) {
+    tapped.classList.add("wrong");
+    tapped.append(el("span", "mark", "✗"));
+  }
+  showCallAnswer(st);
+  renderRace(g, st);
+  $("answeredRow").innerHTML = "";
+  const fb = $("factBox");
+  fb.classList.remove("hidden");
+  restartAnim(fb, "fact");
+  typeText($("factText"), r.fact);
+  $("factCredit").innerHTML = "";
+  store.remember(S.profile.id, g.topicId, r.key, !!mine.right);
+  $("timerNum").textContent = mine.right ? "✓" : "✗";
+  $("timer").style.setProperty("--tcol", mine.right ? "#3ddc97" : "#ff4d6d");
+  $("timerArc").style.strokeDashoffset = "0";
+
+  const sc = $("hudScore");
+  const newLine = b.lines.length > (g.linesLit || 0);
+  g.linesLit = b.lines.length;
+  if (mine.right) {
+    const c = fx.center(tapped || where);
+    if (mine.stamp) {
+      restartAnim(tapped.querySelector(".daub"), "fresh"); // thump!
+      sound.play("stamp");
+      setTimeout(() => sound.play("correct"), 160);
+    } else sound.play("correct");
+    fx.burst(c.x, c.y, { count: 35 + Math.min(me.streak, 8) * 10 });
+    fx.floatText("+" + mine.points.toLocaleString(), c.x, c.y - 20);
+    fx.flash("glow");
+    setTimeout(() => { fx.countUp(sc, me.score, 800); restartAnim(sc.parentElement, "bump"); }, 380);
+    let say = pick(mine.stamp ? BINGO_SAY.stamp : mine.cell === "none" ? BINGO_SAY.none : BINGO_SAY.again);
+    if (mine.stamp && me.away === 1 && !b.winners) say = pick(BINGO_SAY.oneAway);
+    const hype = !b.winners && celebrate(me.streak, g.topicId, S.profile ? displayName(S.profile) : "friend");
+    if (hype) {
+      say = hype.say;
+      if (hype.banner) showBanner(hype.banner);
+      if (hype.banner && hype.banner.size === "big") setTimeout(() => sound.play("streak", hype.level), 250);
+    }
+    if (!b.winners) host.say(say, { mood: me.streak >= 3 ? "cheer" : "happy" });
+    fx.setSpeed(1 + Math.min(me.streak, 12) * 0.35);
+    announce(`Right! Plus ${mine.points} points.${r.cell >= 0 ? "" : " It wasn't on your card."}`);
+  } else {
+    const timeout = mine.timeout || mine.cell == null;
+    sound.play(timeout ? "timeout" : "wrong");
+    fx.shake($("mediaCard"));
+    fx.flash("hurt");
+    if (!b.winners) host.say(streakBroken(g.myStreak || 0) || line(timeout ? "timeout" : "wrong"), { mood: "sad" });
+    fx.setSpeed(1);
+    sc.textContent = me.score.toLocaleString();
+    sc.dataset.v = me.score;
+    announce(timeout ? "Time's up!" : r.cell >= 0 ? "Not quite. It was on your card." : "Not quite. It wasn't on your card.");
+  }
+  if (newLine && !b.winners) setTimeout(() => sound.play("line"), 500); // a line lit up (blackout keeps going)
+  g.myStreak = me.streak;
+  renderStreak(me.streak);
+  sound.setIntensity(me.streak >= 15 ? 3 : me.streak >= 5 ? 2 : 1);
+  if (b.winners) bingoMoment(g, st);
+
+  // The host can skip ahead (otherwise the next call comes by itself in a few seconds).
+  const next = $("nextBtn");
+  next.textContent = b.winners ? "See results ▶" : "Next call ▶";
+  next.classList.toggle("hidden", st.hostId !== st.me);
+}
+
+// 🎯 BINGO! A banner, fireworks, a fanfare and a very happy Rufus. The game ends after this.
+function bingoMoment(g, st) {
+  const b = st.bingo, mine = st.mine || {};
+  const won = b.winners.map((w) => st.players.find((p) => p.id === w.seat)).filter(Boolean);
+  if (!won.length) return;
+  const iWon = won.some((p) => p.id === st.me), black = b.win === "blackout", first = won[0];
+  setTimeout(() => {
+    if (S.g !== g) return;
+    const more = won.length > 1 ? ` + ${won.length - 1} MORE` : "";
+    showBanner({ text: black ? "BLACKOUT!" : "BINGO!", emoji: "🎯", colors: ["#ff2d55", "#ffd23f"], size: "big", level: 8,
+      sub: iWon ? `YOU${more}! · +${(mine.bonus || 0).toLocaleString()}` : `${first.name}${more}` });
+    $("banner").classList.add("bingo"); // stays up a little longer than a streak banner (see app.css)
+    clearTimeout(showBanner.t);
+    showBanner.t = setTimeout(() => $("banner").classList.add("hidden"), 3600);
+    sound.play("bingo");
+    fx.fireworks(iWon ? 10 : 6);
+    if (iWon) fx.rain(240);
+    const c = fx.center($("rufus"));
+    fx.popEmoji(["🎯", "🎉", "🐾"], c.x, c.y - 40, 6);
+    host.say(iWon ? (black ? "BLACKOUT! Every single square! You legend! 🎉" : "BINGO!!! You did it! 🎉🦊")
+      : `BINGO for ${first.emoji} ${first.name}! What a game!`, { mood: "cheer", ms: 5200 });
+  }, 650); // after the stamp lands
+}
+
+// The results: who got BINGO (a ribbon on the podium) and your own card, stamps and all.
+function renderBingoFinal(st) {
+  const box = $("bingoFinal"), b = st.bingo;
+  box.classList.toggle("hidden", !(b && b.card));
+  if (!b || !b.card) return;
+  const won = (b.winners || []).map((w) => st.players.find((p) => p.id === w.seat)).filter(Boolean);
+  const top = st.players.slice().sort((x, y) => x.rank - y.rank)[0];
+  const word = b.win === "blackout" ? "BLACKOUT" : "BINGO";
+  $("roomTitle").textContent = won.some((p) => p.id === st.me) ? `${word}! You win! 🏆`
+    : won.length ? `🎯 ${won[0].emoji} ${won[0].name} got ${word}!`
+    : `Out of calls! ${top.emoji} ${top.name} wins on points`;
+  for (const pod of $("podium").querySelectorAll(".pod")) {
+    const name = pod.querySelector(".nm") && pod.querySelector(".nm").textContent; // names are one-of-a-kind in a room
+    if (won.some((p) => p.name === name)) pod.querySelector(".who").append(el("span", "bingo-tag", `🎯 ${word}`));
+  }
+  box.innerHTML = "";
+  box.append(el("p", "label", "Your card"));
+  const grid = el("div", "bgrid mini");
+  const lit = new Set(b.lines.flat());
+  b.card.forEach((sq, k) => {
+    const t = el("div", `ans bsq c${k % 4}` + (sq.on ? " stamped" : "") + (lit.has(k) ? " inline" : ""));
+    fillSquare(t, sq);
+    if (sq.on) t.append(daub());
+    grid.append(t);
+  });
+  box.append(grid);
+}
+
+function wireBingo() {
+  $("notHereBtn").onclick = () => markCell("none");
+  // Keyboard: N = "Not on my card"
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.metaKey || e.ctrlKey || S.screen !== "game" || !S.g || !S.g.st || !S.g.st.bingo) return;
+    if (e.key.toLowerCase() === "n") markCell("none");
+  });
+}
+
 // ---------- wiring ----------
 function wire() {
   $("brandBtn").onclick = () => {
@@ -1995,6 +2415,7 @@ function wire() {
   };
   $("joinGoBtn").onclick = joinRoom;
   $("startBtn").onclick = pressStart;
+  wireBingo();
   $("leaveLobbyBtn").onclick = () => leaveGame(true);
   $("nextBtn").onclick = () => { if (S.g && S.g.conn.send({ t: "next" })) { sound.play("click"); $("nextBtn").classList.add("hidden"); } };
   $("profileSave").onclick = saveProfile;

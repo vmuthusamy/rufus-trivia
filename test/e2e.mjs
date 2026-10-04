@@ -177,6 +177,12 @@ async function challenge() {
     await A.waitFor((s) => s.qi === qi && s.event === "answered" && s.players.find((p) => p.id === aSeat).answered);
     const mid = B.states.filter((s) => s.qi === qi && s.phase === "question").pop();
     assert.equal(mid.reveal, undefined, "no answer leaks before everyone has answered");
+    // ...and neither does the scoreboard: scores, streaks and ranks only move at the reveal.
+    const stats = (p) => [p.score, p.streak, p.correct, p.rank];
+    for (const p of mid.players) {
+      const was = qb.players.find((x) => x.id === p.id); // (someone who joined mid-question isn't in the earlier state)
+      if (was) assert.deepEqual(stats(p), stats(was), "no points before the reveal");
+    }
     B.send({ t: "answer", q: qi, choice: 1, ms: 2500 });
     if (lateP && qi >= 1) lateP.send({ t: "answer", q: qi, choice: 2, ms: 3000 });
     const ra = await A.waitFor((s) => s.phase === "reveal" && s.qi === qi);
@@ -311,12 +317,22 @@ async function stickersTest() {
   P[0].send({ t: "start" });
   // Party Host: the host of a 4-player game
   await P[0].waitFor((s) => (s.myStickers || []).includes("partyhost"));
+  let fairChecks = 0;
   for (let qi = 0; qi < 5; qi++) {
-    await P[0].waitFor((s) => s.phase === "question" && s.qi === qi);
+    const q0 = await P[0].waitFor((s) => s.phase === "question" && s.qi === qi);
     // Each kid picks a different answer, so exactly one of them is right every time.
-    P.forEach((p, i) => p.send({ t: "answer", q: qi, choice: i, ms: 400 }));
+    // Three answer first. While the fourth is still thinking, nobody's score, streak, right-count or rank
+    // may move: that would tell the whole room who got it right before the reveal.
+    const last = qi % 4;
+    P.forEach((p, i) => { if (i !== last) p.send({ t: "answer", q: qi, choice: i, ms: 400 }); });
+    const mid = await P[last].waitFor((s) => s.qi === qi && s.phase === "question" && s.players.filter((p) => p.answered).length === 3);
+    const stats = (p) => [p.score, p.streak, p.correct, p.rank];
+    for (const p of mid.players) assert.deepEqual(stats(p), stats(q0.players.find((x) => x.id === p.id)), "the scoreboard gives nothing away before the reveal");
+    P[last].send({ t: "answer", q: qi, choice: last, ms: 400 });
     const rv = await P[0].waitFor((s) => s.phase === "reveal" && s.qi === qi);
+    if (rv.reveal.answer !== last) fairChecks++; // the right kid had already answered, so that check really tested something
     const winner = P[rv.reveal.answer];
+    assert.ok(rv.players.find((p) => p.id === winner.last().me).score > 0, "the points arrive at the reveal");
     // nobody got a sticker for this question before the reveal
     for (const p of P) {
       const before = p.states.filter((s) => s.qi === qi && s.phase === "question").pop();
@@ -331,6 +347,7 @@ async function stickersTest() {
     P[0].send({ t: "next" });
   }
   const fin = await P[0].waitFor((s) => s.phase === "final");
+  assert.ok(fairChecks >= 1, "at least one question had the right kid answering early");
   const champSeat = fin.final.ranking[0];
   const champ = P.find((p) => p.last().me === champSeat);
   await champ.waitFor((s) => s.phase === "final" && s.myStickers.includes("champion"));
@@ -435,6 +452,150 @@ async function namesTest() {
   console.log("  names: one-of-a-kind, enforced in rooms, name key unlocks, guessing locked out");
 }
 
+// 🎯 Quiz Bingo: 3 players, random cards from one pool, one tap per call, played all the way to a BINGO.
+// The bots can't see the answers (nobody can). They tap at random the first time round, but remember
+// every answer the reveals show them, so when a square comes back as a "Second chance!" they know it.
+async function bingoRoom() {
+  const a = profile("Lucky", "Fox"), b = profile("Fuzzy", "Panda"), c = profile("Zippy", "Bee");
+  const room = (extra) => post("/api/rooms", { topic: "flags", count: 10, timer: 10, level: "easy", player: a, ...extra });
+  assert.equal((await room({ topic: "science", mode: "bingo" })).status, 400, "no bingo for science");
+  assert.equal((await room({ mode: "bingo", win: "corners" })).status, 400, "made-up win rule");
+  assert.equal((await room({ mode: "lotto" })).status, 400, "made-up game");
+  const { data } = await room({ topic: "math" }); // a normal quiz room…
+  const path = `/api/rooms/${data.code}/ws`;
+  const A = player(path, a), B = player(path, b);
+  await Promise.all([A.ready, B.ready]);
+  await A.waitFor((s) => s.players.length === 2);
+  assert.equal(A.last().settings.mode, "quiz");
+
+  // …that the host turns into bingo (only the host, only bingo topics)
+  const bingo = { count: 10, timer: 10, level: "medium", mode: "bingo", win: "line" };
+  A.send({ t: "settings", topic: "culture", ...bingo });
+  B.send({ t: "settings", topic: "flags", ...bingo });
+  await sleep(300);
+  assert.equal(B.last().settings.mode, "quiz", "no bingo for culture, and not from a non-host");
+  A.send({ t: "settings", topic: "flags", ...bingo });
+  const set = await B.waitFor((s) => s.event === "settings" && s.settings.mode === "bingo");
+  assert.deepEqual([set.topic.id, set.settings.win], ["flags", "line"]);
+  B.send({ t: "mark", call: 0, cell: 0 }); // not playing yet: ignored
+  A.send({ t: "start" });
+
+  const sig = (sq) => `${sq.label || ""}|${sq.img || ""}`;
+  const callSig = (st) => st.question.prompt + JSON.stringify(st.question.media);
+  const cardOf = (p) => p.states.findLast((s) => s.bingo && s.bingo.card).bingo.card;
+  const [ca, cb] = await Promise.all([A, B].map((p) => p.waitFor((s) => s.phase === "countdown" && s.bingo)));
+  for (const st of [ca, cb]) {
+    assert.equal(st.bingo.card.length, 16, "a 4x4 card");
+    assert.equal(new Set(st.bingo.card.map(sig)).size, 16, "16 different squares");
+    assert.ok(st.bingo.card.every((sq) => sq.on === 0), "nothing stamped yet");
+  }
+  assert.notDeepEqual(ca.bingo.card.map(sig), cb.bingo.card.map(sig), "everyone gets a different card");
+
+  const bots = [A, B];
+  const known = new Map(); // call -> its right square, learned from the reveals
+  const points = new Map(); // seat -> points added up from every reveal
+  let C = null, round1 = new Set(), winners = null, calls = 0, secondChances = 0;
+  const tapFor = (p, st, qi) => {
+    const card = st.bingo.card;
+    const want = known.get(callSig(st));
+    if (want) { const k = card.findIndex((sq) => sig(sq) === want); return k >= 0 ? k : "none"; }
+    return (qi + bots.indexOf(p)) % 3 === 0 ? "none" : (qi * 7 + bots.indexOf(p) * 5) % 16; // a guess
+  };
+  for (let qi = 0; qi < 40 && !winners; qi++) {
+    const qs = await Promise.all(bots.map((p) => p.waitFor((s) => s.phase === "question" && s.qi === qi)));
+    calls++;
+    if (qs[0].bingo.again) secondChances++;
+    assert.equal(qs[0].question.choices, undefined, "a call never shows the choices");
+    assert.equal(qs[0].reveal, undefined, "no answer during the call");
+    assert.deepEqual(qs[0].question, qs[1].question, "everyone hears the same call");
+    if (qi === 0) {
+      // Taps that must be ignored: off the card, nonsense, the wrong call, and a quiz answer.
+      for (const bad of [{ cell: 16 }, { cell: -1 }, { cell: "x" }, { cell: 2.5 }, { cell: 0, call: 5 }]) B.send({ t: "mark", call: 0, ...bad });
+      B.send({ t: "answer", q: 0, choice: 0 });
+      await sleep(250);
+      assert.ok(!B.last().players.find((p) => p.id === B.last().me).answered, "bad taps don't count");
+    }
+    if (qi === 1) { // someone joins in the middle of the game: they get a card too
+      C = player(path, c);
+      await C.ready;
+      const cc = await C.waitFor((s) => s.phase === "question" && s.qi === 1 && s.bingo && s.bingo.card);
+      assert.equal(cc.bingo.card.length, 16);
+      bots.push(C);
+      qs.push(cc);
+    }
+    if (qi === 3) { // B's Wi-Fi blips: same card when they come back
+      const before = cardOf(B).map(sig);
+      B.ws.close();
+      await sleep(150);
+      const B2 = player(path, b);
+      await B2.ready;
+      const back = await B2.waitFor((s) => s.phase === "question" && s.qi === 3);
+      assert.deepEqual(back.bingo.card.map(sig), before, "same card after reconnecting");
+      bots[1] = B2;
+      qs[1] = back;
+    }
+    const taps = bots.map((p, i) => tapFor(p, qs[i], qi));
+    bots.forEach((p, i) => p.send({ t: "mark", call: qi, cell: taps[i], ms: 900 + i * 300 }));
+    if (qi === 0) B.send({ t: "mark", call: 0, cell: taps[1] === "none" ? 4 : "none" }); // a second tap: ignored
+    const rs = await Promise.all(bots.map((p) => p.waitFor((s) => s.phase === "reveal" && s.qi === qi)));
+    bots.forEach((p) => p.send({ t: "mark", call: qi, cell: 0 })); // too late: the call is over
+    if (qi === 0) {
+      await sleep(200);
+      assert.ok(!A.states.some((s) => s.qi === 0 && s.event === "answered" && s.phase === "reveal"), "late taps are ignored");
+      assert.equal(A.last().mine.cell, rs[0].mine.cell, "and change nothing");
+    }
+    const [ra] = rs;
+    known.set(callSig(qs[0]), sig(ra.reveal.square));
+    rs.forEach((r, i) => {
+      const tap = taps[i], mine = r.mine;
+      assert.equal(mine.cell, tap, "my first tap is the one that counts");
+      assert.equal(mine.right, r.reveal.cell >= 0 ? tap === r.reveal.cell : tap === "none", "right = the answer's square, or 'not on my card' when it isn't");
+      assert.equal(r.bingo.card.findIndex((sq) => sig(sq) === sig(r.reveal.square)), r.reveal.cell, "the reveal points at the answer on MY card");
+      if (mine.stamp) assert.equal(r.bingo.card[tap].on, 1, "a right tap stamps the square");
+    });
+    for (const p of ra.players) points.set(p.id, (points.get(p.id) || 0) + p.last.points + p.last.bonus);
+    if (ra.bingo.winners) winners = ra.bingo.winners;
+    for (const r of rs) for (const sq of r.bingo.card) round1.add(sig(sq));
+    A.send({ t: "next" }); // the host skips ahead
+  }
+  assert.ok(winners && winners.length >= 1, "someone got BINGO");
+  assert.ok(round1.size <= 24, "every card comes from one pool of 24 squares");
+  const fin = await A.waitFor((s) => s.phase === "final");
+  await sleep(200);
+  for (const p of fin.players) assert.equal(p.score, points.get(p.id), `${p.name}'s points add up`);
+  assert.deepEqual(fin.final.ranking.slice(0, winners.length), winners.map((w) => w.seat), "BINGO winners first, fastest tap first");
+  const rest = fin.final.ranking.slice(winners.length).map((seat) => fin.players.find((p) => p.id === seat).score);
+  for (let i = 1; i < rest.length; i++) assert.ok(rest[i - 1] >= rest[i], "everyone else by score");
+  for (const w of winners) {
+    const pl = fin.players.find((p) => p.id === w.seat);
+    assert.ok(pl.bingo >= 1 && pl.away === 0, "the winner's card has a line");
+    const bot = bots.find((p) => p.last().me === w.seat);
+    await bot.waitFor((s) => (s.myStickers || []).includes("bingo_line"));
+  }
+  // Nothing secret ever reached a browser: no bingo flags, no private ids.
+  for (const p of [A, B, ...bots]) for (const st of p.states) {
+    const txt = JSON.stringify(st);
+    assert.ok(!/alsoRight|noBingo/.test(txt), "bingo flags leaked");
+    for (const secret of [a.id, b.id, c.id]) assert.ok(!txt.includes(secret), "a private player id leaked");
+  }
+
+  // Rematch: fresh cards from fresh flags. Then the host leaves mid-game and it carries on without them.
+  A.send({ t: "rematch" });
+  await bots[1].waitFor((s) => s.phase === "lobby" && s.event === "rematch");
+  A.send({ t: "start" });
+  const fresh = await bots[1].waitFor((s) => s.phase === "countdown" && s.round === 2 && s.bingo);
+  const continents = ["Africa", "Asia", "Europe", "North America", "South America", "Oceania"]; // (these can come round again)
+  assert.equal(fresh.bingo.card.filter((sq) => round1.has(sig(sq)) && !continents.includes(sq.label)).length, 0, "a rematch card has fresh flags");
+  await bots[1].waitFor((s) => s.phase === "question" && s.round === 2);
+  A.send({ t: "leave" });
+  A.ws.close();
+  bots.slice(1).forEach((p) => p.send({ t: "mark", call: 0, cell: "none" }));
+  const rv = await bots[1].waitFor((s) => s.phase === "reveal" && s.round === 2);
+  assert.notEqual(rv.hostId, A.last().me, "the host role moved on");
+  console.log(`  bingo: ${calls} calls (${secondChances} second chances), BINGO for ${winners.map((w) => fin.players.find((p) => p.id === w.seat).name).join(" + ")}, scores ${fin.players.map((p) => `${p.name}=${p.score}`).join(", ")}`);
+  bots.forEach((p) => p.ws.close());
+}
+
 const t0 = Date.now();
 console.log("solo run…");
 await soloRun();
@@ -450,5 +611,7 @@ console.log("remember me…");
 await rememberMe();
 console.log("names…");
 await namesTest();
+console.log("bingo…");
+await bingoRoom();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);

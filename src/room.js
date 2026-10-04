@@ -9,16 +9,19 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.js";
-import { STICKER_BY_ID, stickersForAnswer, stickersForFinish, stickersForStart, showcase } from "./shared/stickers.js";
+import { STICKER_BY_ID, stickersForAnswer, stickersForBingo, stickersForCall, stickersForFinish, stickersForStart, showcase } from "./shared/stickers.js";
 import { freshSeed } from "./shared/rng.js";
 import { buildGame, buildQuestion, publicQuestion } from "./shared/game.js";
-import { SOLO, ROOM_LIMITS, scoreAnswer } from "./shared/scoring.js";
+import { SOLO, ROOM_LIMITS, BINGO_BONUS, bingoPoints, roomSettings, scoreAnswer } from "./shared/scoring.js";
+import { BINGO, buildPool, cardFor, callOrder, secondChance, awayFrom, hasWon, linesDone, publicCall, publicSquare } from "./shared/bingo.js";
 import { cleanPlayer, cleanKeys } from "./shared/names.js";
 
 const COUNTDOWN_MS = 3500;        // "3, 2, 1, GO!"
 const GRACE_MS = 700;             // a little wiggle room for slow Wi-Fi after the timer ends
 const ROOM_REVEAL_MS = 9000;      // challenge: time to read the fact + see the scoreboard (host can skip)
 const SOLO_REVEAL_MS = 8000;      // solo: keep the game flowing (tap "Next" to go sooner)
+const BINGO_REVEAL_MS = 4500;     // 🎯 bingo: a quick look at the answer, then the next call (host can skip)
+const BINGO_WIN_MS = 8000;        // 🎯 bingo: time to cheer the BINGO before the results
 const IDLE_TTL_MS = 3 * 60 * 60 * 1000; // tidy up games nobody has touched for 3 hours
 const RECONNECT_GRACE_MS = 5000;   // if someone's Wi-Fi blips mid-question, wait this long for them to come back
 
@@ -104,6 +107,7 @@ export class GameRoom extends DurableObject {
     const isHost = this.effectiveHost() === pid;
 
     if (msg.t === "answer") return this.onAnswer(pid, msg);
+    if (msg.t === "mark") return this.onMark(pid, msg); // 🎯 a tap on a bingo card
     // Solo: "I'm done" ends the run now; the score so far still goes to the Hall of Fame
     // (scores only ever go up, so quitting early can't be used to cheat).
     if (msg.t === "quit" && this.s.kind === "solo" && ["countdown", "question", "reveal"].includes(this.s.phase)) {
@@ -154,14 +158,13 @@ export class GameRoom extends DurableObject {
     this.broadcast("leave", ws);
   }
 
-  // The host changed the quiz in the lobby (topic, how many questions, timer, difficulty).
+  // The host changed the quiz in the lobby (topic, quiz or bingo, how many questions, timer, difficulty).
   async onSettings(msg) {
     const s = this.s;
-    const count = Number(msg.count), timer = Number(msg.timer), level = String(msg.level);
-    if (!canPlay(msg.topic) || !ROOM_LIMITS.counts.includes(count) || !ROOM_LIMITS.timers.includes(timer) ||
-        !ROOM_LIMITS.levels.includes(level)) return; // not allowed: ignore
+    const { settings } = roomSettings(msg, msg.topic);
+    if (!canPlay(msg.topic) || !settings) return; // not allowed: ignore
     s.topic = msg.topic;
-    s.settings = { count, timer, level };
+    s.settings = settings;
     this.save();
     this.broadcast("settings");
   }
@@ -176,6 +179,7 @@ export class GameRoom extends DurableObject {
     delete s.players[pid];
     s.order = s.order.filter((id) => id !== pid);
     s.banned = [...(s.banned || []), pid];
+    if (s.bingo) { delete s.bingo.cards[pid]; delete s.bingo.marks[pid]; }
     this.save();
     for (const ws of this.ctx.getWebSockets()) {
       if ((ws.deserializeAttachment() || {}).pid === pid) {
@@ -248,6 +252,7 @@ export class GameRoom extends DurableObject {
     if (Array.isArray(msg.showcase)) {
       player.pins = msg.showcase.filter((id) => typeof id === "string" && (player.stickers || []).includes(id)).slice(0, 3);
     }
+    if (this.isBingo() && s.bingo) this.dealCard(p.id); // 🎯 joined a bingo game late: here's your card
     ws.serializeAttachment({ pid: p.id });
     this.save();
 
@@ -276,7 +281,8 @@ export class GameRoom extends DurableObject {
       const asked = (s.asked && s.asked[s.topic]) || [];
       const avoid = new Set([...s.order.flatMap((id) => s.players[id].avoid).slice(-800), ...asked]);
       const missed = new Set(s.order.flatMap((id) => s.players[id].missed).slice(-200));
-      s.questions = buildGame(topic, { seed: s.seed, count: s.settings.count, levelSetting: s.settings.level, avoid, missed });
+      if (this.isBingo()) this.startBingo(topic, avoid, missed); // 🎯 a pool of squares + everyone's cards
+      else s.questions = buildGame(topic, { seed: s.seed, count: s.settings.count, levelSetting: s.settings.level, avoid, missed });
       s.asked = { ...(s.asked || {}), [s.topic]: [...asked.filter((k) => !s.questions.some((q) => q.key === k)), ...s.questions.map((q) => q.key)].slice(-600) };
       // Anonymous counts for the stats page: one more challenge game, and how many played.
       try {
@@ -308,6 +314,7 @@ export class GameRoom extends DurableObject {
   }
 
   async nextQuestion() {
+    if (this.isBingo()) return this.nextCall();
     const s = this.s;
     const total = s.kind === "room" ? s.settings.count : SOLO.maxQuestions;
     const solo = s.kind === "solo" ? s.players[s.hostId] : null;
@@ -325,7 +332,7 @@ export class GameRoom extends DurableObject {
 
   async onAnswer(pid, msg) {
     const s = this.s;
-    if (s.phase !== "question" || msg.q !== s.qi) return;
+    if (s.phase !== "question" || msg.q !== s.qi || this.isBingo()) return; // (bingo taps are "mark", see onMark)
     const answers = s.answers[s.qi];
     if (answers[pid]) return; // one answer each, no take-backs
     const q = s.questions[s.qi];
@@ -342,16 +349,9 @@ export class GameRoom extends DurableObject {
     let ms = Number.isFinite(clientMs) ? Math.min(serverMs, Math.max(clientMs, serverMs - 1500)) : serverMs;
     ms = Math.max(0, Math.min(limit, ms));
 
-    const p = s.players[pid];
-    const correct = choice === q.answer;
-    p.streak = correct ? p.streak + 1 : 0;
-    p.bestStreak = Math.max(p.bestStreak, p.streak);
-    const points = scoreAnswer({ correct, msUsed: ms, timeLimitMs: limit, level: q.level, streak: p.streak });
-    p.score += points;
-    if (correct) p.correct += 1;
-    if (!correct && s.kind === "solo") p.lives -= 1;
-    answers[pid] = { choice, ms, correct, points, streak: p.streak };
-    p.history.push({ key: q.key, correct });
+    // Just remember the tap. Whether it was right, and the points, are worked out at the reveal
+    // (scoreQuestion), so the scoreboard can't give the answer away while others are still thinking.
+    answers[pid] = { choice, ms };
     this.saveSoon();
 
     if (s.kind === "solo" || this.allAnswered()) return this.reveal();
@@ -370,26 +370,34 @@ export class GameRoom extends DurableObject {
     return this.reveal();
   }
 
+  // The question is over: work out who was right, the points, streaks and (solo) lives, for everyone.
   // Anyone who didn't answer (ran out of time, dropped out, joined late) gets a "timed out":
   // their streak resets and it counts as a miss, however the question ended.
-  markUnanswered() {
+  scoreQuestion() {
     const s = this.s;
     const answers = s.answers[s.qi] || (s.answers[s.qi] = {});
     const q = s.questions[s.qi];
+    const limit = s.settings.timer * 1000;
     for (const id of s.order) {
-      if (answers[id]) continue;
       const p = s.players[id];
-      p.streak = 0;
-      if (s.kind === "solo") p.lives -= 1;
-      answers[id] = { choice: -1, ms: s.settings.timer * 1000, correct: false, points: 0, streak: 0, timeout: true };
-      p.history.push({ key: q.key, correct: false });
+      const a = answers[id] || (answers[id] = { choice: -1, ms: limit, timeout: true });
+      a.correct = a.choice === q.answer;
+      p.streak = a.correct ? p.streak + 1 : 0;
+      p.bestStreak = Math.max(p.bestStreak, p.streak);
+      a.points = scoreAnswer({ correct: a.correct, msUsed: a.ms, timeLimitMs: limit, level: q.level, streak: p.streak });
+      a.streak = p.streak;
+      p.score += a.points;
+      if (a.correct) p.correct += 1;
+      if (!a.correct && s.kind === "solo") p.lives -= 1;
+      p.history.push({ key: q.key, correct: a.correct });
     }
   }
 
   async reveal() {
     const s = this.s;
     if (s.phase !== "question") return;
-    this.markUnanswered();
+    if (this.isBingo()) return this.revealCall();
+    this.scoreQuestion();
     // Stickers for this question (streaks, speedy paws, topic master) - only now, at the reveal,
     // so a sticker popping up can't tell anyone who got it right before they see the answer.
     for (const id of s.order) {
@@ -472,9 +480,172 @@ export class GameRoom extends DurableObject {
     s.questions = [];
     s.answers = [];
     s.qi = -1;
+    s.bingo = null; // 🎯 a fresh card next game
     for (const id of s.order) Object.assign(s.players[id], { score: 0, streak: 0, bestStreak: 0, correct: 0, history: [] });
     this.save();
     this.broadcast("rematch");
+  }
+
+  // ---------- 🎯 QUIZ BINGO (the rules are in shared/bingo.js) ----------
+  // Same room, same countdown, timer and reveal as a quiz, but:
+  //   s.questions   the POOL: 24 questions, each one's answer is a square
+  //   s.bingo.order the first time round: every pool question once, in a random order
+  //   s.bingo.calls what has been called so far (numbers into the pool); call number s.qi is calls[s.qi]
+  //   s.bingo.cards each player's card: 16 numbers into the pool (secret: from the seed + their private id)
+  //   s.bingo.marks each player's stamps: 16 x (1 = stamped, 0 = empty)
+  //   s.bingo.winners who got BINGO, fastest tap first: [{ pid, ms }]
+
+  isBingo() {
+    return this.s.kind === "room" && this.s.settings.mode === "bingo";
+  }
+
+  startBingo(topic, avoid, missed) {
+    const s = this.s;
+    s.questions = buildPool(topic, { seed: s.seed, levelSetting: s.settings.level, avoid, missed });
+    s.bingo = { order: callOrder(s.seed, s.questions.length), calls: [], cards: {}, marks: {}, winners: null };
+    for (const id of s.order) this.dealCard(id);
+  }
+
+  // A player's card (made the first time it's needed, e.g. for someone who joins late).
+  dealCard(pid) {
+    const b = this.s.bingo;
+    if (!b.cards[pid]) {
+      b.cards[pid] = cardFor(this.s.seed, pid, this.s.questions.length);
+      b.marks[pid] = Array(BINGO.cells).fill(0);
+    }
+    return b.cards[pid];
+  }
+
+  // Rufus calls the next square: every square once, then second chances for squares someone still needs.
+  // The game ends after a BINGO, after BINGO.maxCalls calls, or when nobody needs anything.
+  async nextCall() {
+    const s = this.s, b = s.bingo;
+    const n = b.calls.length;
+    let next = -1;
+    if (!b.winners && n < BINGO.maxCalls) {
+      if (n < b.order.length) next = b.order[n];
+      else {
+        const here = this.connectedPids();
+        const cards = s.order.filter((id) => here.has(id) && b.cards[id]).map((id) => ({ card: b.cards[id], marks: b.marks[id] }));
+        next = secondChance({ seed: s.seed, call: n, cards, win: s.settings.win, last: b.calls[n - 1] });
+      }
+    }
+    if (next < 0) return this.finish();
+    b.calls.push(next);
+    s.qi = n;
+    s.answers[s.qi] = {};
+    s.phase = "question";
+    s.phaseAt = Date.now();
+    s.deadline = s.phaseAt + s.settings.timer * 1000;
+    await this.setWake(s.deadline + GRACE_MS, "timeup");
+    this.broadcast("question");
+  }
+
+  // A tap on a bingo card: { t: "mark", call: 3, cell: 0-15 } or { t: "mark", call: 3, cell: "none" } ("Not on my card").
+  // One tap per call, no take-backs. Whether it was right is worked out now but only shown at the reveal.
+  async onMark(pid, msg) {
+    const s = this.s, b = s.bingo;
+    if (!this.isBingo() || !b || s.phase !== "question" || msg.call !== s.qi) return;
+    const answers = s.answers[s.qi];
+    if (answers[pid]) return;
+    const none = msg.cell === "none";
+    if (!none && !(Number.isInteger(msg.cell) && msg.cell >= 0 && msg.cell < BINGO.cells)) return;
+    const now = Date.now();
+    if (now > s.deadline + GRACE_MS) return;
+    // The same stopwatch rule as the quiz: trust the browser's time a little, never more than 1.5s better.
+    const serverMs = now - s.phaseAt, clientMs = Number(msg.ms), limit = s.settings.timer * 1000;
+    let ms = Number.isFinite(clientMs) ? Math.min(serverMs, Math.max(clientMs, serverMs - 1500)) : serverMs;
+    ms = Math.max(0, Math.min(limit, ms));
+
+    const card = this.dealCard(pid), target = b.calls[s.qi];
+    const right = none ? !card.includes(target) : card[msg.cell] === target;
+    const stamp = right && !none && !b.marks[pid][msg.cell]; // a brand-new stamp (not one you already had)
+    answers[pid] = { cell: none ? "none" : msg.cell, ms, right, stamp };
+    this.saveSoon();
+    if (this.allAnswered()) return this.reveal();
+    this.broadcast("answered");
+  }
+
+  // Time's up (or everyone tapped): stamp the cards, add the points, and check for BINGO.
+  async revealCall() {
+    const s = this.s, b = s.bingo;
+    const q = s.questions[b.calls[s.qi]];
+    const answers = s.answers[s.qi] || (s.answers[s.qi] = {});
+    const limit = s.settings.timer * 1000;
+    const again = s.qi >= b.order.length; // a "Second chance!" call
+    const winners = [];
+    for (const id of s.order) {
+      const p = s.players[id];
+      this.dealCard(id);
+      const marks = b.marks[id];
+      // Didn't tap (ran out of time, dropped out, joined late): a "timed out", like the quiz.
+      const a = answers[id] || (answers[id] = { cell: null, ms: limit, right: false, stamp: false, timeout: true });
+      p.streak = a.right ? p.streak + 1 : 0;
+      p.bestStreak = Math.max(p.bestStreak, p.streak);
+      a.points = bingoPoints({ stamp: a.stamp, right: a.right, msUsed: a.ms, timeLimitMs: limit, level: q.level, streak: p.streak });
+      a.streak = p.streak;
+      p.score += a.points;
+      if (a.right) p.correct += 1;
+      const linesBefore = linesDone(marks).length;
+      if (a.stamp) marks[a.cell] = 1;
+      p.history.push({ key: q.key, correct: a.right });
+      if (!a.timeout) {
+        this.give(p, stickersForAnswer({ topic: s.topic, correct: a.right, streak: a.streak, ms: a.ms, correctSoFar: p.correct }));
+        // 🦖 two lines with one stamp; 🧐 the 5th call they rightly spotted wasn't on their card
+        const spotted = s.answers.filter((calls) => calls[id] && calls[id].cell === "none" && calls[id].right).length;
+        this.give(p, stickersForCall({ newLines: linesDone(marks).length - linesBefore, spotted }));
+      }
+      if (a.stamp && hasWon(marks, s.settings.win)) winners.push({ pid: id, ms: a.ms });
+    }
+    // BINGO! Everyone who finished on this call wins, the fastest tap first. The game ends after this reveal.
+    if (winners.length) {
+      winners.sort((x, y) => x.ms - y.ms || s.players[x.pid].joinedAt - s.players[y.pid].joinedAt);
+      b.winners = winners;
+      for (const w of winners) {
+        const p = s.players[w.pid];
+        answers[w.pid].bonus = BINGO_BONUS;
+        p.score += BINGO_BONUS;
+        // 🎯 plus the Rufus family's: 🧦 quick, 🍕 every call right since they joined, 🐾 on a second chance
+        this.give(p, stickersForBingo({ win: s.settings.win, calls: s.qi + 1, perfect: p.correct === p.history.length, again }));
+      }
+    }
+    s.phase = "reveal";
+    s.phaseAt = Date.now();
+    s.deadline = s.phaseAt + (winners.length ? BINGO_WIN_MS : BINGO_REVEAL_MS);
+    await this.setWake(s.deadline, "advance");
+    this.broadcast("reveal");
+  }
+
+  // What everyone may know about a player in a bingo game: how close they are, whether they won,
+  // and (after the reveal) how their tap went. Never their card.
+  bingoPlayer(id, a) {
+    const b = this.s.bingo, marks = b.marks[id];
+    const place = b.winners ? b.winners.findIndex((w) => w.pid === id) + 1 : 0;
+    const out = { away: marks ? awayFrom(marks, this.s.settings.win) : BINGO.cells, bingo: place };
+    if (a) out.last = { right: a.right, stamp: a.stamp, points: a.points || 0, bonus: a.bonus || 0, timeout: !!a.timeout };
+    return out;
+  }
+
+  // My card, my stamps, and (at the reveal) where the answer was on MY card.
+  bingoView(view, pid, q, answers) {
+    const s = this.s, b = s.bingo;
+    const card = b.cards[pid], marks = b.marks[pid];
+    view.bingo = {
+      win: s.settings.win,
+      call: s.qi + 1,
+      again: s.qi >= b.order.length, // a "Second chance!" call (the first time round calls every square once)
+      card: card ? card.map((i, k) => ({ ...publicSquare(s.questions[i]), on: marks[k] })) : null,
+      lines: marks ? linesDone(marks) : [],
+      winners: b.winners ? b.winners.map((w) => ({ seat: this.seatOf(w.pid), ms: w.ms })) : null,
+    };
+    if (s.phase === "reveal" && q) {
+      view.reveal = {
+        cell: card ? card.indexOf(b.calls[s.qi]) : -1, // -1 = it wasn't on my card
+        square: publicSquare(q),
+        fact: q.fact, key: q.key, learn: q.learn,
+      };
+      view.mine = answers[pid] || null;
+    }
   }
 
   // ---------- timers (Durable Object alarms) ----------
@@ -576,16 +747,20 @@ export class GameRoom extends DurableObject {
 
   standings() {
     const s = this.s;
+    // 🎯 Bingo: whoever got BINGO comes first (fastest tap first), then everyone else by score.
+    const winners = (this.isBingo() && s.bingo && s.bingo.winners) || [];
+    const place = (p) => { const i = winners.findIndex((w) => w.pid === p.id); return i < 0 ? winners.length : i; };
     return s.order
       .map((id) => s.players[id])
-      .sort((a, b) => b.score - a.score || b.correct - a.correct || a.joinedAt - b.joinedAt)
+      .sort((a, b) => place(a) - place(b) || b.score - a.score || b.correct - a.correct || a.joinedAt - b.joinedAt)
       .map((p) => p.id);
   }
 
   view(pid, event, except) {
     const s = this.s;
     const here = this.connectedPids(except);
-    const q = s.questions[s.qi];
+    const bingo = this.isBingo() && s.bingo; // 🎯 in bingo, question number qi is "call number qi"
+    const q = bingo ? s.questions[s.bingo.calls[s.qi]] : s.questions[s.qi];
     const answers = s.answers[s.qi] || {};
     const showAnswers = s.phase === "reveal" || s.phase === "final";
     const ranking = this.standings();
@@ -601,23 +776,25 @@ export class GameRoom extends DurableObject {
       if (s.kind === "solo") out.lives = p.lives;
       // the stickers they show off: the ones they pinned, or else their 3 rarest
       out.stickers = p.pins && p.pins.length ? p.pins : showcase(p.stickers);
-      if (showAnswers && a) out.last = { choice: a.choice, correct: a.correct, points: a.points, timeout: !!a.timeout };
+      if (bingo) Object.assign(out, this.bingoPlayer(id, showAnswers && a));
+      else if (showAnswers && a) out.last = { choice: a.choice, correct: a.correct, points: a.points, timeout: !!a.timeout };
       return out;
     });
 
     const view = {
       t: "state", event, kind: s.kind, code: s.code, me: this.seatOf(pid), hostId: this.seatOf(this.effectiveHost(except)),
       topic: topicCard(TOPIC_BY_ID[s.topic]), settings: s.settings, phase: s.phase, round: s.round,
-      qi: s.qi, total: s.kind === "room" ? s.settings.count : null,
+      qi: s.qi, total: s.kind === "room" && !bingo ? s.settings.count : null,
       phaseAt: s.phaseAt, deadline: s.deadline, serverNow: Date.now(),
       players,
       choosing: s.kind === "room" ? this.choosingCount(except) : 0,
       myStickers: (s.players[pid] && s.players[pid].stickers) || [],
-      question: q && (s.phase === "question" || s.phase === "reveal") ? publicQuestion(q) : null,
-      mine: answers[pid] ? { choice: answers[pid].choice } : null,
+      question: q && (s.phase === "question" || s.phase === "reveal") ? (bingo ? publicCall(q) : publicQuestion(q)) : null,
+      mine: answers[pid] ? (bingo ? { cell: answers[pid].cell } : { choice: answers[pid].choice }) : null,
     };
+    if (bingo) this.bingoView(view, pid, q, answers);
 
-    if (s.phase === "reveal" && q) {
+    if (s.phase === "reveal" && q && !bingo) {
       view.reveal = { answer: q.answer, fact: q.fact, labels: q.reveal || null, key: q.key, learn: q.learn, credits: q.credits || null };
       // 🐾 Fastest paw: the quickest right answer in the room
       let fast = null;

@@ -26,7 +26,14 @@
 //     reveal: [{ label, img? }, ...],    // optional: names for every choice, shown after answering
 //     fact: "Japan's flag is called...", // Rufus says this after the answer
 //     learn: { label: "Japan", img },    // shown in "things you learned" at the end
+//     noBingo: true,                     // 🎯 optional: never use in Quiz Bingo (see bingo.js)
+//     alsoRight: ["Cub", "Whelp"],       // 🎯 optional: other answers that are ALSO right
 //   }
+//
+// 🎯 Quiz Bingo shows the question WITHOUT its 4 choices, and your card is full of other answers.
+// So a question that only works with its choices ("Which one is a mammal?") says noBingo: true,
+// and one with other right answers lists them in alsoRight, so they're never on the same card.
+// Both stay on the server (publicQuestion in game.js never sends them).
 
 export const CONTINENT_EMOJI = {
   Africa: "🦁", Asia: "🐼", Europe: "🏰", "North America": "🦅", "South America": "🦜", Oceania: "🦘",
@@ -82,6 +89,9 @@ export function mixIn(rng, right, wrong) {
 //   guide: { who: "fiery", place: "The fossil dig" }   (who = a sprite name from public/js/sprites.js)
 // A single question can bring its own character with  who: "rattlesnake".
 // The character shows BEFORE anyone answers, so it must never be the answer ("Which snake rattles?" + a rattlesnake).
+// 🎯 Bingo: a question can say  noBingo: true  or  alsoRight: ["Sidewinder"]  (see the top of this file).
+// "Which one…" and "Which of these…" questions need their 4 choices, so they're never used in bingo.
+const NEEDS_CHOICES = /\bwhich (one|of these)\b/i;
 export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time", orbit, music, guide, questions }) {
   const bank = questions.map((q, i) => ({ ...q, key: q.id || id + i, level: q.level || 2 }));
   for (const q of bank) {
@@ -115,6 +125,8 @@ export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time
         answer,
         fact: q.fact || `The answer is ${q.a}.`,
         learn: { label: q.a, emoji: q.emoji || emoji },
+        ...(q.noBingo || NEEDS_CHOICES.test(q.q) ? { noBingo: true } : {}),
+        ...(q.alsoRight ? { alsoRight: q.alsoRight } : {}),
       };
     },
   };

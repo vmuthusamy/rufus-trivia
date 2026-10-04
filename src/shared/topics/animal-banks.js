@@ -5,6 +5,8 @@
 //   🦖 Fiery's Dino Dig
 //   🌍 Amazing Animals - records and surprises from all over the world
 // level: 1 = easy, 2 = medium, 3 = hard. Facts must be true; when scientists aren't sure, say "scientists think".
+// 🎯 Animal Kingdom is a Quiz Bingo topic: a question with other right answers says alsoRight: [...],
+// and one that only works with its 4 choices says noBingo: true (see the top of kit.js).
 
 import { bankTopic } from "../kit.js";
 
@@ -23,9 +25,9 @@ export const snakes = bankTopic({
       fact: "Snakes are reptiles, like lizards, turtles and crocodiles. They have dry, scaly skin." },
     { q: "How does a snake eat its food?", a: "It swallows it whole", wrong: ["It chews it slowly", "It nibbles like a rabbit", "It cuts it up first"], level: 1,
       fact: "Snakes can't chew. Their super-stretchy jaws let them swallow food that's bigger than their own head!" },
-    { q: "Which snake shakes its tail to make a warning sound?", a: "Rattlesnake", wrong: ["King cobra", "Anaconda", "Milk snake"], level: 1,
+    { q: "Which snake shakes its tail to make a warning sound?", a: "Rattlesnake", wrong: ["King cobra", "Anaconda", "Milk snake"], level: 1, alsoRight: ["Sidewinder"], // 🎯 a sidewinder is a little rattlesnake
       fact: "A rattle is made of keratin, like your fingernails. The snake gets a new piece every time it sheds." },
-    { q: "Which snake spreads a wide hood around its neck?", a: "Cobra", wrong: ["Python", "Rattlesnake", "Anaconda"], level: 1,
+    { q: "Which snake spreads a wide hood around its neck?", a: "Cobra", wrong: ["Python", "Rattlesnake", "Anaconda"], level: 1, alsoRight: ["Hognose snake", "King cobra"], // 🎯 scared hognose snakes spread a hood too
       fact: "A cobra stretches out long ribs in its neck to make its famous hood and look extra big." },
     { q: "How do snakes move without legs?", a: "They push with the scales on their belly", wrong: ["They roll like a ball", "They hop on their tail", "They use tiny hidden feet"], level: 1,
       fact: "Belly scales grip the ground as the snake wiggles. Pythons and boas even have tiny leftover hip spurs from long-ago legs!" },
@@ -59,7 +61,7 @@ export const snakes = bankTopic({
       fact: "The inland taipan lives in the hot, dry outback of central Australia. It's very shy and almost never meets people." },
     { q: "About how many kinds of snake are there?", a: "About 4,000", wrong: ["About 40", "About 400", "About 4 million"], level: 3, who: "kingcobra",
       fact: "Scientists know about 4,000 kinds of snake, living on every continent except Antarctica." },
-    { q: "Which snake moves sideways across hot desert sand?", a: "Sidewinder", wrong: ["Sea snake", "King cobra", "Anaconda"], level: 3,
+    { q: "Which snake moves sideways across hot desert sand?", a: "Sidewinder", wrong: ["Sea snake", "King cobra", "Anaconda"], level: 3, alsoRight: ["Rattlesnake"], // 🎯 sidewinders are rattlesnakes
       fact: "Sidewinders are little rattlesnakes. Moving sideways means only small bits of them touch the hot sand." },
     { q: "Where do sea snakes live?", a: "In warm oceans", wrong: ["On snowy mountains", "Only in deserts", "In caves"], level: 3, who: "milksnake",
       fact: "Sea snakes swim with flat, paddle-shaped tails and come up to the surface to breathe air." },
@@ -83,7 +85,7 @@ export const foxes = bankTopic({
       fact: "A fennec fox's ears let heat escape, and they're so good they can hear bugs moving under the sand!" },
     { q: "Which fox turns white in winter?", a: "Arctic fox", wrong: ["Fennec fox", "Red fox", "Kit fox"], level: 1,
       fact: "Most Arctic foxes turn white in winter to hide in the snow, and brown or grey in summer. A few 'blue' Arctic foxes stay dark grey all year!" },
-    { q: "What is a fox's home called?", a: "A den", wrong: ["A nest", "A hive", "A stable"], level: 1,
+    { q: "What is a fox's home called?", a: "A den", wrong: ["A nest", "A hive", "A stable"], level: 1, alsoRight: ["Earth"], // 🎯 a fox's den is also called an earth
       fact: "Foxes dig dens underground (also called earths) to raise their kits." },
     { q: "In Adventures of Rufus, who is Rufus's dad?", a: "Felix", wrong: ["Renard", "Fiery", "King Clown"], level: 1,
       fact: "Felix taught Rufus to smile, and to sing. Mostly to sing!" },
@@ -125,7 +127,7 @@ export const dinos = bankTopic({
       fact: "Triceratops means 'three-horned face'. It also had a big bony frill around its neck." },
     { q: "Which dinosaur had big plates on its back and a spiky tail?", a: "Stegosaurus", wrong: ["Triceratops", "T. rex", "Diplodocus"], level: 1,
       fact: "The spikes on a Stegosaurus tail have a funny nickname: the thagomizer!" },
-    { q: "Which animals alive today are actually dinosaurs?", a: "Birds", wrong: ["Cats", "Frogs", "Sharks"], level: 1,
+    { q: "Which animals alive today are actually dinosaurs?", a: "Birds", wrong: ["Cats", "Frogs", "Sharks"], level: 1, noBingo: true, // 🎯 any bird on a bingo card (owl, ostrich...) would be right too
       fact: "Birds are living dinosaurs! A chicken is a distant cousin of T. rex." },
     { q: "Did baby dinosaurs hatch from eggs?", a: "Yes, all of them", wrong: ["No, they were born like puppies", "Only the flying ones", "Only T. rex"], level: 1,
       fact: "Scientists think every dinosaur hatched from an egg. Some dinosaur eggs were as big as a football!" },
@@ -139,7 +141,7 @@ export const dinos = bankTopic({
       fact: "T. rex had teeth about as long as bananas!" },
     { q: "Real Velociraptors were about the size of a…", a: "Turkey", wrong: ["Bus", "Elephant", "Mouse"], level: 2,
       fact: "Real Velociraptors were turkey-sized, and they had feathers!" },
-    { q: "Which flying reptile lived with the dinosaurs but was NOT a dinosaur?", a: "Pteranodon", wrong: ["Stegosaurus", "Triceratops", "Diplodocus"], level: 2,
+    { q: "Which flying reptile lived with the dinosaurs but was NOT a dinosaur?", a: "Pteranodon", wrong: ["Stegosaurus", "Triceratops", "Diplodocus"], level: 2, noBingo: true, // 🎯 a bat or a bird isn't a dinosaur either... it needs its choices
       fact: "Pteranodon was a pterosaur, a flying cousin of the dinosaurs." },
     { q: "What is a coprolite?", a: "Fossilised poo", wrong: ["A dinosaur egg", "A sparkly rock", "A baby dinosaur"], level: 2,
       fact: "Yes, really! Coprolites can come from any ancient animal, and fossil dino poo shows scientists what dinosaurs ate." },
@@ -164,7 +166,7 @@ export const wild = bankTopic({
   questions: [
     { q: "What is the fastest land animal?", a: "Cheetah", wrong: ["Lion", "Horse", "Kangaroo"], level: 1, emoji: "💨",
       fact: "A cheetah can sprint at about 100 km/h, but only in short bursts before it needs a rest." },
-    { q: "What is the biggest animal that has ever lived?", a: "Blue whale", wrong: ["T. rex", "African elephant", "Giant squid"], level: 1, emoji: "🏆",
+    { q: "What is the biggest animal that has ever lived?", a: "Blue whale", wrong: ["T. rex", "African elephant", "Giant squid"], level: 1, alsoRight: ["Whale"], emoji: "🏆",
       fact: "Blue whales are even heavier than the biggest dinosaurs!" },
     { q: "What is the tallest animal?", a: "Giraffe", wrong: ["Elephant", "Ostrich", "Camel"], level: 1, emoji: "📏",
       fact: "Giraffes can be taller than 5 metres, and their dark tongues are about 50 cm long!" },
@@ -174,13 +176,13 @@ export const wild = bankTopic({
       fact: "Spiders have 8 legs, so they're not insects. Insects have 6!" },
     { q: "How many legs does an insect have?", a: "6", wrong: ["8", "4", "10"], level: 1, emoji: "🐞",
       fact: "Adult insects have 6 legs and 3 body parts: head, thorax and abdomen." },
-    { q: "What does a caterpillar turn into?", a: "A butterfly or moth", wrong: ["A beetle", "A bee", "A worm"], level: 1, emoji: "🐛",
+    { q: "What does a caterpillar turn into?", a: "A butterfly or moth", wrong: ["A beetle", "A bee", "A worm"], level: 1, alsoRight: ["Butterfly", "Moth"], emoji: "🐛",
       fact: "Inside its chrysalis or cocoon, a caterpillar completely rebuilds its body!" },
     { q: "What does a giant panda mostly eat?", a: "Bamboo", wrong: ["Fish", "Honey", "Bananas"], level: 1, emoji: "🐼",
       fact: "Pandas spend about half the day munching bamboo." },
     { q: "Which bird can't fly but is the fastest runner of all birds?", a: "Ostrich", wrong: ["Penguin", "Eagle", "Parrot"], level: 1, emoji: "🥚",
       fact: "Ostriches can run about 70 km/h. They're the biggest birds in the world and lay the biggest eggs too!" },
-    { q: "Which animal changes colour?", a: "Chameleon", wrong: ["Zebra", "Elephant", "Penguin"], level: 1, emoji: "🎨",
+    { q: "Which animal changes colour?", a: "Chameleon", wrong: ["Zebra", "Elephant", "Penguin"], level: 1, noBingo: true, emoji: "🎨", // 🎯 octopuses, squid and Arctic foxes change colour too
       fact: "Chameleons change colour to show their mood and to warm up or cool down, as well as to blend in." },
     { q: "Which animal is called the 'king of the jungle', even though it lives on grassy plains?", a: "Lion", wrong: ["Tiger", "Gorilla", "Elephant"], level: 1, emoji: "👑",
       fact: "Most lions live in grasslands and savannas, not jungles!" },
@@ -188,7 +190,7 @@ export const wild = bankTopic({
       fact: "Honeybees do a 'waggle dance' to tell their hive where the best flowers are!" },
     { q: "How many hearts does an octopus have?", a: "3", wrong: ["1", "2", "8"], level: 2, emoji: "🐙",
       fact: "An octopus has three hearts and blue blood!" },
-    { q: "Which mammal lays eggs?", a: "Platypus", wrong: ["Dolphin", "Bat", "Kangaroo"], level: 2, emoji: "🥚",
+    { q: "Which mammal lays eggs?", a: "Platypus", wrong: ["Dolphin", "Bat", "Kangaroo"], level: 2, alsoRight: ["Echidna"], emoji: "🥚",
       fact: "The platypus and the echidna are the only mammals that lay eggs." },
     { q: "Which bird can fly backwards?", a: "Hummingbird", wrong: ["Eagle", "Owl", "Pigeon"], level: 2, emoji: "🐦",
       fact: "Hummingbirds beat their wings about 50 times a second, so they can hover and even fly backwards!" },
@@ -200,9 +202,9 @@ export const wild = bankTopic({
       fact: "Owls can turn their heads about 270 degrees, because their eyes can't move in their sockets." },
     { q: "What is an elephant's trunk?", a: "Its nose and top lip joined together", wrong: ["A long tooth", "An extra arm", "Its tail"], level: 2, emoji: "🐘",
       fact: "An elephant uses its trunk to smell, drink, grab food and even give hugs!" },
-    { q: "Which animal can't jump?", a: "Elephant", wrong: ["Kangaroo", "Frog", "Rabbit"], level: 2, emoji: "⬆️",
+    { q: "Which animal can't jump?", a: "Elephant", wrong: ["Kangaroo", "Frog", "Rabbit"], level: 2, noBingo: true, emoji: "⬆️", // 🎯 hippos, rhinos and sloths can't jump either
       fact: "Elephants are too heavy, and their ankles too stiff, to jump. Even when they hurry, one foot always stays on the ground." },
-    { q: "Which sea creature can grow back a lost arm?", a: "Starfish", wrong: ["Shark", "Whale", "Seahorse"], level: 2, emoji: "🌊",
+    { q: "Which sea creature can grow back a lost arm?", a: "Starfish", wrong: ["Shark", "Whale", "Seahorse"], level: 2, noBingo: true, emoji: "🌊", // 🎯 an octopus can grow back an arm too
       fact: "Starfish (sea stars) can grow back lost arms, and they don't even have a brain!" },
     { q: "How long can a koala sleep in one day?", a: "Up to about 20 hours", wrong: ["About 1 hour", "About 5 hours", "Koalas never sleep"], level: 2, emoji: "🐨",
       fact: "Koalas sleep so much because eucalyptus leaves give them very little energy." },
@@ -212,7 +214,7 @@ export const wild = bankTopic({
       fact: "Herbivores eat plants, carnivores eat meat, and omnivores (like bears, foxes and people) eat both!" },
     { q: "Which mammal can really flap its wings and fly?", a: "Bat", wrong: ["Flying squirrel", "Sugar glider", "Flying lemur"], level: 3, emoji: "☁️",
       fact: "Bats are the only mammals that truly fly. Flying squirrels and sugar gliders only glide." },
-    { q: "Which animal can regrow its legs, and even bits of its heart?", a: "Axolotl", wrong: ["Hamster", "Pigeon", "Tortoise"], level: 3, emoji: "💧",
+    { q: "Which animal can regrow its legs, and even bits of its heart?", a: "Axolotl", wrong: ["Hamster", "Pigeon", "Tortoise"], level: 3, alsoRight: ["Newt"], emoji: "💧", // 🎯 newts can do it too
       fact: "Axolotls are smiley amphibians from Mexico with amazing healing powers." },
     { q: "Why do sloths sometimes look green?", a: "Tiny plants called algae grow in their fur", wrong: ["They eat too many leaves", "They paint themselves", "They're feeling cold"], level: 3, emoji: "🦥",
       fact: "Sloth hairs have tiny cracks that soak up rain like a sponge, so algae can grow there. Scientists think the green tint helps sloths hide in the trees." },

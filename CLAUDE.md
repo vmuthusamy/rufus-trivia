@@ -28,6 +28,11 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
   A new topic also needs a `<id>_master` sticker in `src/shared/stickers.js` and its name in `public/stats.html`. Always use `rng`, never `Math.random`
   (the same seed must give the same game for everyone in a room).
 - Flag files in `public/f/` have scrambled names on purpose (the URL must not reveal the country).
+- **Quiz Bingo** (a challenge-room mode, `settings.mode = "bingo"`, only for `ROOM_LIMITS.bingoTopics`): the rules are
+  pure functions in `src/shared/bingo.js` (pool of 24 squares, cards, calls, lines, second chances); the room side is the
+  "QUIZ BINGO" section of `room.js`, the screens the "QUIZ BINGO" sections of `app.js`/`app.css`. Exactly ONE square in a
+  pool may be right for each call, so a question with other right answers lists them in `alsoRight`, and one that only
+  works with its 4 choices says `noBingo: true` (server-side only; `test/bingo.test.js` checks thousands of pools).
 - Eye candy must stay at 60 frames a second (taps feel slow otherwise). Three rules keep it there:
   no `backdrop-filter` (glass panels paint their own copy of the sky: "painted glass" in `app.css` + `fx.alignGlass()`);
   a `filter`/`drop-shadow` goes on a still child, never on the element that moves (see the parade boxes, `.orb .ob`,

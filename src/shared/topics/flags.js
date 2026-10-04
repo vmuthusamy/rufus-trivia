@@ -49,6 +49,10 @@ export function factFor(c) {
 
 const asReveal = (x) => ({ label: x.name, img: x.img });
 
+// 🎯 Bingo: flags that look almost the same (Chad and Romania, Indonesia and Monaco...) count as
+// "also right" for each other, so a bingo game never has both on the cards.
+const lookalikeNames = (c) => [c.name, ...lookalikesOf(c.code).map((x) => x.name)];
+
 const MODES = {
   // Show a flag, pick the country name.
   flagToName(rng, c, level) {
@@ -60,6 +64,7 @@ const MODES = {
       choices: items.map((x) => ({ label: x.name })),
       answer,
       reveal: items.map(asReveal),
+      alsoRight: lookalikeNames(c),
     };
   },
 
@@ -73,6 +78,7 @@ const MODES = {
       choices: items.map((x) => ({ img: x.img })),
       answer,
       reveal: items.map(asReveal),
+      alsoRight: lookalikeNames(c),
     };
   },
 
@@ -86,6 +92,8 @@ const MODES = {
       media: { kind: "flag", img: c.img },
       choices: items.map((k) => ({ label: k, emoji: CONTINENT_EMOJI[k] })),
       answer,
+      // 🎯 Bingo: lots of people call the Oceania continent "Australia"
+      ...(c.continent === "Oceania" ? { alsoRight: ["Australia"] } : {}),
     };
   },
 
@@ -103,6 +111,7 @@ const MODES = {
       choices: items.map((x) => ({ img: x.img })),
       answer,
       reveal: items.map(asReveal),
+      noBingo: true, // 🎯 any flag on your card from outside that continent would be "right" too
     };
   },
 };

@@ -18,7 +18,7 @@
 
 import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.js";
 import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick } from "./shared/names.js";
-import { SOLO, ROOM_LIMITS } from "./shared/scoring.js";
+import { SOLO, ROOM_LIMITS, roomSettings } from "./shared/scoring.js";
 import { COUNTRIES } from "./shared/data/countries.js";
 import { STICKERS } from "./shared/stickers.js";
 
@@ -126,15 +126,11 @@ export default {
       if (path === "/api/rooms" && request.method === "POST") {
         const b = await body(request);
         const player = cleanPlayer(b.player);
-        const settings = {
-          count: Number(b.count), timer: Number(b.timer), level: String(b.level),
-        };
         if (TOPIC_BY_ID[b.topic] && !canPlay(b.topic)) return json({ error: "That quiz has retired. Pick another one!" }, 400);
         if (!canPlay(b.topic) || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
-        if (!ROOM_LIMITS.counts.includes(settings.count) || !ROOM_LIMITS.timers.includes(settings.timer) ||
-            !ROOM_LIMITS.levels.includes(settings.level)) {
-          return json({ error: "Those room settings aren't allowed." }, 400);
-        }
+        // count, timer, level, and quiz or 🎯 bingo (bingo only for some topics): see roomSettings in scoring.js
+        const { settings, error } = roomSettings(b, b.topic);
+        if (error) return json({ error }, 400);
         for (let tries = 0; tries < 8; tries++) {
           const code = newCode();
           const res = await roomStub(env, code).init({ kind: "room", code, topic: b.topic, settings, hostId: player.id });

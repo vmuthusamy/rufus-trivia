@@ -328,6 +328,9 @@ function makeNumber(rng, level) {
     exprValues: Object.fromEntries([right, ...wrong].map((e) => [e.text, e.value])),
     fact,
     learn: { label: `${n} = ${(oddOneOut ? wrong[0] : right).text}`, emoji: item },
+    // 🎯 Bingo: "Which one is NOT 48?" needs its 4 choices (every other pile on your card is "not 48").
+    // A pile like "44 + 4" IS 48, so it can never share a bingo game with a plain "48" square.
+    ...(oddOneOut ? { noBingo: true } : { alsoRight: [String(n)] }),
   };
 }
 
@@ -536,6 +539,9 @@ export default {
         label: q.show ? `${q.show.replace("▢", String(q.ans))}${q.show.includes("=") ? "" : " = " + q.ans}` : q.fact.split(/[.!]/)[0],
         emoji: q.emoji || "🧮",
       },
+      // 🎯 Bingo flags from "make the number" (every other answer is just a number, so it can't be muddled)
+      ...(q.noBingo ? { noBingo: true } : {}),
+      ...(q.alsoRight ? { alsoRight: q.alsoRight } : {}),
     };
   },
 };

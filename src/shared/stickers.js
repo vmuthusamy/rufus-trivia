@@ -24,6 +24,14 @@ export const STICKERS = [
   { id: "partyhost", emoji: "🎉", name: "Party Host", how: "Host a challenge with 4 or more players", rarity: 2 },
   { id: "social", emoji: "🤝", name: "Team Player", how: "Play 5 challenge games", rarity: 2 },
   { id: "globetrotter", emoji: "🧳", name: "Explorer", how: "Play every topic at least once", rarity: 2 },
+  // 🎯 Quiz Bingo (the Rufus family cheers you on: see stickersForBingo and stickersForCall)
+  { id: "bingo_line", emoji: "🎯", name: "Bingo!", how: "Be first to fill a line in a Bingo game", rarity: 2 },
+  { id: "bingo_blackout", emoji: "🌑", name: "Blackout", how: "Be first to stamp your whole card in a Blackout Bingo game", rarity: 4 },
+  { id: "felix_socks", emoji: "🧦", name: "Felix's Lucky Socks", how: "Get BINGO in 8 calls or fewer", rarity: 3 },
+  { id: "marthina_pizza", emoji: "🍕", name: "Marthina's Perfect Pizza", how: "Get BINGO without a single wrong tap", rarity: 3 },
+  { id: "renard_eye", emoji: "🧐", name: "Renard's Sharp Eye", how: "Spot 5 calls that aren't on your card in one Bingo game", rarity: 2 },
+  { id: "fiery_stomp", emoji: "🦖", name: "Fiery's Double Stomp", how: "Finish two lines with one stamp", rarity: 4 },
+  { id: "golden_paw", emoji: "🐾", name: "Golden Paw", how: "Get BINGO on a Second chance! call", rarity: 3 },
   // topic masters: 15 right in one game
   { id: "flags_master", emoji: "🚩", name: "Flag Master", how: "Get 15 right in one Flag Frenzy game", rarity: 3 },
   { id: "culture_master", emoji: "🎬", name: "Super Fan", how: "Get 15 right in one Books & Pop Culture game", rarity: 3 },
@@ -55,6 +63,29 @@ export function stickersForFinish({ kind, rank, players, score, correct, count }
   const out = [];
   if (players >= 2 && rank === 1 && score > 0) out.push("champion");
   if (count >= 5 && correct === count) out.push("perfect");
+  return out;
+}
+
+// 🎯 When someone gets BINGO (at the reveal of the winning call, never before).
+//   win:     "line" or "blackout" (the room's bingo setting)
+//   calls:   how many calls the game took (Felix's socks: 8 or fewer; only a Line game can be that quick)
+//   perfect: every call right so far (a stamp, or ✋ when the square wasn't on their card)
+//   again:   the winning call was a "Second chance!"
+export function stickersForBingo({ win, calls, perfect, again }) {
+  const out = [win === "blackout" ? "bingo_blackout" : "bingo_line"];
+  if (calls <= 8) out.push("felix_socks");
+  if (perfect) out.push("marthina_pizza");
+  if (again) out.push("golden_paw");
+  return out;
+}
+
+// 🎯 After every bingo call is revealed, for everyone (winner or not).
+//   newLines:  how many lines this stamp finished at once (a corner can finish a row AND a column)
+//   spotted:   right ✋ "Not on my card" taps so far this game
+export function stickersForCall({ newLines, spotted }) {
+  const out = [];
+  if (newLines >= 2) out.push("fiery_stomp");
+  if (spotted >= 5) out.push("renard_eye");
   return out;
 }
 
