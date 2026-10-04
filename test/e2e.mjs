@@ -596,6 +596,104 @@ async function bingoRoom() {
   bots.forEach((p) => p.ws.close());
 }
 
+// 🎲 Mix it up: a solo mix reaches the "mix" Hall of Fame board; a challenge room plays the same mix for everyone.
+async function mixTest() {
+  const me = profile("Groovy", "Otter");
+  for (const mix of [undefined, ["flags"], ["flags", "flags"], ["flags", "world"], ["flags", "nope"], ["flags", "culture", "animals", "science", "math", "space"]]) {
+    assert.equal((await post("/api/solo", { topic: "mix", mix, player: me })).status, 400, "bad mix refused: " + JSON.stringify(mix));
+  }
+  const { data } = await post("/api/solo", { topic: "mix", mix: ["math", "flags"], player: me });
+  const p = player(`/api/solo/${data.id}/ws`, me, { avoid: ["flags-fr", "math-add1-1"], missed: [] });
+  await p.ready;
+  const cd = await p.waitFor((s) => s.phase === "countdown");
+  assert.equal(cd.topic.id, "mix");
+  assert.deepEqual(cd.topic.mix, ["flags", "math"], "the mix is tidied into home-screen order");
+  assert.equal(cd.topic.music, "adventure");
+  const keys = [];
+  for (let qi = 0; qi < 8; qi++) {
+    await p.waitFor((s) => s.phase === "question" && s.qi === qi, 8000);
+    p.send({ t: "answer", q: qi, choice: 0, ms: 900 });
+    const r = await p.waitFor((s) => s.phase === "reveal" && s.qi === qi);
+    keys.push(r.reveal.key);
+    if (r.players[0].lives <= 0) break;
+    p.send({ t: "next" });
+  }
+  for (const k of keys) assert.match(k, /^(flags|math)-[a-z0-9_-]+$/i, "mix keys say which topic: " + k);
+  assert.equal(new Set(keys).size, keys.length, "no repeats");
+  assert.ok(!keys.includes("flags-fr"), "seen recently is avoided");
+  if (p.last().phase !== "final") p.send({ t: "quit" });
+  const fin = await p.waitFor((s) => s.phase === "final" && s.final.hall);
+  assert.ok(fin.final.hall.rank >= 1);
+  p.ws.close();
+  const board = await (await fetch(`${BASE}/api/hall?topic=mix&period=all&pid=${me.id}`)).json();
+  assert.equal(board.topic, "mix");
+  assert.equal(board.me.best, fin.final.me.score, "the run is on the 🎲 Mix board");
+
+  // Challenge room with a mix: everyone gets the same mixed questions; the host can change the mix; rematch keeps it.
+  const a = profile("Mega", "Panda"), b = profile("Tiny", "Koala");
+  const roomOf = (extra) => post("/api/rooms", { topic: "mix", count: 5, timer: 10, level: "mixed", player: a, ...extra });
+  assert.equal((await roomOf({ mix: ["flags"] })).status, 400, "a mix of one is refused");
+  assert.equal((await roomOf({ mix: ["flags", "math"], mode: "bingo", win: "line" })).status, 400, "a mix can't be bingo");
+  const { data: room } = await roomOf({ mix: ["science", "culture", "animals"] });
+  const peek = await (await fetch(`${BASE}/api/rooms/${room.code}`)).json();
+  assert.deepEqual(peek.topic.mix, ["culture", "animals", "science"], "the join preview shows what's mixed");
+  const path = `/api/rooms/${room.code}/ws`;
+  const A = player(path, a), B = player(path, b);
+  await Promise.all([A.ready, B.ready]);
+  await A.waitFor((s) => s.players.length === 2);
+  A.send({ t: "settings", topic: "mix", mix: ["flags"], count: 5, timer: 10, level: "easy" });
+  A.send({ t: "settings", topic: "mix", mix: ["flags", "math"], count: 5, timer: 10, level: "easy", mode: "bingo", win: "line" });
+  await sleep(300);
+  assert.deepEqual(B.last().topic.mix, ["culture", "animals", "science"], "bad mix changes are ignored");
+  A.send({ t: "settings", topic: "mix", mix: ["math", "flags"], count: 5, timer: 10, level: "easy" });
+  const ch = await B.waitFor((s) => s.event === "settings");
+  assert.deepEqual(ch.topic.mix, ["flags", "math"]);
+  const round = async (r) => {
+    A.send({ t: "start" });
+    const out = [];
+    for (let qi = 0; qi < 5; qi++) {
+      const qa = await A.waitFor((s) => s.phase === "question" && s.qi === qi && s.round === r);
+      const qb = await B.waitFor((s) => s.phase === "question" && s.qi === qi && s.round === r);
+      assert.deepEqual(qa.question, qb.question, "same mixed question for everyone");
+      A.send({ t: "answer", q: qi, choice: 0, ms: 600 });
+      B.send({ t: "answer", q: qi, choice: 1, ms: 900 });
+      const rv = await A.waitFor((s) => s.phase === "reveal" && s.qi === qi && s.round === r);
+      out.push(rv.reveal.key);
+      A.send({ t: "next" });
+    }
+    await A.waitFor((s) => s.phase === "final" && s.round === r);
+    return out;
+  };
+  const r1 = await round(1);
+  A.send({ t: "rematch" });
+  const back = await B.waitFor((s) => s.phase === "lobby" && s.event === "rematch");
+  assert.deepEqual(back.topic.mix, ["flags", "math"], "rematch keeps the mix");
+  const r2 = await round(2);
+  for (const k of [...r1, ...r2]) assert.match(k, /^(flags|math)-/);
+  assert.equal(r2.filter((k) => r1.includes(k)).length, 0, "rematch questions are all new");
+  A.ws.close(); B.ws.close();
+  console.log(`  mix: solo ${keys.length} questions on the Mix board (#${board.me.rank}), room ${room.code} ${r1.length}+${r2.length} fresh mixed questions`);
+}
+
+// 🦊 Rufus fun stickers: only fun ones, once each, and not too fast.
+async function funStickersTest() {
+  const kid = profile("Silly", "Fox");
+  assert.equal((await post("/api/stickers/fun", { player: kid, ids: ["champion"] })).status, 400, "game stickers can't be asked for");
+  assert.equal((await post("/api/stickers/fun", { player: kid, ids: ["bigshow", "mix_master"] })).status, 400, "not even mixed in");
+  assert.equal((await post("/api/stickers/fun", { player: { ...kid, adj: "Rude" }, ids: ["bigshow"] })).status, 400, "needs a real player");
+  const first = await post("/api/stickers/fun", { player: kid, ids: ["bigshow", "napbuddy"] });
+  assert.equal(first.status, 200);
+  assert.deepEqual(first.data.fresh.sort(), ["bigshow", "napbuddy"]);
+  const again = await post("/api/stickers/fun", { player: kid, ids: ["bigshow"] });
+  assert.deepEqual(again.data.fresh, [], "asking twice gives it once");
+  const book = await post("/api/stickers", { player: kid });
+  assert.ok(book.data.stickers.includes("napbuddy"), "it's in the sticker book");
+  let status = 200;
+  for (let i = 0; i < 12 && status === 200; i++) status = (await post("/api/stickers/fun", { player: kid, ids: ["penpals"] })).status;
+  assert.equal(status, 429, "slowed down after lots of tries");
+  console.log("  fun stickers: fun ids only, idempotent, rate-limited");
+}
+
 const t0 = Date.now();
 console.log("solo run…");
 await soloRun();
@@ -613,5 +711,9 @@ console.log("names…");
 await namesTest();
 console.log("bingo…");
 await bingoRoom();
+console.log("mix it up…");
+await mixTest();
+console.log("rufus fun stickers…");
+await funStickersTest();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);
