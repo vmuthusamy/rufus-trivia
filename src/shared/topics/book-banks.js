@@ -132,6 +132,76 @@ export const books = bankTopic({
     { q: "In Jack and the Beanstalk, what does Jack swap for the magic beans?", a: "A cow", wrong: ["A goat", "A pig", "A horse", "A sheep"], level: 1, emoji: "🌱",
       fact: "In the old English version written down by Joseph Jacobs, the cow is called Milky-white." },
 
+    // 🧹 Julia Donaldson, Judith Kerr and other picture-book favourites
+    { q: "In Room on the Broom, what does the witch lose first in the wind?", a: "Her hat", wrong: ["Her wand", "Her bow", "Her cat", "Her cloak"], level: 2, emoji: "🧹",
+      fact: "A dog finds the hat, a bird finds her bow and a frog finds her wand, and each one asks for a ride on the broom." },
+    { q: "In The Snail and the Whale, how does the snail get help for the stranded whale?", a: "She writes on a blackboard", wrong: ["She rings a big bell", "She sends a seagull", "She sings very loudly", "She calls a lifeboat"], level: 2, emoji: "🐌",
+      fact: "At the very start, the snail asks for a lift by writing on a rock with her silvery slime trail." },
+    { q: "In Zog, what does the clumsy young dragon long to win at dragon school?", a: "A golden star", wrong: ["A silver cup", "A shiny medal", "A golden crown", "A blue ribbon"], level: 2, emoji: "🐉",
+      fact: "Princess Pearl patches Zog up after every bump, and in the end she becomes a doctor!" },
+    { q: "In The Tiger Who Came to Tea, where does Sophie's family go for supper after the tiger leaves?", a: "To a café", wrong: ["To a picnic", "To Granny's house", "To a pizza party", "To the seaside"], level: 2, emoji: "🐯",
+      fact: "The tiger eats every bit of food in the house and even drinks all the water in the tap!" },
+    { q: "What is special about Elmer the elephant?", a: "He's patchwork", wrong: ["He's bright pink", "He's very tiny", "He can fly", "He's spotty"], level: 1, emoji: "🐘",
+      fact: "Once a year the elephants decorate themselves for Elmer's Day, and Elmer paints himself elephant-grey!" },
+    { q: "In The Day the Crayons Quit, how do Duncan's crayons tell him they're unhappy?", a: "They write him letters", wrong: ["They hide in a sock", "They draw a map", "They sing a song", "They stop working"], level: 2, emoji: "🖍️",
+      fact: "Peach Crayon won't come out of the box, because its paper wrapper was peeled off and it feels undressed!" },
+    { q: "Who was the very first Mr Men character?", a: "Mr Tickle", wrong: ["Mr Happy", "Mr Greedy", "Mr Bump", "Mr Strong"], level: 3, emoji: "🧡",
+      fact: "Roger Hargreaves dreamed him up in 1971, after his son Adam asked what a tickle looks like." },
+    { q: "In The Tale of Peter Rabbit, what colour is Peter's jacket?", a: "Blue", wrong: ["Red", "Green", "Yellow", "Brown"], level: 2, emoji: "🐰",
+      fact: "Beatrix Potter first told Peter's story in a picture letter to a little boy called Noel Moore in 1893." },
+
+    // 🎩 Dr. Seuss
+    { q: "In The Cat in the Hat, what is the weather like outside?", a: "Rainy", wrong: ["Snowy", "Sunny", "Windy", "Foggy"], level: 1, emoji: "🎩",
+      fact: "Dr. Seuss wrote it using only 236 different words, so children could read it all by themselves." },
+    { q: "In The Lorax, what does the Lorax speak for?", a: "The trees", wrong: ["The fish", "The birds", "The bears", "The flowers"], level: 1, emoji: "🌳",
+      fact: "The Once-ler chops down Truffula trees to knit Thneeds, which he says everyone needs." },
+    { q: "In Horton Hears a Who!, what kind of animal is Horton?", a: "An elephant", wrong: ["A hippo", "A rhino", "A walrus", "A bear"], level: 1, emoji: "🐘",
+      fact: "A whole town of Whos lives on a tiny speck of dust, and only Horton's big ears can hear them." },
+
+    // 🍫 More Roald Dahl
+    { q: "Who does George make his marvellous medicine for?", a: "His grandma", wrong: ["His teacher", "His dad", "His dog", "His sister"], level: 1, emoji: "🧪",
+      fact: "His dad loves how the medicine makes animals grow giant, but George can never make the same mixture again." },
+    { q: "In Roald Dahl's Esio Trot, what kind of pet is Alfie?", a: "A tortoise", wrong: ["A hamster", "A goldfish", "A rabbit", "A parrot"], level: 3, emoji: "🐢",
+      fact: "'Esio Trot' is 'tortoise' spelled backwards! Mr Hoppy swaps Alfie for bigger and bigger tortoises to make Mrs Silver happy." },
+    { q: "In Charlie and the Chocolate Factory, which greedy boy falls into the chocolate river?", a: "Augustus Gloop", wrong: ["Mike Teavee", "Charlie Bucket", "Grandpa Joe", "Willy Wonka"], level: 2, emoji: "🍫",
+      fact: "A waterfall churns up the river's chocolate to make it light and frothy." },
+    { q: "In Matilda, what does Bruce Bogtrotter have to eat in front of the whole school?", a: "A giant chocolate cake", wrong: ["A bowl of cold porridge", "A huge jelly", "A plate of sprouts", "A big trifle"], level: 2, emoji: "🎂",
+      fact: "He eats every last crumb, and all the children cheer him on!" },
+
+    // 🦉 More Harry Potter
+    { q: "Which platform does the Hogwarts Express leave from?", a: "Nine and three-quarters", wrong: ["Seven and a half", "Ten and a quarter", "Twelve and a half", "Thirteen"], level: 1, emoji: "🚂",
+      fact: "At King's Cross station in London, there's a real Platform 9¾ sign, with a luggage trolley half-way into the wall." },
+    { q: "In Harry Potter, what is the name of Ron Weasley's pet rat?", a: "Scabbers", wrong: ["Crookshanks", "Trevor", "Fang", "Nibbles"], level: 2, emoji: "🐀",
+      fact: "Hermione's pet is a clever ginger cat called Crookshanks." },
+    { q: "Which wizard sweets come in every flavour, even earwax?", a: "Bertie Bott's Beans", wrong: ["Chocolate Frogs", "Sugar Quills", "Pepper Imps", "Fizzing Whizzbees"], level: 2, emoji: "🍬",
+      fact: "Chocolate Frogs come with a card of a famous witch or wizard, and the frogs can really hop!" },
+
+    // 📓 Funny books and their makers
+    { q: "Who wrote and drew Diary of a Wimpy Kid?", a: "Jeff Kinney", wrong: ["Dav Pilkey", "Liz Pichon", "David Walliams", "Rick Riordan"], level: 2, emoji: "✏️",
+      fact: "Jeff Kinney first put Greg's diary on a website in 2004, three years before the first book came out." },
+    { q: "In The Worst Witch, what is Mildred Hubble's school called?", a: "Miss Cackle's Academy", wrong: ["Hogwarts", "Broomhill School", "Spellwood Academy", "Grimstone Hall"], level: 3, emoji: "🧙‍♀️",
+      fact: "All the other young witches get black cats, but Mildred ends up with a tabby who can't sit on a broomstick properly." },
+
+    // 🗝️ More classics
+    { q: "In Dick King-Smith's book, which piglet learns to herd sheep like a sheepdog?", a: "Babe", wrong: ["Wilbur", "Pinky", "Percy", "Hamlet"], level: 2, emoji: "🐷",
+      fact: "Babe asks the sheep politely instead of bossing them about. The book is called The Sheep-Pig, and became the film Babe." },
+    { q: "Where do the Borrowers live?", a: "Under the floorboards", wrong: ["Inside a teapot", "In a bird's nest", "Behind a painting", "In a toy box"], level: 3, emoji: "🧷",
+      fact: "They 'borrow' little things from the humans upstairs, like postage stamps to hang as pictures on their walls." },
+    { q: "In The Wind in the Willows, what does Toad love more than anything?", a: "Motor cars", wrong: ["Trains", "Gardening", "Painting", "Kites"], level: 3, emoji: "🐸",
+      fact: "Toad's friends are Mole, Ratty and Badger, and he lives in a grand house called Toad Hall." },
+    { q: "Where does Heidi go to live with her grandfather?", a: "The Swiss Alps", wrong: ["The Scottish Highlands", "The Andes", "The Himalayas", "The Rocky Mountains"], level: 2, emoji: "⛰️",
+      fact: "Heidi was written by Swiss author Johanna Spyri more than 140 years ago, and is still loved all over the world." },
+    { q: "In The Little Prince, what flower does the prince look after on his tiny planet?", a: "A rose", wrong: ["A tulip", "A daisy", "A sunflower", "A daffodil"], level: 3, emoji: "🪐",
+      fact: "His planet also has three tiny volcanoes, and he cleans them out carefully, even the one that's gone quiet." },
+    { q: "In Enid Blyton's Famous Five, what kind of animal is Timmy?", a: "A dog", wrong: ["A cat", "A pony", "A parrot", "A goat"], level: 2, emoji: "🐕",
+      fact: "Timmy belongs to George, whose real name is Georgina. Her family owns a whole island: Kirrin Island!" },
+    { q: "What kind of creatures are the Moomins?", a: "Trolls", wrong: ["Hippos", "Elves", "Bears", "Ghosts"], level: 3, emoji: "🌲",
+      fact: "Tove Jansson, from Finland, wrote the first Moomin book in 1945. Moomins sleep right through the winter!" },
+    { q: "What is the name of Tintin's little white dog?", a: "Snowy", wrong: ["Patch", "Buster", "Pip", "Biscuit"], level: 2, emoji: "🐶",
+      fact: "In the original French comics by Hergé, Snowy is called Milou." },
+    { q: "In The House at Pooh Corner, what game do the friends play by dropping sticks off a bridge?", a: "Poohsticks", wrong: ["Twig Race", "Bridge Ball", "River Run", "Splashsticks"], level: 1, emoji: "🌉",
+      fact: "There's a real Poohsticks Bridge in Ashdown Forest in England, and people still go there to play." },
+
     // 📖 Book words
     { q: "What do we call the person who draws the pictures in a book?", a: "The illustrator", wrong: ["The author", "The editor", "The publisher", "The librarian"], level: 1, emoji: "🖍️",
       fact: "Quentin Blake drew the pictures for lots of Roald Dahl's books, starting with The Enormous Crocodile in 1978." },

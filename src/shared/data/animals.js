@@ -69,6 +69,19 @@ export const ANIMALS = [
   { name: "Raccoon", plural: "raccoons", emoji: "🦝", cls: "mammal", baby: ["kit", "cub"], bl: 3 },
   { name: "Platypus", plural: "platypuses", emoji: null, cls: "mammal", trick: true,
     note: "The platypus is a mammal that lays eggs!" },
+  { name: "Echidna", plural: "echidnas", emoji: null, cls: "mammal", trick: true, baby: ["puggle"], bl: 3,
+    note: "Echidnas are spiky mammals that lay eggs, just like the platypus. A baby echidna grows up in its mum's pouch." },
+  { name: "Badger", plural: "badgers", emoji: "🦡", cls: "mammal", baby: ["cub", "kit"], bl: 2, group: ["cete", "clan", "colony"], gl: 3,
+    note: "Badgers live in big underground homes called setts, with lots of tunnels and rooms." },
+  { name: "Hare", plural: "hares", emoji: null, cls: "mammal", baby: ["leveret"], bl: 3, group: ["husk", "drove", "down"], gl: 3,
+    note: "Baby hares are born with fur and their eyes open, ready to go. Baby rabbits are born with no fur and their eyes shut!" },
+  { name: "Porcupine", plural: "porcupines", emoji: null, cls: "mammal", baby: ["porcupette", "pup"], bl: 3, group: ["prickle"], gl: 3,
+    note: "A porcupine's quills are special hairs. Baby porcupettes are born with soft quills that harden soon after they're born." },
+  { name: "Sloth", plural: "sloths", emoji: "🦥", cls: "mammal", note: "Sloths spend almost their whole lives hanging upside down in the trees." },
+  { name: "Orangutan", plural: "orangutans", emoji: "🦧", cls: "mammal", note: "Orangutans build a fresh leafy nest high up in the trees to sleep in, almost every night." },
+  { name: "Bison", plural: "bison", emoji: "🦬", cls: "mammal", baby: ["calf"], bl: 2, group: ["herd"], gl: 1 },
+  { name: "Mammoth", plural: "mammoths", emoji: "🦣", cls: "mammal",
+    note: "Woolly mammoths were hairy cousins of elephants that lived in the Ice Age." },
 
   // ---------- birds ----------
   { name: "Penguin", plural: "penguins", emoji: "🐧", cls: "bird", trick: true, baby: ["chick", "nestling", "hatchling"], bl: 1,
@@ -84,6 +97,12 @@ export const ANIMALS = [
     note: "Flamingos are pink because of the food they eat. Their chicks are grey!" },
   { name: "Parrot", plural: "parrots", emoji: "🦜", cls: "bird", baby: ["chick", "hatchling"], bl: 2, group: ["pandemonium", "company", "flock"], gl: 3 },
   { name: "Turkey", plural: "turkeys", emoji: "🦃", cls: "bird", baby: ["poult", "chick", "hatchling"], bl: 3, group: ["rafter", "gang", "flock"], gl: 3 },
+  { name: "Starling", plural: "starlings", emoji: null, cls: "bird", group: ["murmuration", "chattering", "flock"], gl: 3,
+    note: "Thousands of starlings can swoop and swirl together in the evening sky. These amazing shapes are called murmurations." },
+  { name: "Hummingbird", plural: "hummingbirds", emoji: null, cls: "bird", group: ["charm", "bouquet", "glittering", "shimmer", "hover"], gl: 3 },
+  { name: "Pigeon", plural: "pigeons", emoji: null, cls: "bird", baby: ["squab", "squeaker", "chick", "hatchling"], bl: 3 },
+  { name: "Dodo", plural: "dodos", emoji: "🦤", cls: "bird", trick: true,
+    note: "Dodos were big birds that couldn't fly. They lived on the island of Mauritius and died out over 300 years ago." },
   { name: "Peacock", plural: "peacocks", emoji: "🦚", cls: "bird", baby: ["peachick", "chick", "poult", "hatchling"], bl: 3, group: ["muster", "ostentation", "pride", "party", "flock"], gl: 3,
     note: "Only the boys (peacocks) have the giant fan of tail feathers. The girls are called peahens." },
 
@@ -108,6 +127,8 @@ export const ANIMALS = [
     note: "Sharks are fish, even though some are huge. Their skeletons are made of bendy cartilage, not bone." },
   { name: "Fish", plural: "fish", emoji: "🐟", cls: "fish", noPick: true, baby: ["fry", "fingerling", "larva", "hatchling"], bl: 3, group: ["school", "shoal"], gl: 1 },
   { name: "Pufferfish", plural: "pufferfish", emoji: "🐡", cls: "fish", note: "A pufferfish can blow itself up like a spiky balloon." },
+  { name: "Eel", plural: "eels", emoji: null, cls: "fish", trick: true, baby: ["elver", "glass eel", "larva", "fry"], bl: 3,
+    note: "Eels look a bit like snakes, but they're fish! They breathe with gills and have fins." },
   { name: "Salmon", plural: "salmon", emoji: null, cls: "fish", note: "Salmon swim all the way back up rivers to the stream where they hatched." },
   { name: "Goldfish", plural: "goldfish", emoji: null, cls: "fish" },
   { name: "Clownfish", plural: "clownfish", emoji: null, cls: "fish", note: "Clownfish live safely among the stinging arms of sea anemones." },
@@ -133,7 +154,7 @@ export const ANIMALS = [
   { name: "Lobster", plural: "lobsters", emoji: "🦞", cls: "crustacean" },
   { name: "Shrimp", plural: "shrimp", emoji: "🦐", cls: "crustacean" },
   { name: "Starfish", plural: "starfish", emoji: null, cls: "other", kind: "sea star", trick: true, note: "Starfish aren't fish at all! Scientists call them sea stars." },
-  { name: "Jellyfish", plural: "jellyfish", emoji: null, cls: "other", kind: "jelly", trick: true, note: "Jellyfish aren't fish either. They have no brain, no heart and no bones!" },
+  { name: "Jellyfish", plural: "jellyfish", emoji: null, cls: "other", kind: "jelly", trick: true, group: ["bloom", "smack", "swarm"], gl: 3, note: "Jellyfish aren't fish either. They have no brain, no heart and no bones!" },
 ];
 
 // What makes each group special (shown after "which one is a mammal?" questions).

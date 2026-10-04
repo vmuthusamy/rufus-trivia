@@ -132,6 +132,69 @@ export const lab = bankTopic({
       fact: "In 1843 she wrote steps for a calculating machine that was never finished, and guessed it might even make music!" },
     { q: "Which ancient Greek thinker is said to have shouted 'Eureka!' in his bath?", a: "Archimedes", wrong: ["Aristotle", "Plato", "Pythagoras", "Socrates"], level: 3, emoji: "🛁",
       fact: "'Eureka' means 'I have found it!' The story says he'd worked out how to check if a king's crown was pure gold." },
+    // --- More materials ---
+    { q: "What do we call a material you can see clearly through, like a window?", a: "Transparent", wrong: ["Opaque", "Magnetic", "Absorbent", "Flexible"], level: 2, emoji: "🪟",
+      fact: "Materials that let only some light through, like tracing paper or frosted glass, are called translucent." },
+    { q: "Which word describes a material that soaks up water, like a sponge?", a: "Absorbent", wrong: ["Waterproof", "Transparent", "Magnetic", "Brittle"], level: 2, emoji: "🧽",
+      fact: "Kitchen roll is absorbent because it's full of tiny gaps between its fibres, and water creeps into them." },
+    { q: "Why are saucepans usually made of metal?", a: "It lets heat through well", wrong: ["It's very light", "It's see-through", "It keeps heat out", "It's bendy"], level: 2, emoji: "🍳",
+      fact: "Pan handles are often plastic or wood. Those are thermal insulators, so the handle stays cool enough to hold." },
+    { q: "What is the name for a material that does NOT let electricity through?", a: "An insulator", wrong: ["A conductor", "A battery", "A circuit", "A magnet"], level: 2, emoji: "🧤",
+      fact: "The opposite, a material that lets electricity flow easily, is called a conductor. All metals are conductors." },
+    { q: "Which of these will NOT dissolve in water?", a: "Sand", wrong: ["Sugar", "Salt", "Instant coffee"], level: 2, emoji: "⏳",
+      fact: "Pour sandy water through filter paper and the sand gets caught. Dissolved salt slips straight through!" },
+
+    // --- More forces and machines ---
+    { q: "What unit do scientists measure forces in?", a: "Newtons", wrong: ["Kilograms", "Litres", "Metres", "Degrees"], level: 3, emoji: "⚖️",
+      fact: "The unit is named after Isaac Newton. A small apple weighs about 1 newton!" },
+    { q: "A seesaw is an example of which simple machine?", a: "A lever", wrong: ["A pulley", "A screw", "A wedge", "A spring"], level: 3, emoji: "🎢",
+      fact: "With a long enough lever, a small push can lift something really heavy. Scissors and bottle openers are levers too!" },
+    { q: "Why do football boots have studs on the bottom?", a: "For more grip", wrong: ["To look shiny", "To make them lighter", "To make them squeak", "To keep feet warm"], level: 1, emoji: "⚽",
+      fact: "Studs dig into the grass and add friction. On icy paths, people spread grit for the same reason." },
+
+    // --- More light and sound ---
+    { q: "Which of these makes its own light?", a: "A candle flame", wrong: ["The Moon", "A mirror", "A shiny spoon", "A bike reflector"], level: 2, emoji: "🕯️",
+      fact: "The Moon and bike reflectors only shine when light hits them. Things that make their own light are called light sources." },
+    { q: "What happens to your shadow as the Sun climbs higher in the sky?", a: "It gets shorter", wrong: ["It gets longer", "It turns blue", "It points at the Sun", "It moves in front of you"], level: 2, emoji: "🧍",
+      fact: "Long ago, people told the time with sundials, which use the moving shadow of a stick or a blade." },
+    { q: "Which of these can split white light into a rainbow of colours?", a: "A prism", wrong: ["A magnet", "A sponge", "A battery", "A sieve"], level: 2, emoji: "🔺",
+      fact: "Isaac Newton used prisms in the 1660s to show that white light is really a mix of all the colours." },
+    { q: "What happens to a sound as you walk away from it?", a: "It gets quieter", wrong: ["It gets louder", "It gets higher", "It gets faster", "It turns into an echo"], level: 1, emoji: "🔊",
+      fact: "Sound spreads out in every direction as it travels, like ripples on a pond, so less of it reaches your ears." },
+
+    // --- More energy and electricity ---
+    { q: "Which of these makes electricity from moving air?", a: "A wind turbine", wrong: ["A solar panel", "A battery", "A light bulb", "A kettle"], level: 1, emoji: "🌬️",
+      fact: "The blades of the biggest sea wind turbines are longer than a jumbo jet's wings!" },
+    { q: "At what temperature does water boil, at sea level?", a: "100°C", wrong: ["0°C", "37°C", "50°C", "1,000°C"], level: 1, emoji: "♨️",
+      fact: "High up a mountain, water boils at a lower temperature. On top of Everest it boils at only about 70°C!" },
+    { q: "What three things does a fire need to keep burning?", a: "Heat, fuel and oxygen", wrong: ["Water, ice and wind", "Sand, salt and sugar", "Light, sound and smoke"], level: 3, emoji: "🔥",
+      fact: "Firefighters call this the fire triangle. Take away any one of the three and the fire goes out." },
+
+    // --- More chemistry ---
+    { q: "What is the chemical symbol for gold?", a: "Au", wrong: ["Go", "Gd", "Ag", "Gl"], level: 3, emoji: "🥇",
+      fact: "Au comes from 'aurum', the Latin word for gold. Silver's symbol, Ag, comes from 'argentum'." },
+    { q: "What is H₂O better known as?", a: "Water", wrong: ["Salt", "Air", "Sugar", "Oil"], level: 1, emoji: "🧪",
+      fact: "Each tiny bit of water, called a molecule, is two hydrogen atoms joined to one oxygen atom." },
+    { q: "Which gas makes party balloons float up into the air?", a: "Helium", wrong: ["Oxygen", "Carbon dioxide", "Steam", "Smoke"], level: 1, emoji: "🎈",
+      fact: "Helium was spotted in the Sun's light in 1868, almost 30 years before anyone found it on Earth!" },
+
+    // --- More plants, life cycles and living things ---
+    { q: "What does a seed need to start growing?", a: "Water and warmth", wrong: ["Salt and sand", "Ice and wind", "Sugar and soap"], level: 3, emoji: "🌱",
+      fact: "Many seeds don't even need light to sprout. They live on food stored inside them until their first leaves open." },
+    { q: "Why do many flowers have bright, colourful petals?", a: "To attract insects", wrong: ["To keep warm", "To scare off birds", "To soak up rain", "To make shade"], level: 1, emoji: "🌸",
+      fact: "Bees can see ultraviolet light, so many flowers have secret patterns we can't see that guide bees to the nectar." },
+    { q: "What is the stage between a caterpillar and a butterfly called?", a: "A chrysalis", wrong: ["A larva", "A tadpole", "A nymph", "An egg"], level: 3, emoji: "🦋",
+      fact: "Inside the chrysalis, the caterpillar's body breaks down and is rebuilt as a butterfly." },
+    { q: "What does almost every food chain start with?", a: "A green plant", wrong: ["A lion", "A shark", "A rock", "An eagle"], level: 2, emoji: "🌾",
+      fact: "Plants are called producers because they make their own food from sunlight. Animals that eat are consumers." },
+    { q: "What do we use to see living things far too small for our eyes?", a: "A microscope", wrong: ["A telescope", "A periscope", "A stethoscope", "A kaleidoscope"], level: 1, emoji: "🦠",
+      fact: "In the 1670s, Antonie van Leeuwenhoek made his own microscopes and was one of the first people ever to see bacteria." },
+
+    // --- More famous scientists ---
+    { q: "Which scientist sailed on HMS Beagle and wrote about how living things change over time?", a: "Charles Darwin", wrong: ["Isaac Newton", "Albert Einstein", "Galileo Galilei", "Louis Pasteur"], level: 2, emoji: "🐢",
+      fact: "Darwin's voyage around the world took nearly five years. Giant tortoises and mockingbirds on the Galápagos Islands got him thinking." },
+    { q: "Who found amazing fossils of sea reptiles on the beach at Lyme Regis in the 1800s?", a: "Mary Anning", wrong: ["Ada Lovelace", "Marie Curie", "Rosalind Franklin", "Florence Nightingale"], level: 3, emoji: "🐚",
+      fact: "Mary was only about 12 when she and her brother found an ichthyosaur skeleton. The tongue-twister 'She sells seashells' is said to be about her!" },
   ],
 });
 
@@ -232,5 +295,52 @@ export const body = bankTopic({
       fact: "Frozen and tinned fruit and veg count towards your 5 A Day too, not just fresh!" },
     { q: "About how much of your body is water?", a: "More than half", wrong: ["Almost none", "About a tenth", "All of it"], level: 2, emoji: "💧",
       fact: "Babies are even more watery: a newborn is about 78% water!" },
+    // --- More bones and muscles ---
+    { q: "What is the proper name for your kneecap?", a: "The patella", wrong: ["The femur", "The skull", "The pelvis", "The spine"], level: 3, emoji: "🦵",
+      fact: "Babies' kneecaps are mostly soft, bendy cartilage. They slowly turn into bone as children grow." },
+    { q: "When you bump your 'funny bone', what are you really knocking?", a: "A nerve", wrong: ["A bone", "A muscle", "A tooth", "A tendon"], level: 2, emoji: "😂",
+      fact: "It's the ulnar nerve, which runs past your elbow with hardly any padding. That's why a knock makes it tingle!" },
+    { q: "What are the small bones that stack up to make your spine?", a: "Vertebrae", wrong: ["Ribs", "Tendons", "Molars", "Knuckles"], level: 3, emoji: "🦒",
+      fact: "A giraffe has seven bones in its long neck, exactly the same number as you!" },
+    { q: "More than a quarter of all your bones are in your...?", a: "Hands and wrists", wrong: ["Skull and jaw", "Ribs", "Spine and hips"], level: 3, emoji: "🦴",
+      fact: "Each hand and wrist has 27 bones, and each foot and ankle has 26. Together they hold more than half of all your bones!" },
+    { q: "What is the hardest stuff in your whole body?", a: "Tooth enamel", wrong: ["Your skull", "Your thigh bone", "Your fingernails", "Your kneecap"], level: 3, emoji: "💎",
+      fact: "Enamel is the shiny outer coat of your teeth. It can't grow back, so brushing to protect it really matters." },
+
+    // --- More blood and breathing ---
+    { q: "What colour is the blood inside your veins?", a: "Red", wrong: ["Blue", "Green", "Purple"], level: 2, emoji: "🔬",
+      fact: "Veins can look blue through your skin, but the blood inside is always red: a darker red than in your arteries." },
+    { q: "What is the main job of your white blood cells?", a: "Fighting germs", wrong: ["Carrying oxygen", "Helping you see", "Making you grow", "Digesting food"], level: 2, emoji: "🛡️",
+      fact: "Some white blood cells can gobble up germs whole, a bit like a tiny Pac-Man!" },
+    { q: "Which tiny bits of your blood stick together to plug a cut?", a: "Platelets", wrong: ["Red blood cells", "Tears", "Hairs", "Nerves"], level: 3, emoji: "🩹",
+      fact: "Platelets clump together to make a clot. The scab you get later is that clot, dried and hard." },
+    { q: "Where in your lungs does oxygen pass into your blood?", a: "In tiny air sacs", wrong: ["In your ribs", "In your vocal cords", "In your tonsils", "In your windpipe"], level: 3, emoji: "🫁",
+      fact: "The air sacs are called alveoli, and a grown-up's lungs have hundreds of millions of them!" },
+    { q: "What happens to your heartbeat when you go for a run?", a: "It speeds up", wrong: ["It stops", "It slows down", "It stays exactly the same"], level: 1, emoji: "🏃",
+      fact: "Working muscles need more oxygen, so your heart pumps faster to deliver it, and you breathe faster too." },
+
+    // --- More organs ---
+    { q: "Which organs clean your blood and make wee?", a: "Your kidneys", wrong: ["Your lungs", "Your heart", "Your brain", "Your tonsils"], level: 2, emoji: "🚽",
+      fact: "Most people have two kidneys, but you can live a healthy life with just one." },
+    { q: "What is the biggest organ INSIDE your body?", a: "Your liver", wrong: ["Your heart", "Your kidneys", "Your stomach", "Your appendix"], level: 3, emoji: "🩺",
+      fact: "Your liver does hundreds of jobs, and it can even grow back if part of it is taken away!" },
+    { q: "What does your stomach make that breaks down food and kills germs?", a: "Acid", wrong: ["Sugar", "Air", "Blood", "Sweat"], level: 3, emoji: "🧪",
+      fact: "Your stomach protects itself with a coat of slimy mucus, so its own acid doesn't harm it." },
+    { q: "What is the tube that carries food from your mouth to your stomach?", a: "The oesophagus", wrong: ["The windpipe", "The small intestine", "The artery", "The spine"], level: 3, emoji: "🍝",
+      fact: "Its muscles squeeze food down in waves, so you could even swallow while standing on your head!" },
+
+    // --- More eyes, skin and staying healthy ---
+    { q: "What is the coloured part of your eye called?", a: "The iris", wrong: ["The pupil", "The retina", "The lens", "The eyelid"], level: 2, emoji: "👀",
+      fact: "Your iris is a ring of muscle that makes your pupil bigger or smaller. Its pattern is as one-of-a-kind as a fingerprint!" },
+    { q: "What gives your skin and hair their colour?", a: "Melanin", wrong: ["Keratin", "Chlorophyll", "Calcium", "Iron"], level: 3, emoji: "🎨",
+      fact: "Freckles are little spots of extra melanin. They often get darker in summer sunshine." },
+    { q: "What makes the little bumps on your skin when you get goosebumps?", a: "Tiny muscles pulling hairs up", wrong: ["Cold blood", "Itchy skin", "Your bones shivering"], level: 3, emoji: "🥶",
+      fact: "In furry animals this puffs up the fur to trap warm air. A startled cat looks bigger for the same reason!" },
+    { q: "Why do you shiver when you're cold?", a: "To make heat", wrong: ["To shake off snow", "To cool down", "To stay awake"], level: 2, emoji: "❄️",
+      fact: "Your body tries to stay at about 37°C. Sweating cools it down; shivering warms it up." },
+    { q: "Which of your nails grow the fastest?", a: "Your fingernails", wrong: ["Your toenails", "They all grow at the same speed", "None of them grow"], level: 2, emoji: "💅",
+      fact: "Fingernails grow about 3.5 millimetres a month, roughly twice as fast as toenails." },
+    { q: "Why do we sneeze?", a: "To push out dust and germs", wrong: ["To cool down", "To make more spit", "To warm up our nose"], level: 1, emoji: "🤧",
+      fact: "A sneeze can spray tiny droplets several metres, so always catch it in a tissue!" },
   ],
 });
