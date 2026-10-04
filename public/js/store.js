@@ -18,7 +18,7 @@ const MAX_PROFILES = 6;
 const SEEN_KEEP = 160;
 const MISSED_KEEP = 60;
 
-function blank() { return { best: {}, seen: {}, missed: {}, games: 0, wins: 0 }; }
+function blank() { return { best: {}, seen: {}, missed: {}, games: 0, wins: 0, fun: {} }; }
 
 export const store = {
   newId() {
@@ -78,6 +78,16 @@ export const store = {
     if (score > prev) d.best[topic] = score;
     this.saveData(pid, d);
     return { prev, isBest: score > prev };
+  },
+
+  // 🦊 Rufus fun stickers: how far this player has got (tricks seen, languages heard, naps...).
+  // See funProgress in rufus.js. Kept here so it survives closing the page.
+  fun(pid) { return pid ? this.data(pid).fun : {}; },
+  setFun(pid, progress) {
+    if (!pid) return;
+    const d = this.data(pid);
+    d.fun = progress;
+    this.saveData(pid, d);
   },
 
   pref(name, fallback) { return get("rt_pref_" + name, fallback); },

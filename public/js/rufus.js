@@ -63,16 +63,34 @@ export const TRICKS = [
   { id: "giggle", ms: 900, sound: "coin", pop: ["😆", "💛"], say: ["Hee hee, that tickles!", "Ha ha! Stop it!", "I brushed my teeth today. Look at this grin!"] },
   { id: "nap", ms: 2200, sound: null, pop: ["💤"], say: ["Zzz... Foxes curl their bushy tails around themselves like a blanket to keep warm.", "Just a quick fox nap... zzz"] },
   { id: "snack", ms: 1000, sound: "coin", pop: ["🍓", "🫐"], say: ["Treats! Berries are my favourite.", "Nom nom! Wild foxes love berries and fruit too."] },
-  { id: "hello", ms: 1200, sound: "pick", pop: ["💬", "🌍"], say: [
-    "Hallo! Ich bin ein glücklicher Fuchs! (That's German for \"I'm a happy fox!\")",
-    "Bonjour ! In French, a fox is \"un renard\", just like my friend Renard!",
-    "Ciao! Sono una volpe felice! (Italian for \"I'm a happy fox!\") Marthina taught me.",
-    "¡Hola! ¡Soy un zorro feliz! (Spanish for \"I'm a happy fox!\")",
-    "Konnichiwa! In Japanese, a fox is a \"kitsune\".",
-    "Namaste! In Hindi, a fox is a \"lomdi\".",
-    "Fun fact: a group of foxes is called a skulk!",
-  ] },
+  { id: "hello", ms: 1200, sound: "pick", pop: ["💬", "🌍"] }, // what he says comes from HELLOS below
 ];
+
+// 💌 Rufus says hello around the world. Each line knows its language (lang), for the Pen Pals sticker.
+// They come from their own shuffled pile too, so you hear every one before any comes round again.
+export const HELLOS = [
+  { lang: "German", say: "Hallo! Ich bin ein glücklicher Fuchs! (That's German for \"I'm a happy fox!\")" },
+  { lang: "French", say: "Bonjour ! In French, a fox is \"un renard\", just like my friend Renard!" },
+  { lang: "Italian", say: "Ciao! Sono una volpe felice! (Italian for \"I'm a happy fox!\") Marthina taught me." },
+  { lang: "Spanish", say: "¡Hola! ¡Soy un zorro feliz! (Spanish for \"I'm a happy fox!\")" },
+  { lang: "Japanese", say: "Konnichiwa! In Japanese, a fox is a \"kitsune\"." },
+  { lang: "Hindi", say: "Namaste! In Hindi, a fox is a \"lomdi\"." },
+  { lang: null, say: "Fun fact: a group of foxes is called a skulk!" }, // not a language, just a fox fact
+];
+export const LANGUAGES = HELLOS.map((h) => h.lang).filter(Boolean);
+
+// A shuffled pile: next() deals one thing at a time, and only reshuffles when the pile is empty,
+// so everything comes up once before anything comes up twice.
+export function pile(list, random = Math.random) {
+  let left = [];
+  return {
+    next() {
+      if (!left.length) left = [...list].sort(() => random() - 0.5);
+      return left.pop();
+    },
+  };
+}
+
 // Tap really fast (5 taps in 2.5 seconds) for the SUPER COMBO.
 const SUPER = { id: "super", ms: 1400, sound: "fanfare", pop: ["🎆", "⭐", "🌀"], super: true, say: ["SUPER COMBO! 🎆", "MEGA TAIL SPIN! You found my secret move!"] };
 
@@ -82,7 +100,8 @@ export function makeFox(el) {
   // browser had to re-blur him on every frame; a still shadow is painted once (see .fox-shade in app.css).
   el.innerHTML = foxSVG().replace('class="fox-svg"', 'class="fox-shade"') + foxSVG();
   el.classList.add("fox");
-  let t = null, trickT = null, pile = [], taps = [], eyes = "";
+  let t = null, trickT = null, taps = [], eyes = "";
+  const tricks = pile(TRICKS), hellos = pile(HELLOS);
   const look = el.querySelector(".fox-svg .look"); // the real fox's eyes (the shadow copy has eyes too, but they stay put)
   return {
     el,
@@ -92,15 +111,13 @@ export function makeFox(el) {
       if (!id) taps = [...taps.filter((at) => now - at < 2500), now]; // only real taps count towards the combo
       let trick = TRICKS.find((x) => x.id === id);
       if (!trick && taps.length >= 5) { trick = SUPER; taps = []; }
-      if (!trick) {
-        if (!pile.length) pile = [...TRICKS].sort(() => Math.random() - 0.5); // shuffle a fresh pile
-        trick = pile.pop();
-      }
+      if (!trick) trick = tricks.next();
       el.classList.remove(...TRICKS.map((x) => "t-" + x.id), "t-super");
       void el.offsetWidth; // restart the animation, even for the same trick twice
       el.classList.add("t-" + trick.id);
       clearTimeout(trickT);
       trickT = setTimeout(() => el.classList.remove("t-" + trick.id), trick.ms);
+      if (trick.id === "hello") { const h = hellos.next(); return { ...trick, line: h.say, lang: h.lang }; }
       return { ...trick, line: pickOne(trick.say) };
     },
     // Rufus's eyes follow your mouse (or finger): one pixel left/right/up/down.
@@ -148,5 +165,47 @@ export function makeHost({ dock, foxEl, bubble, text }) {
     hide() { clearTimeout(hideT); bubble.classList.add("hide"); },
     show(on) { dock.classList.toggle("away", !on); },
     ingame(on) { dock.classList.toggle("ingame", on); },
+  };
+}
+
+// ---------- 🦊 RUFUS FUN STICKERS ----------
+// Tapping Rufus can earn 4 stickers (see "Rufus fun" in src/shared/stickers.js). This browser keeps count
+// for each player (store.js), and app.js sends the finished ones to the server. Only taps count:
+// the little tricks he does by himself when you leave him alone don't.
+//   bigshow     🎪 every trick in TRICKS (the super combo doesn't count)
+//   supercombo  🌀 the super combo
+//   penpals     💌 hello in every language in HELLOS
+//   napbuddy    💤 his nap trick, 3 times
+const NAPS_NEEDED = 3;
+
+// Add one tap's trick to a player's progress. Gives back a NEW progress object (the old one isn't changed).
+export function funProgress(progress, trick) {
+  const p = { tricks: [], langs: [], naps: 0, combo: false, got: [], ...progress };
+  const add = (list, x) => (list.includes(x) ? list : [...list, x]);
+  if (trick.super) p.combo = true;
+  else if (TRICKS.some((x) => x.id === trick.id)) p.tricks = add(p.tricks, trick.id);
+  if (trick.lang) p.langs = add(p.langs, trick.lang);
+  if (trick.id === "nap") p.naps += 1;
+  return p;
+}
+
+// Which fun stickers this progress has earned.
+export function funEarned(p = {}) {
+  const has = (list, all) => all.every((x) => (list || []).includes(x));
+  const out = [];
+  if (has(p.tricks, TRICKS.map((x) => x.id))) out.push("bigshow");
+  if (p.combo) out.push("supercombo");
+  if (has(p.langs, LANGUAGES)) out.push("penpals");
+  if ((p.naps || 0) >= NAPS_NEEDED) out.push("napbuddy");
+  return out;
+}
+
+// How far along each one is, for the sticker book ("6 / 9 tricks").
+export function funStatus(p = {}) {
+  return {
+    bigshow: `${(p.tricks || []).length} / ${TRICKS.length} tricks seen`,
+    supercombo: p.combo ? "Found it!" : "Not found yet",
+    penpals: `${(p.langs || []).length} / ${LANGUAGES.length} languages heard`,
+    napbuddy: `${Math.min(p.naps || 0, NAPS_NEEDED)} / ${NAPS_NEEDED} naps`,
   };
 }

@@ -5,7 +5,7 @@
 import { CONFIG } from "./config.js";
 import { store } from "./store.js";
 import { sound, MUSIC } from "./sound.js";
-import { makeHost, makeFox, line } from "./rufus.js";
+import { makeHost, makeFox, line, funProgress, funEarned, funStatus } from "./rufus.js";
 import { spriteSVG } from "./sprites.js";
 import * as fx from "./fx.js";
 import { openGame } from "./net.js";
@@ -27,6 +27,7 @@ const MENU_SCREENS = new Set(["home", "profile", "setup", "join", "hall"]);
 const S = {
   meta: null,
   topicId: "flags",
+  mix: [], // 🎲 the topics in the Mix it up pot (see MIX IT UP below)
   profile: store.active(),
   draft: null,
   after: null,
@@ -59,7 +60,11 @@ async function api(path, opts) {
 }
 const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
-const topic = (id) => (S.meta && (S.meta.topics.find((t) => t.id === id) || S.meta.topics[0])) || null;
+const topic = (id) => {
+  if (!S.meta) return null;
+  if (id === S.meta.mix.id) return mixCard(); // 🎲 Mix it up (see MIX IT UP below)
+  return S.meta.topics.find((t) => t.id === id) || S.meta.topics[0];
+};
 const emojiFor = (animal) => ((S.meta && S.meta.names.animals.find((a) => a[0] === animal)) || [0, "🦊"])[1];
 const playerPayload = () => S.profile && { id: S.profile.id, adj: S.profile.adj, animal: S.profile.animal, color: S.profile.color, nick: S.profile.nick || null };
 // A typed-in first name wins; otherwise the secret agent name ("Turbo Fox").
@@ -277,10 +282,15 @@ function renderBook() {
   const grid = $("bookGrid");
   grid.innerHTML = "";
   $("bookProgress").textContent = `${all.filter((x) => have.has(x.id)).length} of ${all.length} stickers collected`;
-  for (const info of all) {
+  // Stickers from games first, then the 🦊 Rufus fun ones in a little group of their own (with how far along you are).
+  const fun = funStatus(S.profile ? store.fun(S.profile.id) : {});
+  const extras = all.filter((x) => x.fun);
+  for (const info of [...all.filter((x) => !x.fun), ...extras]) {
+    if (info === extras[0]) grid.append(el("p", "book-group", "Rufus fun 🦊 · tap Rufus to find these!"));
     const got = have.has(info.id);
     const slot = el("button", "slot " + (got ? "got" : "locked") + (pins.includes(info.id) ? " pinned" : "") + (sel === info.id ? " sel" : ""));
     slot.append(el("span", "rar", "★".repeat(info.rarity)), stickerEl(info.id), el("b", null, got ? info.name : "???"), el("small", null, info.how));
+    if (info.fun && !got) slot.append(el("small", "fun-left", fun[info.id]));
     slot.onclick = () => { S.book.sel = info.id; sound.play(got ? "sticker" : "click"); renderInspect(); renderBook(); };
     grid.append(slot);
   }
@@ -313,6 +323,37 @@ function renderInspect() {
   box.append(stickerEl(id), ix);
 }
 
+// ---------- 🦊 RUFUS FUN STICKERS ----------
+// Every tap on Rufus counts towards 4 just-for-fun stickers (all his tricks, the secret combo, hello in
+// 6 languages, 3 naps). The counting happens here in the browser (funProgress in rufus.js, saved by store.js);
+// when one is finished we ask the server for it. The server only gives out stickers marked fun: true this way.
+function countFun(trick, say) {
+  if (!S.profile) return; // no player yet, nobody to give a sticker to
+  const pid = S.profile.id;
+  const progress = funProgress(store.fun(pid), trick);
+  store.setFun(pid, progress);
+  // got = the ones the server already said yes to (so we don't keep asking)
+  const ready = funEarned(progress).filter((id) => !progress.got.includes(id));
+  if (!ready.length || countFun.busy) return;
+  countFun.busy = true;
+  post("/api/stickers/fun", { player: playerPayload(), ids: ready })
+    .then((r) => {
+      store.setFun(pid, { ...store.fun(pid), got: [...progress.got, ...ready] });
+      if (!S.profile || S.profile.id !== pid) return;
+      saveMyStickers(r.stickers);
+      if (!r.fresh.length) return;
+      // 🎉 the same "new sticker!" note as in a game, and Rufus cheers
+      stickerQueue.push(...r.fresh);
+      setTimeout(nextSticker, 700);
+      fx.rain(90);
+      const info = stickerInfo(r.fresh[0]);
+      if (info) setTimeout(() => say(`${info.emoji} You earned ${info.name}! It's in your sticker book.`), 1800);
+      if (S.screen === "stickers") { r.stickers.forEach((id) => S.book.have.add(id)); renderBook(); }
+    })
+    .catch(() => {}) // offline? It'll ask again on the next tap.
+    .finally(() => { countFun.busy = false; });
+}
+
 // ---------- TOPIC CARDS ----------
 // One card per topic, built the same way everywhere (the home page and the Challenge quiz picker):
 // icon, name, description, then your best score. The CSS lines the slots up (see "TOPIC CARDS" in app.css).
@@ -330,31 +371,135 @@ function topicCards(box, { blurbs = true, best = true, onPick }) {
     b.onclick = () => { sound.play("pick"); onPick(t); };
     box.append(b);
   }
+  box.append(mixerCard({ blurbs, best, onPick })); // 🎲 the sixth choice (see MIX IT UP below)
   balanceRows(box);
 }
 
 // How many cards go on each row so the rows come out even (the CSS reads --per-wide, --per-mid, --per-sm).
 // Big screens fit up to 5 a row, smaller laptops 3, phones 2. 5 cards with room for 3 -> 2 rows -> 3 a row (3 + 2).
+// 🎲 Mix it up is a slim row of its own on big screens (so it doesn't count there), and a normal card on smaller ones.
 function balanceRows(box) {
-  const n = box.children.length;
-  const perRow = (most) => Math.ceil(n / Math.ceil(n / most));
-  box.style.setProperty("--per-wide", perRow(5));
+  const n = box.children.length, cards = box.querySelectorAll(".topic:not(.mixer)").length;
+  const perRow = (most, count = n) => Math.ceil(count / Math.ceil(count / most));
+  box.style.setProperty("--per-wide", perRow(5, cards));
   box.style.setProperty("--per-mid", perRow(3));
   box.style.setProperty("--per-sm", perRow(2));
+}
+
+// ---------- 🎲 MIX IT UP ----------
+// The sixth choice: one game made of the topics you pick (at least 2). The little round buttons on its card
+// put a topic in the pot or take it out. Your last mix is remembered on this device.
+// The server side is src/shared/topics/mix.js.
+
+// The topics in the pot: the last mix made on this device, or all of them.
+function loadMix() {
+  const ids = S.meta.topics.map((t) => t.id);
+  const saved = store.pref("mix", null);
+  const ok = Array.isArray(saved) ? ids.filter((id) => saved.includes(id)) : [];
+  return ok.length >= S.meta.mix.min ? ok : ids;
+}
+const mixFor = (id) => (id === S.meta.mix.id ? S.mix : undefined); // the mix to send along with a game
+
+// The mix card for the topics in the pot. What circles Rufus is a bit of each topic (taking turns), plus the dice.
+function mixCard(ids = S.mix) {
+  const parts = ids.map((id) => S.meta.topics.find((t) => t.id === id)).filter(Boolean);
+  const each = parts.length >= 4 ? 2 : Math.ceil(8 / parts.length);
+  const bits = parts.map((t, k) => (t.orbit === "flags" ? S.meta.gallery.slice(30 + k * each, 30 + (k + 1) * each) : t.orbit.slice(0, each)));
+  const orbit = [S.meta.mix.emoji];
+  for (let i = 0; i < each; i++) for (const b of bits) if (b[i]) orbit.push(b[i]);
+  return { ...S.meta.mix, mix: ids.slice(), orbit: orbit.slice(0, 10) };
+}
+
+// "🚩 Flag Frenzy", or for a mix "🎲 Mix it up: 🚩 🧮 🔬"
+const topicName = (t) => `${t.emoji} ${t.title}` + (t.mix ? ": " + t.mix.map((id) => topic(id).emoji).join(" ") : "");
+// "🚩 Flag Frenzy + 🧮 Math Blast" (for the join screen)
+const mixNames = (t) => t.mix.map((id) => `${topic(id).emoji} ${topic(id).title}`).join(" + ");
+
+// The 🎲 card. It has a button for every topic inside it, so the card is a box (role="radio"), not one big button.
+// Big screens give it a slim row of its own under the five topic cards (see "MIX IT UP" in app.css).
+function mixerCard({ blurbs, best, onPick }) {
+  const t = topic(S.meta.mix.id);
+  const card = el("div", "topic mixer");
+  card.setAttribute("role", "radio");
+  card.setAttribute("aria-checked", String(S.topicId === t.id));
+  card.tabIndex = 0;
+  card.style.setProperty("--tc", t.color);
+  const words = el("span", "mx-words");
+  words.append(el("b", null, t.title));
+  if (blurbs) words.append(el("small", null, t.blurb));
+  const chips = el("span", "mx-chips");
+  chips.setAttribute("role", "group");
+  chips.setAttribute("aria-label", "Topics in the mix");
+  for (const p of S.meta.topics) {
+    const chip = el("button", "mx-chip", p.emoji);
+    chip.setAttribute("aria-pressed", String(S.mix.includes(p.id)));
+    chip.setAttribute("aria-label", p.title);
+    chip.title = p.title;
+    chip.style.setProperty("--cc", p.color);
+    chip.onclick = (e) => { e.stopPropagation(); toggleMix(p, chip, onPick); };
+    chips.append(chip);
+  }
+  card.append(el("span", "te", t.emoji), words, chips);
+  const score = best && store.best(S.profile && S.profile.id, t.id);
+  if (score) card.append(el("span", "best", "★ " + score.toLocaleString()));
+  const choose = () => { sound.play("pick"); onPick(t); };
+  card.onclick = choose;
+  card.onkeydown = (e) => { if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); choose(); } };
+  return card;
+}
+
+// Tap a topic's little button: in it goes, or out it comes. A mix needs at least 2 topics.
+function toggleMix(p, chip, onPick) {
+  const inPot = S.mix.includes(p.id);
+  if (inPot && S.mix.length <= S.meta.mix.min) {
+    sound.play("wrong");
+    restartAnim(chip, "nope");
+    const msg = `A mix needs at least ${S.meta.mix.min} topics! Even Fiery knows that. 🦖`;
+    if (S.screen === "home") heroSay(msg);
+    else host.say(msg, { mood: "think" });
+    return;
+  }
+  S.mix = S.meta.topics.map((t) => t.id).filter((id) => (id === p.id ? !inPot : S.mix.includes(id)));
+  store.setPref("mix", S.mix);
+  sound.play(inPot ? "click" : "pick");
+  onPick(topic(S.meta.mix.id), inPot ? `Out comes ${p.emoji} ${p.title}!` : `In goes ${p.emoji} ${p.title}! Stir, stir, stir… 🎲`);
+}
+
+// Seen recently / got wrong, sent when joining a game so the next one stays fresh.
+// A mix game sends a share of each of its topics' lists, with the topic in front of each key ("fr" -> "flags-fr"),
+// because that's how the server names mix questions.
+function recentFor(g) {
+  const pid = S.profile.id;
+  if (g.topicId !== S.meta.mix.id) return { avoid: store.seen(pid, g.topicId), missed: store.missed(pid, g.topicId) };
+  const ids = g.mix || S.mix;
+  const share = (list, max) => list.slice(-Math.floor(max / ids.length)); // the server keeps 300 seen and 100 missed
+  return {
+    avoid: ids.flatMap((id) => share(store.seen(pid, id), 300).map((k) => `${id}-${k}`)),
+    missed: ids.flatMap((id) => share(store.missed(pid, id), 100).map((k) => `${id}-${k}`)),
+  };
+}
+
+// After each answer: remember the question. A mix question goes on the list of the topic it came from
+// ("flags-fr" -> Flag Frenzy's list, as "fr"), so it won't come straight back in either game.
+function rememberSeen(g, key, correct) {
+  const i = key.indexOf("-");
+  const [t, k] = g.topicId === S.meta.mix.id ? [key.slice(0, i), key.slice(i + 1)] : [g.topicId, key];
+  store.remember(S.profile.id, t, k, correct);
 }
 
 // ---------- HOME ----------
 function renderTopics() {
   topicCards($("topicCards"), {
-    onPick: (t) => {
-      const changed = S.topicId !== t.id;
+    // say = what Rufus says when a topic just went in or out of the 🎲 mix
+    onPick: (t, say) => {
+      const changed = S.topicId !== t.id || !!say;
       S.topicId = t.id;
       store.setPref("topic", t.id);
       renderTopics();
       fx.setAccent(t.color);
       if (changed) themeFor(t);
       if (heroFox) heroFox.mood("cheer", 900);
-      heroSay(`${t.emoji} ${t.title}! ${t.blurb}`);
+      heroSay(say || `${t.emoji} ${t.title}! ${t.blurb}` + (t.mix ? " Tap the little icons to choose what goes in." : ""));
     },
   });
 }
@@ -733,9 +878,10 @@ async function saveProfile() {
 // ---------- SOLO ----------
 async function startSolo() {
   try {
-    const { id } = await post("/api/solo", { topic: S.topicId, player: playerPayload() });
-    startGame(`/api/solo/${id}/ws`, { kind: "solo", topicId: S.topicId });
-    session.set("rt_solo", JSON.stringify({ id, topicId: S.topicId, at: Date.now() })); // so a reload can pick the run back up
+    const mix = mixFor(S.topicId);
+    const { id } = await post("/api/solo", { topic: S.topicId, mix, player: playerPayload() });
+    startGame(`/api/solo/${id}/ws`, { kind: "solo", topicId: S.topicId, mix });
+    session.set("rt_solo", JSON.stringify({ id, topicId: S.topicId, mix, at: Date.now() })); // so a reload can pick the run back up
   } catch (e) { toast(e.message); }
 }
 
@@ -752,7 +898,7 @@ function seg(box, values, current, labelOf, onPick) {
 
 function renderSetup() {
   const r = S.meta.room, t = topic(S.topicId);
-  $("setupTopic").textContent = `${t.emoji} ${t.title} · ${t.blurb}`;
+  $("setupTopic").textContent = `${topicName(t)} · ${t.blurb}`;
   topicCards($("quizCards"), {
     blurbs: false, best: false, // the line above already shows the description
     onPick: (t) => { S.topicId = t.id; fx.setAccent(t.color); renderSetup(); },
@@ -769,6 +915,7 @@ function openQuizEditor() {
   if (!g || !g.st || g.st.hostId !== g.st.me) return;
   S.setupMode = "edit";
   S.topicId = g.st.topic.id;
+  if (g.st.topic.mix) S.mix = g.st.topic.mix.slice(); // the room's 🎲 mix
   S.setup = { mode: "quiz", win: "line", ...g.st.settings };
   g.editing = true;
   renderSetup();
@@ -784,7 +931,7 @@ function closeQuizEditor(save) {
   if (!g) { show("home"); return; }
   g.editing = false;
   if (save) {
-    g.conn.send({ t: "settings", topic: S.topicId, ...S.setup });
+    g.conn.send({ t: "settings", topic: S.topicId, mix: mixFor(S.topicId), ...S.setup });
     sound.play("coin");
   }
   show("lobby", { accent: topic(S.topicId).color });
@@ -795,9 +942,10 @@ async function createRoom() {
   const btn = $("createRoomBtn");
   btn.disabled = true;
   try {
-    const { code } = await post("/api/rooms", { topic: S.topicId, ...S.setup, player: playerPayload() });
+    const mix = mixFor(S.topicId);
+    const { code } = await post("/api/rooms", { topic: S.topicId, mix, ...S.setup, player: playerPayload() });
     history.replaceState(null, "", "/join/" + code);
-    startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: S.topicId });
+    startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: S.topicId, mix });
   } catch (e) { toast(e.message); }
   btn.disabled = false;
 }
@@ -866,6 +1014,7 @@ async function checkCode(inputs) {
     const kind = info.settings && info.settings.mode === "bingo" ? "🎯 Bingo · " : "";
     card.append(el("span", "e", info.topic.emoji), el("span", null, `${kind}${info.topic.title} · ${hostTxt} · ${info.players} playing`));
     prev.append(card);
+    if (info.topic.mix) prev.append(el("div", "mix-in", `🎲 Mixing ${mixNames(info.topic)}`)); // which topics are in the pot
     // Who you'll join as, with a way to switch (handy when two kids share one computer).
     if (S.profile) {
       const as = el("div", "join-as");
@@ -878,7 +1027,7 @@ async function checkCode(inputs) {
     go.disabled = false;
     sound.play("coin");
     // Step into the room's "waiting room" right away, so the host sees someone is coming.
-    if (!S.g || S.g.code !== code) startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, lurk: true });
+    if (!S.g || S.g.code !== code) startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, mix: info.topic.mix, lurk: true });
   } catch (e) {
     if (S.join.code !== code) return;
     // Only say "no room" when the server really said so; otherwise it's a connection problem.
@@ -918,13 +1067,13 @@ async function joinRoom() {
   if (await playingInAnotherTab(code)) {
     // Same browser, same player, already in this room: make a second player for this tab instead.
     toast(`${displayName(S.profile)} is already in this room in another tab. Make a second player for this tab!`, 5000);
-    const g = S.g && S.g.code === code ? S.g : startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, lurk: true });
+    const g = S.g && S.g.code === code ? S.g : startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, mix: info.topic.mix, lurk: true });
     editAvatar(g, { fresh: true });
     return;
   }
   history.replaceState(null, "", "/join/" + code);
   // We're usually already in the room's waiting room (see checkCode). If not, step in now.
-  const g = S.g && S.g.code === code ? S.g : startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, lurk: true });
+  const g = S.g && S.g.code === code ? S.g : startGame(`/api/rooms/${code}/ws`, { kind: "room", code, topicId: info.topic.id, mix: info.topic.mix, lurk: true });
   if (S.profile) {
     g.lurking = false;
     g.conn.send(helloMsg(g)); // if the connection isn't open yet, it says hello as soon as it is
@@ -949,15 +1098,15 @@ function editAvatar(g, opts = {}) {
 function helloMsg(g) {
   return {
     t: "hello", player: playerPayload(), showcase: (S.profile && S.profile.pins) || [],
-    avoid: store.seen(S.profile.id, g.topicId), missed: store.missed(S.profile.id, g.topicId),
+    ...recentFor(g), // avoid (seen recently) + missed, for this game's topic (or every topic in its 🎲 mix)
   };
 }
 
 // ---------- GAME CONNECTION ----------
-function startGame(path, { kind, code, topicId, lurk = false }) {
+function startGame(path, { kind, code, topicId, mix = null, lurk = false }) {
   leaveGame(false);
   const g = {
-    kind, code, topicId, st: null, conn: null, lurking: lurk, editing: false,
+    kind, code, topicId, mix, st: null, conn: null, lurking: lurk, editing: false,
     lastQi: -1, revealedQi: -1, finalKey: null, hallShown: false,
     locked: false, offset: 0, shownAt: 0, raf: 0, cdT: 0, lastTick: -1,
     prevRank: {}, seenPlayers: new Set(), standingsT: 0, lobbyCode: null, wasDown: false, startArmedAt: 0,
@@ -1115,13 +1264,14 @@ function renderLobby(g, st) {
     g.linesLit = 0; g.prevAway = null; // 🎯 a fresh bingo card next game
   }
   // The host changed the quiz: follow along (music, and send our "seen recently" list for the new topic).
-  if (g.topicId !== st.topic.id) {
+  if (g.topicId !== st.topic.id || String(g.mix) !== String(st.topic.mix || null)) {
     g.topicId = st.topic.id;
+    g.mix = st.topic.mix || null; // 🎲 which topics are in a Mix it up game
     applyMusic(st.topic);
     if (!g.lurking) g.conn.send(helloMsg(g));
     if (st.hostId !== st.me) {
-      toast(`The host switched the quiz to ${st.topic.emoji} ${st.topic.title}!`, 3500);
-      host.say(`New quiz: ${st.topic.emoji} ${st.topic.title}! Get ready!`, { mood: "cheer" });
+      toast(`The host switched the quiz to ${topicName(st.topic)}!`, 3500);
+      host.say(`New quiz: ${topicName(st.topic)}! Get ready!`, { mood: "cheer" });
     }
   }
   if (g.openQuizOnLobby && st.hostId === st.me) { g.openQuizOnLobby = false; setTimeout(openQuizEditor, 50); }
@@ -1147,7 +1297,7 @@ function renderLobby(g, st) {
     $("shareBtn").onclick = () => navigator.share({ title: "Rufus Trivia challenge!", text: `Join my ${st.topic.title} challenge! Code: ${st.code}`, url }).catch(() => {});
   }
 
-  $("lobbyTopic").textContent = `${st.topic.emoji} ${st.topic.title}`;
+  $("lobbyTopic").textContent = topicName(st.topic);
   const here = st.players.filter((p) => p.connected).length;
   $("lobbyCount").textContent = here <= 1 ? "Waiting for friends…" : `${here} players ready!`;
   const chips = $("lobbySettings");
@@ -1664,7 +1814,7 @@ function renderReveal(g, st) {
     a.target = "_blank";
     cr.append(a);
   }
-  store.remember(S.profile.id, g.topicId, r.key, !!(mine && mine.correct));
+  rememberSeen(g, r.key, !!(mine && mine.correct)); // (a 🎲 mix question goes on its own topic's list)
   // the timer ring turns into a big tick or cross
   const won = !!(mine && mine.correct);
   $("timerNum").textContent = won ? "✓" : "✗";
@@ -1909,7 +2059,7 @@ function openHall(topicId) {
 function renderHallTabs() {
   const tabs = $("hallTabs");
   tabs.innerHTML = "";
-  for (const t of S.meta.topics) {
+  for (const t of [...S.meta.topics, S.meta.mix]) { // 🎲 every mix shares one board
     const b = el("button", null, `${t.emoji} ${t.title}`);
     b.setAttribute("aria-pressed", String(t.id === S.hall.topic));
     b.onclick = () => { S.hall.topic = t.id; sound.play("pick"); renderHallTabs(); loadHall(); };
@@ -1993,10 +2143,11 @@ function renderSetupBingo() {
   if (!bingo) return;
   // Grey out the topics bingo can't do (their answers don't make good squares)
   [...$("quizCards").children].forEach((card, i) => {
-    const t = S.meta.topics[i];
+    const t = S.meta.topics[i] || (card.classList.contains("mixer") && S.meta.mix); // 🎲 a mix can't be bingo either
     if (!t || r.bingoTopics.includes(t.id)) return;
     card.classList.add("off");
     card.setAttribute("aria-disabled", "true");
+    card.onkeydown = null;
     card.onclick = () => { sound.play("wrong"); toast(`${t.emoji} ${t.title} can't do bingo. Pick Flags, Maths or Animals!`); };
   });
 }
@@ -2444,6 +2595,7 @@ function wire() {
     if (t.super) fx.fireworks(3);
     else fx.burst(c.x, c.y, { count: 24, power: 7 });
     fx.popEmoji(t.pop, c.x, c.y - where.offsetHeight * 0.5); // from the top of his head
+    countFun(t, fox === heroFox ? heroSay : (m) => host.say(m, { mood: "cheer" })); // 🦊 Rufus fun stickers
     return t.line;
   };
   $("rufus").onclick = () => host.say(poke(host.fox, $("rufus")));
@@ -2508,6 +2660,7 @@ async function boot() {
     toast("Can't reach the game server. Is it running?", 10000);
     return;
   }
+  S.mix = loadMix();
   S.topicId = topic(store.pref("topic", "flags")).id;
   themeFor(topic(S.topicId));
   pingVisit();
@@ -2524,7 +2677,7 @@ async function boot() {
     const info = await api(`/api/solo/${solo.id}`).catch(() => null);
     if (info && info.exists && info.phase !== "final") {
       S.topicId = topic(solo.topicId).id;
-      startGame(`/api/solo/${solo.id}/ws`, { kind: "solo", topicId: S.topicId });
+      startGame(`/api/solo/${solo.id}/ws`, { kind: "solo", topicId: S.topicId, mix: solo.mix });
       session.set("rt_solo", JSON.stringify(solo));
       toast("Welcome back! Picking up your run where you left off 🦊", 3500);
       return;
