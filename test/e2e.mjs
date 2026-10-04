@@ -357,12 +357,13 @@ async function stickersTest() {
   // Explorer: play every topic once (quitting straight away still counts as playing).
   const explorer = profile("Daring", "Owl");
   let last = null;
-  for (const topic of ["flags", "world", "space", "math"]) {
+  const topics = (await (await fetch(BASE + "/api/meta")).json()).topics.map((t) => t.id); // every topic, however many there are
+  for (const topic of topics) {
     const { data: g } = await post("/api/solo", { topic, player: explorer });
     last = player(`/api/solo/${g.id}/ws`, explorer);
     await last.ready;
     await last.waitFor((s) => s.phase === "countdown");
-    if (topic !== "math") { last.send({ t: "quit" }); await last.waitFor((s) => s.phase === "final"); last.ws.close(); }
+    if (topic !== topics[topics.length - 1]) { last.send({ t: "quit" }); await last.waitFor((s) => s.phase === "final"); last.ws.close(); }
   }
   await last.waitFor((s) => (s.myStickers || []).includes("globetrotter"));
   last.send({ t: "quit" });

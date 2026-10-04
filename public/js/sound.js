@@ -118,6 +118,7 @@ const SFX = {
 //   lead   : 4 tune phrases, 16 slots each: which chord note (0-3), -1 = rest
 //   kick / snare / ghost : which of the 16 slots get a drum hit
 //   twin   : harmony this many semitones under the lead (Contra-style), 0 = off until you're on a streak
+//   toms   : (optional) which slots get a bongo drum; the first half are high, the rest low
 // ============================================================
 export const MUSIC = {
   // Sunny and bouncy, like a happy overworld level
@@ -192,6 +193,25 @@ export const MUSIC = {
     ],
     kick: [0, 3, 8, 11], snare: [4, 12], ghost: [14],
   },
+  // Jungle safari: stomping dino feet (double kicks), bongo toms and an adventurous minor tune
+  safari: {
+    name: "Safari Stomp", emoji: "🥁", bpm: 126, swing: 0.18, duty: 0.25, twin: 0, hats: 2, bassLen: 0.6, leadLen: 0.75,
+    chords: [
+      { root: 45, notes: [64, 67, 69, 72] }, // Am
+      { root: 43, notes: [62, 67, 71, 74] }, // G
+      { root: 41, notes: [65, 69, 72, 77] }, // F
+      { root: 40, notes: [64, 68, 71, 76] }, // E (the "uh-oh, adventure!" chord)
+    ],
+    bass: [0, -1, 0, -1, -1, -1, 12, -1, 0, -1, 0, -1, -1, 7, -1, -1],
+    lead: [
+      [2, -1, -1, 3, -1, 2, -1, 1, 0, -1, -1, -1, 1, -1, 2, -1],
+      [3, -1, 2, -1, 3, -1, -1, 1, -1, 2, -1, 1, 0, -1, -1, -1],
+      [0, -1, 1, -1, 2, -1, 3, -1, 2, -1, 1, -1, 2, -1, -1, -1],
+      [3, 3, -1, 2, -1, 1, -1, 2, -1, -1, 3, -1, 2, -1, -1, -1],
+    ],
+    kick: [0, 2, 8, 10], snare: [4, 12], ghost: [15],
+    toms: [6, 7, 13, 14], // bongos: high, high, low, low
+  },
 };
 
 // The order phrases play in: verse A (8 bars), then verse B (8 bars), then round again.
@@ -235,6 +255,17 @@ function kick(at, vol) {
 }
 const snare = (at, vol) => { noise(at, 0.11, { vol, freq: 1800, type: "bandpass", bus: musicBus }); note(190, at, 0.05, "triangle", vol * 0.5); };
 const hat = (at, vol, open) => noise(at, open ? 0.13 : 0.03, { vol, freq: 7500, bus: musicBus });
+// A bongo/tom drum: a quick "doong" that slides down in pitch
+function tom(at, vol, high) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(high ? 330 : 210, at);
+  o.frequency.exponentialRampToValueAtTime(high ? 190 : 120, at + 0.16);
+  g.gain.setValueAtTime(vol, at);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.2);
+  o.connect(g); g.connect(musicBus);
+  o.start(at); o.stop(at + 0.22);
+}
 
 let musicTimer = null, step = 0, nextAt = 0, track = MUSIC.adventure, gameMode = false, intensity = 0;
 
@@ -254,6 +285,10 @@ function playStep(t, at, stepDur) {
   if (fill) snare(when, 0.22 + (s - 12) * 0.12);
   else if (t.snare.includes(s)) snare(when, 0.5);
   else if (!intro && t.ghost && t.ghost.includes(s)) snare(when, 0.12);
+  if (t.toms && !intro) {
+    const k = t.toms.indexOf(s);
+    if (k >= 0) tom(when, 0.5, k < t.toms.length / 2);
+  }
   const every = hot >= 2 ? 1 : t.hats;
   if (every && s % every === 0) hat(when, s % 4 === 2 ? 0.2 : 0.1, t.openHat === s);
 

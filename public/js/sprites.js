@@ -179,6 +179,67 @@ export const SPRITES = {
       ["#FF6600", "M4 26h8v2h-8zM16 26h8v2h-8z"],
     ],
   },
+  // The Moon-level snakes from "Snakes on the Moon"
+  kingcobra: {
+    box: [0, 0, 30, 26],
+    layers: [
+      ["#4E5A2E", "M2 19h26v6h-26zM5 13h19v6h-19zM18 5h6v11h-6z"],
+      ["#3C461F", "M13 5h5v9h-5zM24 5h5v9h-5z"],
+      ["#4E5A2E", "M17 0h9v6h-9z"],
+      ["#FFD000", "M19 1h2v2h-2z"],
+      ["#000", "M19 2h1v1h-1z"],
+      ["#FF2030", "M26 2h3v1h-3zM28 0h1v1h-1zM28 4h1v1h-1z"],
+    ],
+  },
+  spitcobra: {
+    box: [0, 0, 30, 26],
+    layers: [
+      ["#2B2B2B", "M2 19h26v6h-26zM5 13h19v6h-19zM18 5h6v11h-6z"],
+      ["#7A1818", "M13 5h5v9h-5zM24 5h5v9h-5z"],
+      ["#2B2B2B", "M17 0h9v6h-9z"],
+      ["#FFD000", "M19 1h2v2h-2z"],
+      ["#000", "M19 2h1v1h-1z"],
+      ["#FF2030", "M26 2h3v1h-3zM28 0h1v1h-1zM28 4h1v1h-1z"],
+    ],
+  },
+  viper: {
+    box: [0, 0, 30, 26],
+    layers: [
+      ["#A6864F", "M2 19h26v6h-26zM5 13h19v6h-19zM18 5h6v11h-6zM17 0h9v6h-9z"],
+      ["#4A3118", "M6 19h3v6h-3zM14 19h3v6h-3zM22 19h3v6h-3zM9 13h3v6h-3zM17 13h3v6h-3z"],
+      ["#FFD000", "M19 1h2v2h-2z"],
+      ["#000", "M19 2h1v1h-1z"],
+      ["#FF2030", "M26 2h3v1h-3zM28 0h1v1h-1zM28 4h1v1h-1z"],
+    ],
+  },
+  rattlesnake: {
+    box: [0, 0, 30, 26],
+    layers: [
+      ["#B8A570", "M2 19h26v6h-26zM5 13h19v6h-19zM18 5h6v11h-6zM17 0h9v6h-9z"],
+      ["#6B4A2A", "M6 19h3v6h-3zM14 19h3v6h-3zM22 19h3v6h-3zM9 13h3v6h-3zM17 13h3v6h-3z"],
+      ["#E0D2A8", "M0 16h3v3h-3zM1 13h3v3h-3z"],
+      ["#FFD000", "M19 1h2v2h-2z"],
+      ["#000", "M19 2h1v1h-1z"],
+      ["#FF2030", "M26 2h3v1h-3zM28 0h1v1h-1zM28 4h1v1h-1z"],
+    ],
+  },
+  milksnake: {
+    box: [0, 0, 30, 26],
+    layers: [
+      ["#C0392B", "M2 19h26v6h-26zM5 13h19v6h-19zM18 5h6v11h-6zM17 0h9v6h-9zM2 19h3v6h-3z"],
+      ["#161616", "M5 19h3v6h-3z"],
+      ["#E8D44A", "M8 19h3v6h-3z"],
+      ["#C0392B", "M11 19h3v6h-3z"],
+      ["#161616", "M14 19h3v6h-3z"],
+      ["#E8D44A", "M17 19h3v6h-3z"],
+      ["#C0392B", "M20 19h3v6h-3z"],
+      ["#161616", "M23 19h3v6h-3z"],
+      ["#E8D44A", "M26 19h3v6h-3z"],
+      ["#FFD000", "M19 1h2v2h-2z"],
+      ["#000", "M19 2h1v1h-1z"],
+      ["#FF2030", "M26 2h3v1h-3zM28 0h1v1h-1zM28 4h1v1h-1z"],
+    ],
+  },
 };
 
 // An <svg> string for one sprite. Crisp edges keep the pixels sharp at any size.

@@ -7,8 +7,9 @@ import flags from "./flags.js";
 import world from "./world.js";
 import space from "./space.js";
 import math from "./math.js";
+import animals from "./animals.js";
 
-export const TOPICS = [flags, world, space, math];
+export const TOPICS = [flags, world, animals, space, math];
 
 export const TOPIC_BY_ID = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
 

@@ -1,6 +1,6 @@
 # Rufus Trivia 🦊
 
-A trivia game (flags, capitals & landmarks, space, maths) starring Rufus the fox, for kids around 9-10.
+A trivia game (flags, capitals & landmarks, animals, space, maths) starring Rufus the fox, for kids around 9-10.
 Live at https://rufustrivia.com · repo https://github.com/vmuthusamy/rufus-trivia
 Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
 
@@ -22,8 +22,10 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
 - **Browser just shows it.** `public/js/app.js` re-renders from each state message; `fx.js`, `sound.js`
   and `rufus.js` are the eye/ear candy.
 - **Hall of Fame** (`src/hall.js`) only accepts scores from GameRoom over RPC, never from the browser.
-- **Topics** live in `src/shared/topics/`. Bank topics use `bankTopic()` from `kit.js`; generator topics
-  implement `next({ rng, level, used, avoid, missed })`. Always use `rng`, never `Math.random`
+- **Topics** live in `src/shared/topics/`. Bank topics use `bankTopic()` from `kit.js` (optional `guide` =
+  a sprite from `public/js/sprites.js` presenting the questions); generator topics implement
+  `next({ rng, level, used, avoid, missed })`; `mixTopic()` combines parts with weights (see `animals.js`).
+  A new topic also needs a `<id>_master` sticker in `src/shared/stickers.js` and its name in `public/stats.html`. Always use `rng`, never `Math.random`
   (the same seed must give the same game for everyone in a room).
 - Flag files in `public/f/` have scrambled names on purpose (the URL must not reveal the country).
 - Names: "secret agent" names come from word lists in `src/shared/names.js`. Typed first names go through

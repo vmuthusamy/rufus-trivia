@@ -310,31 +310,50 @@ function renderInspect() {
   box.append(stickerEl(id), ix);
 }
 
-// ---------- HOME ----------
-function renderTopics() {
-  const box = $("topicCards");
+// ---------- TOPIC CARDS ----------
+// One card per topic, built the same way everywhere (the home page and the Challenge quiz picker):
+// icon, name, description, then your best score. The CSS lines the slots up (see "TOPIC CARDS" in app.css).
+function topicCards(box, { blurbs = true, best = true, onPick }) {
   box.innerHTML = "";
   for (const t of S.meta.topics) {
     const b = el("button", "topic");
     b.setAttribute("role", "radio");
     b.setAttribute("aria-checked", String(t.id === S.topicId));
     b.style.setProperty("--tc", t.color);
-    b.append(el("span", "te", t.emoji), el("b", null, t.title), el("small", null, t.blurb));
-    const best = store.best(S.profile && S.profile.id, t.id);
-    if (best) b.append(el("span", "best", "★ " + best.toLocaleString()));
-    b.onclick = () => {
+    b.append(el("span", "te", t.emoji), el("b", null, t.title));
+    if (blurbs) b.append(el("small", null, t.blurb));
+    const score = best && store.best(S.profile && S.profile.id, t.id);
+    if (score) b.append(el("span", "best", "★ " + score.toLocaleString()));
+    b.onclick = () => { sound.play("pick"); onPick(t); };
+    box.append(b);
+  }
+  balanceRows(box);
+}
+
+// How many cards go on each row so the rows come out even (the CSS reads --per-wide, --per-mid, --per-sm).
+// Big screens fit up to 5 a row, smaller laptops 3, phones 2. 5 cards with room for 3 -> 2 rows -> 3 a row (3 + 2).
+function balanceRows(box) {
+  const n = box.children.length;
+  const perRow = (most) => Math.ceil(n / Math.ceil(n / most));
+  box.style.setProperty("--per-wide", perRow(5));
+  box.style.setProperty("--per-mid", perRow(3));
+  box.style.setProperty("--per-sm", perRow(2));
+}
+
+// ---------- HOME ----------
+function renderTopics() {
+  topicCards($("topicCards"), {
+    onPick: (t) => {
       const changed = S.topicId !== t.id;
       S.topicId = t.id;
       store.setPref("topic", t.id);
-      sound.play("pick");
       renderTopics();
       fx.setAccent(t.color);
       if (changed) themeFor(t);
       if (heroFox) heroFox.mood("cheer", 900);
       heroSay(`${t.emoji} ${t.title}! ${t.blurb}`);
-    };
-    box.append(b);
-  }
+    },
+  });
 }
 
 // Each topic dresses up the home screen: what orbits Rufus, what floats in the background, and the music.
@@ -730,10 +749,9 @@ function seg(box, values, current, labelOf, onPick) {
 function renderSetup() {
   const r = S.meta.room, t = topic(S.topicId);
   $("setupTopic").textContent = `${t.emoji} ${t.title} · ${t.blurb}`;
-  seg($("segTopic"), S.meta.topics.map((x) => x.id), S.topicId, (id) => `${topic(id).emoji} ${topic(id).title}`, (id) => {
-    S.topicId = id;
-    fx.setAccent(topic(id).color);
-    renderSetup();
+  topicCards($("quizCards"), {
+    blurbs: false, best: false, // the line above already shows the description
+    onPick: (t) => { S.topicId = t.id; fx.setAccent(t.color); renderSetup(); },
   });
   seg($("segCount"), r.counts, S.setup.count, (v) => `${v}`, (v) => { S.setup.count = v; renderSetup(); });
   seg($("segTimer"), r.timers, S.setup.timer, (v) => `${v}s`, (v) => { S.setup.timer = v; renderSetup(); });

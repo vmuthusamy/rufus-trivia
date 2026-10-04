@@ -77,7 +77,12 @@ export function mixIn(rng, right, wrong) {
 
 // Build a whole topic from a plain list of questions. This is the EASIEST way
 // to add a new topic - see topics/_template.js.
-export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time", orbit, music, questions }) {
+//
+// guide (optional): a character from Rufus's game who presents the questions, e.g.
+//   guide: { who: "fiery", place: "The fossil dig" }   (who = a sprite name from public/js/sprites.js)
+// A single question can bring its own character with  who: "rattlesnake".
+// The character shows BEFORE anyone answers, so it must never be the answer ("Which snake rattles?" + a rattlesnake).
+export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time", orbit, music, guide, questions }) {
   const bank = questions.map((q, i) => ({ ...q, key: q.id || id + i, level: q.level || 2 }));
   for (const q of bank) {
     if (!q.q || !q.a || !Array.isArray(q.wrong) || q.wrong.length < 3) {
@@ -104,7 +109,8 @@ export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time
         level: q.level,
         eyebrow: q.eyebrow || eyebrow,
         prompt: q.q,
-        media: q.emoji ? { kind: "emoji", text: q.emoji } : null,
+        media: guide ? { kind: "story", text: q.emoji || emoji, who: q.who || guide.who, place: guide.place }
+          : q.emoji ? { kind: "emoji", text: q.emoji } : null,
         choices: items.map((label) => ({ label })),
         answer,
         fact: q.fact || `The answer is ${q.a}.`,
@@ -112,4 +118,26 @@ export function bankTopic({ id, title, emoji, color, blurb, eyebrow = "Quiz time
       };
     },
   };
+}
+
+// Build one topic out of several parts, each with a weight (how often it comes up).
+// A part is anything with next(ctx): a bankTopic, or a question maker of your own.
+//   parts: [[4, animalFacts], [2, foxFacts], [1, dinoFacts]]   -> about 4 in 7 are animal facts
+export function mixTopic({ id, title, emoji, color, blurb, orbit, music, parts }) {
+  return {
+    id, title, emoji, color, blurb, orbit, music,
+    size: parts.reduce((sum, [, part]) => sum + (part.size || 0), 0),
+    next: (ctx) => pickWeighted(ctx.rng, parts).next(ctx),
+  };
+}
+
+// Roll the dice and pick one thing; the bigger its weight, the more often it wins.
+//   pickWeighted(rng, [[3, "cat"], [1, "dog"]])   -> "cat" about 3 times in 4
+export function pickWeighted(rng, pairs) {
+  let roll = rng.next() * pairs.reduce((sum, [weight]) => sum + weight, 0);
+  for (const [weight, thing] of pairs) {
+    roll -= weight;
+    if (roll < 0) return thing;
+  }
+  return pairs[0][1];
 }

@@ -10,6 +10,7 @@ everyone gets the same questions at the same moment, like Blooket.
 |---|---|---|
 | 🚩 Flag Frenzy | 195 countries, 4 question styles, lookalike flags on hard | flag-icons data, generated fresh every game |
 | 🗺️ Capitals & Landmarks | 185 capitals + ~190 world landmarks with photos + "find it on the map" for 193 countries | flag-icons + Wikidata + Wikimedia Commons + Natural Earth |
+| 🦁 Animal Kingdom | baby animals, animal groups, "is it a mammal?", amazing animal records, plus 🐍 Snake Spotter, 🦊 Rufus's Fox Facts and 🦖 Fiery's Dino Dig | an animal facts table + hand-written banks |
 | 🚀 Space Explorer | planets, stars and astronauts | a hand-written question bank |
 | 🧮 Math Blast | sums, times tables, fractions, "make the number" puzzles (which sum makes 48?), mystery-number equations on a balance scale, Rufus story problems starring Fiery, Marthina, Renard and friends | random numbers, never runs out |
 
@@ -78,6 +79,8 @@ src/                         the server (a Cloudflare Worker)
   room.js                    GameRoom Durable Object: runs one game (solo or challenge)
   hall.js                    HallOfFame Durable Object: the shared scoreboard (SQLite)
   shared/topics/             ✏️ the quiz topics; add new ones here
+  shared/topics/animal-banks.js  ✏️ snake, fox, dino and amazing-animal questions
+  shared/data/animals.js     ✏️ the animal facts table (baby names, group names, mammal/bird/reptile...)
   shared/data/flag-notes.js  ✏️ flag fun facts, lookalike flags, easy/hard lists
   shared/data/landmark-notes.js  ✏️ which landmarks to include, their fun facts and nicer names
 scripts/build-icons.mjs      favicon.ico / app icons (the same pixel fox as rufusfamily.com)
@@ -90,6 +93,11 @@ scripts/build-maps.mjs       Natural Earth → a little map for every country (n
 
 - **A topic:** copy `src/shared/topics/_template.js`, write questions, add it to `src/shared/topics/index.js`.
   Each topic picks its `orbit` (what circles Rufus) and `music` (a song from `public/js/sound.js`).
+  Give a question bank a `guide` and a character from the game presents it. To build one topic out of
+  several parts (like Animal Kingdom), use `mixTopic()` from `kit.js`. The home screen and the quiz picker
+  lay out any number of topics in even rows by themselves.
+- **Animals:** a new row in `src/shared/data/animals.js` makes baby-name, group-name and class questions
+  automatically. Snake/fox/dino questions go in `animal-banks.js`; the numbers in `parts` at the bottom of animals.js set how often each comes up.
 - **Landmarks:** add the Wikipedia title to `LANDMARK_LIST` in `landmark-notes.js`, then `npm run build:landmarks`.
   The script also discovers famous UNESCO World Heritage Sites by itself every time it runs
   (`npm run build:landmarks -- --discover 120` for more). It skips whole cities and sad or touchy places,

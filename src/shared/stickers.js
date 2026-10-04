@@ -29,6 +29,7 @@ export const STICKERS = [
   { id: "world_master", emoji: "🗺️", name: "World Traveller", how: "Get 15 right in one Capitals & Landmarks game", rarity: 3 },
   { id: "space_master", emoji: "🧑‍🚀", name: "Space Ace", how: "Get 15 right in one Space Explorer game", rarity: 3 },
   { id: "math_master", emoji: "🧙", name: "Math Wizard", how: "Get 15 right in one Math Blast game", rarity: 3 },
+  { id: "animals_master", emoji: "🐍", name: "Snake Charmer", how: "Get 15 right in one Animal Kingdom game", rarity: 3 },
 ];
 
 export const STICKER_BY_ID = Object.fromEntries(STICKERS.map((s) => [s.id, s]));
