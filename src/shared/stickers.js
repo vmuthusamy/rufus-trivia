@@ -38,6 +38,14 @@ export const STICKERS = [
   { id: "animals_master", emoji: "🐍", name: "Snake Charmer", how: "Get 15 right in one Animal Kingdom game", rarity: 3 },
   { id: "science_master", emoji: "🔬", name: "Science Whiz", how: "Get 15 right in one Science & Space game", rarity: 3 },
   { id: "math_master", emoji: "🧙", name: "Math Wizard", how: "Get 15 right in one Math Blast game", rarity: 3 },
+  { id: "mix_master", emoji: "🎲", name: "Mix Master", how: "Get 15 right in one Mix it up game", rarity: 3 },
+  // 🦊 Rufus fun: tap Rufus (on the home screen or in the corner) and he does tricks. Those happen in your
+  // browser, so the server can't check them: these are just for fun (fun: true). The browser counts them
+  // (funProgress in public/js/rufus.js) and sends them to /api/stickers/fun, which only takes fun stickers.
+  { id: "bigshow", emoji: "🎪", name: "Rufus's Big Show", how: "Tap Rufus until you've seen all 9 of his tricks", rarity: 1, fun: true },
+  { id: "supercombo", emoji: "🌀", name: "Secret Combo", how: "Find Rufus's secret super move (psst: tap him really fast!)", rarity: 2, fun: true },
+  { id: "penpals", emoji: "💌", name: "Pen Pals", how: "Hear Rufus say hello in all 6 of his languages", rarity: 2, fun: true },
+  { id: "napbuddy", emoji: "💤", name: "Nap Buddy", how: "Tap Rufus and catch him napping 3 times", rarity: 1, fun: true },
   // retired: their topics are gone, so nobody new can earn them. Whoever has one keeps it
   // (a rare collector's sticker!), and the sticker book only shows them to their owners.
   { id: "world_master", emoji: "🗺️", name: "World Traveller", how: "Got 15 right in one Capitals & Landmarks game", rarity: 3, retired: true },
@@ -45,6 +53,14 @@ export const STICKERS = [
 ];
 
 export const STICKER_BY_ID = Object.fromEntries(STICKERS.map((s) => [s.id, s]));
+
+// The only stickers a browser may ask for (see /api/stickers/fun in worker.js).
+// Returns the list, or null if anything in it isn't a Rufus fun sticker.
+export function funStickers(ids) {
+  if (!Array.isArray(ids) || !ids.length || ids.length > 10) return null;
+  if (!ids.every((id) => typeof id === "string" && STICKER_BY_ID[id] && STICKER_BY_ID[id].fun)) return null;
+  return [...new Set(ids)];
+}
 const STREAK_AT = [3, 5, 7, 10, 15, 20, 25, 30, 40, 50];
 
 // After each question is revealed (never before, so a sticker can't give the answer away).

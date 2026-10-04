@@ -7,6 +7,7 @@ import { ADJECTIVES, ANIMALS, nameKey } from "./shared/names.js";
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 const NAME_KEEP = 365 * 24 * 60 * 60 * 1000; // a name nobody has played with for a year is free again
 const LOCK_MS = 15 * 60 * 1000;
+const FUN_WINDOW = 10 * 60 * 1000; // speed limit window for Rufus fun stickers (see awardFun)
 const ANIMAL_BY_EMOJI = Object.fromEntries(ANIMALS.map(([name, emoji]) => [emoji, name]));
 
 // A name key kids can read out and type: "comet-otter-473".
@@ -130,6 +131,23 @@ export class HallOfFame extends DurableObject {
 
   award(pid, ids) {
     for (const id of ids) this.sql.exec("INSERT OR IGNORE INTO stickers (pid, id, at) VALUES (?, ?, ?)", pid, id, Date.now());
+  }
+
+  // 🦊 Rufus fun stickers, sent by a browser (the worker has already checked they're only fun ones).
+  // Asking twice is fine: you just get it once. Returns which ones are new, and the whole collection.
+  // A little speed limit stops anyone hammering it: 10 tries per player, and 40 per connection (who),
+  // every 10 minutes. The counts only live in memory and are forgotten after that.
+  awardFun(pid, ids, who) {
+    const now = Date.now();
+    this.funTries = this.funTries || new Map();
+    for (const [k, v] of this.funTries) if (now - v.since > FUN_WINDOW) this.funTries.delete(k);
+    const limits = [["p:" + pid, 10], ["w:" + who, 40]].map(([k, max]) => [this.funTries.get(k) || { k, n: 0, since: now }, max]);
+    if (limits.some(([t, max]) => t.n >= max)) return { ok: false, slow: true };
+    for (const [t] of limits) { t.n += 1; this.funTries.set(t.k, t); }
+    const had = new Set(this.stickers(pid));
+    const fresh = ids.filter((id) => !had.has(id));
+    this.award(pid, fresh);
+    return { ok: true, fresh, stickers: this.stickers(pid) };
   }
 
   // Count a game someone played; returns what we need for "Explorer" and "Team Player".

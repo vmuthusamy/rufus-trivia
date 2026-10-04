@@ -8,7 +8,8 @@
 //   - Scores reach the Hall of Fame straight from here, never from a browser.
 
 import { DurableObject } from "cloudflare:workers";
-import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.js";
+import { TOPICS } from "./shared/topics/index.js";
+import { playable, topicFor, gameCard, askedBefore, rememberAsked } from "./shared/topics/mix.js";
 import { STICKER_BY_ID, stickersForAnswer, stickersForBingo, stickersForCall, stickersForFinish, stickersForStart, showcase } from "./shared/stickers.js";
 import { freshSeed } from "./shared/rng.js";
 import { buildGame, buildQuestion, publicQuestion } from "./shared/game.js";
@@ -52,10 +53,11 @@ export class GameRoom extends DurableObject {
 
   // ---------- set up (called by the Worker over RPC) ----------
 
-  async init({ kind, code, topic, settings, hostId }) {
+  async init({ kind, code, topic, mix, settings, hostId }) {
     if (this.s) return { ok: false };
     this.s = {
       kind, code: code || null, topic,
+      mix: mix || null, // 🎲 Mix it up: which topics are in the pot (null for a normal topic)
       settings: kind === "solo" ? { timer: SOLO.timer, level: "ramp" } : settings,
       hostId, phase: "lobby", round: 0, seed: null,
       players: {}, order: [],
@@ -72,7 +74,7 @@ export class GameRoom extends DurableObject {
     if (!this.s) return { exists: false };
     const host = this.s.players[this.s.hostId];
     return {
-      exists: true, phase: this.s.phase, topic: topicCard(TOPIC_BY_ID[this.s.topic]),
+      exists: true, phase: this.s.phase, topic: gameCard(this.s.topic, this.s.mix),
       players: this.s.order.length, host: host ? { name: host.name, emoji: host.emoji } : null,
       settings: this.s.settings,
     };
@@ -161,9 +163,11 @@ export class GameRoom extends DurableObject {
   // The host changed the quiz in the lobby (topic, quiz or bingo, how many questions, timer, difficulty).
   async onSettings(msg) {
     const s = this.s;
-    const { settings } = roomSettings(msg, msg.topic);
-    if (!canPlay(msg.topic) || !settings) return; // not allowed: ignore
-    s.topic = msg.topic;
+    const { settings } = roomSettings(msg, msg.topic); // (🎲 mix can't be bingo: roomSettings says no)
+    const game = playable(msg.topic, msg.mix); // a topic you can play today (or 2+ of them to 🎲 mix)
+    if (!game || !settings) return; // not allowed: ignore
+    s.topic = game.topic;
+    s.mix = game.mix;
     s.settings = settings;
     this.save();
     this.broadcast("settings");
@@ -264,7 +268,7 @@ export class GameRoom extends DurableObject {
 
   async startGame() {
     const s = this.s;
-    const topic = TOPIC_BY_ID[s.topic];
+    const topic = topicFor(s.topic, s.mix);
     s.round += 1;
     s.seed = freshSeed();
     for (const id of s.order) {
@@ -278,12 +282,13 @@ export class GameRoom extends DurableObject {
       // Avoid questions ANY player has seen recently AND everything this room already asked in
       // earlier rounds, so rematches are fresh. Oldest first, so when a topic runs out the
       // questions asked longest ago come back first (see pickFresh in kit.js).
-      const asked = (s.asked && s.asked[s.topic]) || [];
+      // (askedBefore / rememberAsked in mix.js: they also file 🎲 mix questions under the topic they came from)
+      const asked = askedBefore(s.asked, s.topic, s.mix);
       const avoid = new Set([...s.order.flatMap((id) => s.players[id].avoid).slice(-800), ...asked]);
       const missed = new Set(s.order.flatMap((id) => s.players[id].missed).slice(-200));
       if (this.isBingo()) this.startBingo(topic, avoid, missed); // 🎯 a pool of squares + everyone's cards
       else s.questions = buildGame(topic, { seed: s.seed, count: s.settings.count, levelSetting: s.settings.level, avoid, missed });
-      s.asked = { ...(s.asked || {}), [s.topic]: [...asked.filter((k) => !s.questions.some((q) => q.key === k)), ...s.questions.map((q) => q.key)].slice(-600) };
+      s.asked = rememberAsked(s.asked, s.topic, s.questions.map((q) => q.key));
       // Anonymous counts for the stats page: one more challenge game, and how many played.
       try {
         const stats = this.env.STATS.get(this.env.STATS.idFromName("global"));
@@ -418,7 +423,7 @@ export class GameRoom extends DurableObject {
     const s = this.s, solo = s.players[s.hostId];
     if (!solo || s.questions[index] || index >= SOLO.maxQuestions) return;
     const used = new Set(s.questions.map((q) => q.key));
-    s.questions[index] = buildQuestion(TOPIC_BY_ID[s.topic], {
+    s.questions[index] = buildQuestion(topicFor(s.topic, s.mix), {
       seed: s.seed, index, levelSetting: "ramp", total: SOLO.maxQuestions, used,
       avoid: new Set(solo.avoid), missed: new Set(solo.missed),
     });
@@ -783,7 +788,7 @@ export class GameRoom extends DurableObject {
 
     const view = {
       t: "state", event, kind: s.kind, code: s.code, me: this.seatOf(pid), hostId: this.seatOf(this.effectiveHost(except)),
-      topic: topicCard(TOPIC_BY_ID[s.topic]), settings: s.settings, phase: s.phase, round: s.round,
+      topic: gameCard(s.topic, s.mix), settings: s.settings, phase: s.phase, round: s.round,
       qi: s.qi, total: s.kind === "room" && !bingo ? s.settings.count : null,
       phaseAt: s.phaseAt, deadline: s.deadline, serverNow: Date.now(),
       players,
