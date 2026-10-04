@@ -9,6 +9,7 @@
 //   GET  /api/hall?topic=&period=&pid=  Hall of Fame top 10
 //   POST /api/hall/rename               update my name on my Hall of Fame scores
 //   POST /api/stickers                  my sticker collection
+//   POST /api/stickers/fun              🦊 Rufus fun stickers (tapping Rufus): only those, nothing else
 //   GET/POST /api/me                    "remember me": this device's players, via a cookie
 //   POST /api/names/check               is this typed-in name allowed? (and claim it: names are one-of-a-kind)
 //   POST /api/names/mine                my reserved name and its name key
@@ -20,7 +21,8 @@ import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.j
 import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick } from "./shared/names.js";
 import { SOLO, ROOM_LIMITS, roomSettings } from "./shared/scoring.js";
 import { COUNTRIES } from "./shared/data/countries.js";
-import { STICKERS } from "./shared/stickers.js";
+import { STICKERS, funStickers } from "./shared/stickers.js";
+import { MIX, playable } from "./shared/topics/mix.js";
 
 const STICKER_IDS = new Set(STICKERS.map((s) => s.id));
 
@@ -90,6 +92,7 @@ export default {
       if (path === "/api/meta") {
         const meta = json({
           topics: TOPICS.map(topicCard),
+          mix: MIX, // 🎲 Mix it up: a game made of several of the topics above
           names: { adjectives: ADJECTIVES, animals: ANIMALS, colors: COLORS },
           solo: SOLO,
           room: ROOM_LIMITS,
@@ -106,9 +109,11 @@ export default {
         const b = await body(request);
         const player = cleanPlayer(b.player);
         if (TOPIC_BY_ID[b.topic] && !canPlay(b.topic)) return json({ error: "That quiz has retired. Pick another one!" }, 400);
-        if (!canPlay(b.topic) || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
+        const game = playable(b.topic, b.mix); // { topic, mix }: mix = the topics in a 🎲 Mix it up game
+        if (b.topic === MIX.id && !game) return json({ error: "Pick at least 2 topics to mix!" }, 400);
+        if (!game || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
         const id = env.ROOMS.newUniqueId();
-        await env.ROOMS.get(id).init({ kind: "solo", topic: b.topic, hostId: player.id });
+        await env.ROOMS.get(id).init({ kind: "solo", topic: b.topic, mix: game.mix, hostId: player.id });
         ctx.waitUntil(statsStub(env).count("solo", b.topic).catch(() => {}));
         return json({ id: id.toString() });
       }
@@ -127,13 +132,15 @@ export default {
         const b = await body(request);
         const player = cleanPlayer(b.player);
         if (TOPIC_BY_ID[b.topic] && !canPlay(b.topic)) return json({ error: "That quiz has retired. Pick another one!" }, 400);
-        if (!canPlay(b.topic) || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
-        // count, timer, level, and quiz or 🎯 bingo (bingo only for some topics): see roomSettings in scoring.js
+        const game = playable(b.topic, b.mix); // { topic, mix }: mix = the topics in a 🎲 Mix it up game
+        if (b.topic === MIX.id && !game) return json({ error: "Pick at least 2 topics to mix!" }, 400);
+        if (!game || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
+        // count, timer, level, and quiz or 🎯 bingo (bingo only for some topics, never a 🎲 mix): see roomSettings in scoring.js
         const { settings, error } = roomSettings(b, b.topic);
         if (error) return json({ error }, 400);
         for (let tries = 0; tries < 8; tries++) {
           const code = newCode();
-          const res = await roomStub(env, code).init({ kind: "room", code, topic: b.topic, settings, hostId: player.id });
+          const res = await roomStub(env, code).init({ kind: "room", code, topic: b.topic, mix: game.mix, settings, hostId: player.id });
           if (res.ok) {
             ctx.waitUntil(statsStub(env).count("room_created", b.topic).catch(() => {}));
             return json({ code });
@@ -204,6 +211,20 @@ export default {
         return json({ stickers: rows.map((r) => r.id), earned: Object.fromEntries(rows.map((r) => [r.id, r.at])) });
       }
 
+      // 🦊 Rufus fun stickers: tapping Rufus happens in the browser, so the server can't check these ones.
+      // That's OK for just-for-fun stickers, but this ONLY ever gives out stickers marked fun: true.
+      if (path === "/api/stickers/fun" && request.method === "POST") {
+        const b = await body(request);
+        const player = cleanPlayer(b.player); // my private player id says who I am (like /api/stickers)
+        const ids = funStickers(b.ids);
+        if (!player) return json({ error: "Pick a nickname first." }, 400);
+        if (!ids) return json({ error: "Only Rufus fun stickers can be sent from here." }, 400);
+        const who = request.headers.get("cf-connecting-ip") || "local"; // only used to slow down spammers, never saved
+        const res = await env.HALL.get(env.HALL.idFromName("global")).awardFun(player.id, ids, who);
+        if (!res.ok) return json({ error: "Whoa, slow down! Try again in a few minutes." }, 429);
+        return json({ fresh: res.fresh, stickers: res.stickers });
+      }
+
       // "Remember me": this device's players, backed up on the server and found again with a cookie.
       // The cookie is only a random device id (HttpOnly, so page scripts can't read it). No tracking.
       if (path === "/api/me") {
@@ -243,7 +264,7 @@ export default {
 
       if (path === "/api/hall") {
         const topic = url.searchParams.get("topic") || "flags";
-        if (!TOPIC_BY_ID[topic]) return json({ error: "Unknown topic" }, 400);
+        if (!TOPIC_BY_ID[topic] && topic !== MIX.id) return json({ error: "Unknown topic" }, 400); // 🎲 mix has one board for every mix
         const period = url.searchParams.get("period") === "week" ? "week" : "all";
         const pid = url.searchParams.get("pid") || "";
         const hall = env.HALL.get(env.HALL.idFromName("global"));

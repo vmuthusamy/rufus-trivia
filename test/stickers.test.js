@@ -85,3 +85,50 @@ test("every topic's song exists (a typo would silently fall back to the default 
   const { MUSIC } = await import("../public/js/sound.js");
   for (const t of TOPICS) assert.ok(MUSIC[t.music || "adventure"], `${t.id}: no song called "${t.music}"`);
 });
+
+// 🦊 Rufus fun stickers (tapping Rufus): only these can come from a browser.
+test("fun stickers: exactly the four Rufus ones, and the browser can't ask for anything else", async () => {
+  const { funStickers } = await import("../src/shared/stickers.js");
+  const fun = STICKERS.filter((s) => s.fun).map((s) => s.id).sort();
+  assert.deepEqual(fun, ["bigshow", "napbuddy", "penpals", "supercombo"]);
+  assert.deepEqual(funStickers(["bigshow", "bigshow", "penpals"]), ["bigshow", "penpals"]);
+  for (const bad of [null, [], "bigshow", ["champion"], ["bigshow", "mix_master"], ["bigshow", "nope"], [{}], ["streak50"]]) {
+    assert.equal(funStickers(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("explorer still counts only the real topics (mix isn't one)", () => {
+  assert.ok(!TOPICS.some((t) => t.id === "mix"));
+  assert.deepEqual(stickersForStart({ kind: "solo", isHost: true, players: 1, topicsPlayed: TOPICS.length - 1, allTopics: TOPICS.length, roomGames: 0 }), []);
+});
+
+test("fun progress: all 9 tricks, the combo, 6 languages, 3 naps", async () => {
+  const { TRICKS, HELLOS, LANGUAGES, funProgress, funEarned, funStatus, pile } = await import("../public/js/rufus.js");
+  assert.equal(TRICKS.length, 9);
+  assert.deepEqual(LANGUAGES, ["German", "French", "Italian", "Spanish", "Japanese", "Hindi"]);
+  // every language comes up within one round of the hello pile (7 hellos), whatever the shuffle
+  for (let s = 0; s < 20; s++) {
+    let x = s + 1;
+    const p = pile(HELLOS, () => ((x = (x * 9301 + 49297) % 233280) / 233280));
+    assert.deepEqual(new Set(HELLOS.map(() => p.next().lang).filter(Boolean)).size, 6);
+  }
+  let p = {};
+  for (const t of TRICKS.slice(0, 8)) p = funProgress(p, t);
+  assert.deepEqual(funEarned(p), [], "8 of 9 tricks isn't the Big Show yet");
+  p = funProgress(p, { id: "super", super: true });
+  assert.deepEqual(funEarned(p), ["supercombo"], "the combo doesn't count as a trick");
+  p = funProgress(p, { ...TRICKS[8], lang: "German" });
+  assert.ok(funEarned(p).includes("bigshow"));
+  for (const lang of LANGUAGES) p = funProgress(p, { id: "hello", lang });
+  p = funProgress(p, { id: "hello", lang: null }); // the skulk fact isn't a language
+  assert.equal(p.langs.length, 6);
+  assert.ok(funEarned(p).includes("penpals"));
+  assert.ok(!funEarned(p).includes("napbuddy"));
+  p = funProgress(p, { id: "nap" }); // (one nap came with the 9 tricks)
+  assert.equal(funStatus(p).napbuddy, "2 / 3 naps");
+  p = funProgress(p, { id: "nap" });
+  assert.deepEqual(funEarned(p).sort(), ["bigshow", "napbuddy", "penpals", "supercombo"]);
+  const before = { tricks: [], langs: [], naps: 0 };
+  funProgress(before, { id: "nap" });
+  assert.equal(before.naps, 0, "the old progress isn't changed");
+});

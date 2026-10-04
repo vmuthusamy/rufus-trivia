@@ -33,6 +33,11 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
   "QUIZ BINGO" section of `room.js`, the screens the "QUIZ BINGO" sections of `app.js`/`app.css`. Exactly ONE square in a
   pool may be right for each call, so a question with other right answers lists them in `alsoRight`, and one that only
   works with its 4 choices says `noBingo: true` (server-side only; `test/bingo.test.js` checks thousands of pools).
+- **🎲 Mix it up** (topic id `mix` + a `mix` list of 2-5 playable topic ids, checked by `playable()` in
+  `src/shared/topics/mix.js`): built with `mixTopic()`, equal weights. Mix question keys are `"<topic>-<key>"`, so topic ids
+  must never contain `-`; the browser files them under the real topic (`rememberSeen` in app.js). Mix can't be bingo.
+- **Rufus fun stickers** (`fun: true` in `stickers.js`) are the ONLY stickers a browser may ask for (`/api/stickers/fun`):
+  taps on Rufus are counted in the browser (`funProgress` in `rufus.js`); his idle fidgets never count.
 - Eye candy must stay at 60 frames a second (taps feel slow otherwise). Three rules keep it there:
   no `backdrop-filter` (glass panels paint their own copy of the sky: "painted glass" in `app.css` + `fx.alignGlass()`);
   a `filter`/`drop-shadow` goes on a still child, never on the element that moves (see the parade boxes, `.orb .ob`,

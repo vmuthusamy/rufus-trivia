@@ -236,6 +236,68 @@ a { color: var(--a); }
 .topics.mini .topic { padding: 10px 12px; }
 .topics.mini .topic .te { font-size: 28px; margin-bottom: 6px; }
 .topics.mini .topic b { font-size: clamp(15px, 13cqw, 19px); }
+
+/* ---------- 🎲 MIX IT UP: the sixth topic card (mixerCard() in app.js) ----------
+   A slim row of its own under the five topic cards, so Solo Quest and Challenge stay on screen.
+   Dice, name and description on the left; on the right, one little button per topic: bright = in the mix, faded = out.
+   Its edge is a rainbow of every topic's colour (a ring drawn once, so it costs nothing to keep on screen). */
+.topics > .topic.mixer { flex-basis: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 9px 14px; border: 0; }
+.mixer::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px; pointer-events: none;
+  background: conic-gradient(from 200deg, #ff8a1f, #f472b6, #a78bfa, #22d3ee, #3ddc97, #a3e635, #ffd23f, #ff8a1f);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .45; transition: opacity .2s;
+}
+.mixer[aria-checked="true"]::before { opacity: 1; }
+.topics .topic.mixer .te { margin: 0; font-size: 30px; flex: none; }
+.mixer[aria-checked="true"] .te { animation: diceRoll .7s cubic-bezier(.3, 1.4, .5, 1); }
+@keyframes diceRoll { 0% { transform: rotate(0) scale(1); } 60% { transform: rotate(380deg) scale(1.3); } 100% { transform: rotate(354deg) scale(1.15); } }
+.mixer .mx-words { flex: 1 1 150px; min-width: 0; line-height: 1.2; }
+.topics .topic.mixer b { display: inline; min-height: 0; margin-right: 8px; font-size: 21px; }
+.topics .topic.mixer small { display: inline; margin: 0; }
+.mx-chips { display: flex; gap: 6px; flex: none; margin-left: auto; }
+.mx-chip {
+  width: 36px; height: 36px; padding: 0; border-radius: 12px; display: grid; place-items: center; font-size: 19px; line-height: 1; cursor: pointer;
+  border: 2px solid var(--cc); background: color-mix(in srgb, var(--cc) 26%, transparent); box-shadow: 0 0 12px -4px var(--cc);
+  transition: transform .15s, opacity .2s, filter .2s, background .2s;
+}
+.mx-chip:hover { transform: translateY(-2px) scale(1.08); }
+.mx-chip[aria-pressed="false"] { opacity: .45; filter: grayscale(1); border: 2px dashed rgba(255, 255, 255, .35); background: transparent; box-shadow: none; }
+.mx-chip.nope { animation: shake .4s; }
+.topics .topic.mixer .best { position: static; margin: 0; flex: none; }
+/* the Challenge quiz picker: the same, a little smaller */
+.topics.mini .topic.mixer { padding: 8px 12px; }
+.topics.mini .topic.mixer .te { font-size: 26px; }
+.topics.mini .topic.mixer .mx-words { flex-basis: 80px; } /* just the name here, so the buttons fit on the same row */
+@media (max-width: 640px) {
+  .topics.mini > .topic.mixer { column-gap: 8px; padding-left: 10px; padding-right: 10px; }
+  .topics.mini .mx-chips { gap: 4px; }
+  .topics.mini .topic.mixer b { white-space: nowrap; margin: 0; }
+  .topics.mini .mx-chip { width: 30px; height: 30px; font-size: 16px; }
+}
+.topics.mini .mx-chip { width: 32px; height: 32px; font-size: 17px; border-radius: 10px; }
+@media (max-width: 640px) {
+  .mx-chips { gap: 5px; }
+  .mx-chip { width: 32px; height: 32px; font-size: 17px; }
+}
+/* Phones and smaller laptops lay the home cards out 2 or 3 a row: there the mix is just the sixth card,
+   which evens the rows out (2 + 2 + 2, 3 + 3). Same slots as the other cards, with its buttons at the bottom. */
+@media (max-width: 640px), (min-width: 981px) and (max-width: 1180px) {
+  .topics:not(.mini) > .topic.mixer { flex-basis: calc((100% - (var(--per) - 1) * 12px) / var(--per)); flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0; padding: 14px 12px; }
+  .topics:not(.mini) .topic.mixer .te { margin-bottom: 8px; }
+  .topics:not(.mini) .topic.mixer .mx-words { flex: none; }
+  .topics:not(.mini) .topic.mixer b { display: flex; min-height: 2.3em; margin: 0; font-size: clamp(16px, 14cqw, 21px); }
+  .topics:not(.mini) .topic.mixer small { display: block; margin-top: 4px; }
+  .topics:not(.mini) .mx-chips { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; margin: auto 0 0; padding-top: 10px; }
+  .topics:not(.mini) .topic.mixer .best { position: absolute; top: 10px; right: 10px; }
+}
+/* short laptop windows (like 1366 × 768): a little less space above the cards and in the bar, so Solo Quest stays on screen */
+@media (max-height: 800px) and (min-width: 1181px) {
+  .tagline { margin-bottom: 10px; }
+  .topics > .topic.mixer { padding-top: 7px; padding-bottom: 7px; }
+}
+/* join screen: which topics are in the pot */
+.join-preview .mix-in { font-size: 14px; color: var(--ink-2); }
 .actions { display: flex; gap: 14px; flex-wrap: wrap; }
 .actions.small { margin-top: 12px; }
 .actions.small .btn { flex: 1; min-width: 180px; }
@@ -942,6 +1004,12 @@ html.lite :is(.orb .oe, .emoji-card span, .timer .fg, .hearts span, .pal .sprite
 .slot b { display: block; font-size: 14.5px; }
 .slot small { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; margin-top: 3px; }
 .slot .rar { position: absolute; top: 8px; right: 10px; font-size: 10px; letter-spacing: 1px; color: var(--gold); }
+/* 🦊 Rufus fun stickers: their own little group at the end of the book, with how far along you are */
+.book-group {
+  grid-column: 1 / -1; margin: 12px 0 0; padding-top: 14px; border-top: 2px dashed rgba(244, 114, 182, .3);
+  font-family: var(--display); font-size: 22px; font-weight: 400; color: var(--fox-light);
+}
+.slot small.fun-left { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--fox-light); }
 
 /* sticker book: tap to inspect, pin to show off */
 .slot { cursor: pointer; font: inherit; color: inherit; transition: transform .15s; }
@@ -1071,6 +1139,7 @@ html.lite .bsq.inline::after { animation: none; }
 .opt-hint { margin: 8px 2px 0; font-size: 13.5px; line-height: 1.35; color: var(--muted); font-weight: 700; }
 .topics.mini .topic.off { opacity: .32; cursor: not-allowed; }
 .topics.mini .topic.off:hover { transform: none; }
+.topics.mini .topic.off .mx-chips { pointer-events: none; } /* 🎲 a mix can't be bingo: its buttons sleep too */
 
 /* lobby: how bingo works, for everyone who just joined */
 .lobby-rules { margin: 14px 0 0; padding: 10px 14px; border-radius: 14px; background: rgba(var(--a-rgb), .1); border: 1px solid rgba(var(--a-rgb), .4); color: var(--ink-2); font-size: 14.5px; line-height: 1.4; }
