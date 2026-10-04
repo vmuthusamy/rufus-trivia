@@ -28,6 +28,11 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
   A new topic also needs a `<id>_master` sticker in `src/shared/stickers.js` and its name in `public/stats.html`. Always use `rng`, never `Math.random`
   (the same seed must give the same game for everyone in a room).
 - Flag files in `public/f/` have scrambled names on purpose (the URL must not reveal the country).
+- Eye candy must stay at 60 frames a second (taps feel slow otherwise). Three rules keep it there:
+  no `backdrop-filter` (glass panels paint their own copy of the sky: "painted glass" in `app.css` + `fx.alignGlass()`);
+  a `filter`/`drop-shadow` goes on a still child, never on the element that moves (see the parade boxes, `.orb .ob`,
+  `.emoji-card span` and Rufus's `.fox-shade`); anything redrawn every frame (timer ring, time bar) gets `will-change`.
+  `fx.watchFrameRate()` flips slow devices to `html.lite`. Check with the frame counter in Chrome DevTools > Rendering.
 - Names: "secret agent" names come from word lists in `src/shared/names.js`. Typed first names go through
   `checkNick()` there (letters only, rude-word filter). Never let free text reach the board without it.
   Typed names are also one-of-a-kind: `HallOfFame.claimName()` gives a name to the first player id that uses it

@@ -24,6 +24,14 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius: 26px;
   color-scheme: dark;
+  /* the nebula behind everything: the sky itself, and every glass panel's own copy of it (see "painted glass") */
+  --sky:
+    radial-gradient(70% 55% at 80% 12%, rgba(var(--a-rgb), .24), transparent 60%),
+    radial-gradient(55% 45% at 8% 6%, rgba(139, 92, 246, .28), transparent 60%),
+    radial-gradient(60% 50% at 30% 70%, rgba(56, 189, 248, .10), transparent 60%),
+    radial-gradient(120% 90% at 50% 120%, rgba(var(--a-rgb), .16), transparent 60%),
+    linear-gradient(180deg, #0d0a26 0%, #080720 55%, #05040f 100%);
+  --sky-fit: 100vw 100vh, 100vw 100vh, 100vw 100vh, 100vw 100vh, 100vw 100vh; /* one "whole screen" size per layer of --sky */
 }
 
 * { box-sizing: border-box; }
@@ -38,14 +46,23 @@ a { color: var(--a); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---------- background layers ---------- */
-.sky {
-  position: fixed; inset: 0; z-index: 0; transition: background 1.2s ease;
-  background:
-    radial-gradient(70% 55% at 80% 12%, rgba(var(--a-rgb), .24), transparent 60%),
-    radial-gradient(55% 45% at 8% 6%, rgba(139, 92, 246, .28), transparent 60%),
-    radial-gradient(60% 50% at 30% 70%, rgba(56, 189, 248, .10), transparent 60%),
-    radial-gradient(120% 90% at 50% 120%, rgba(var(--a-rgb), .16), transparent 60%),
-    linear-gradient(180deg, #0d0a26 0%, #080720 55%, #05040f 100%);
+.sky { position: fixed; inset: 0; z-index: 0; transition: background 1.2s ease; background: var(--sky); }
+
+/* ---------- painted glass ----------
+   Glass panels used to blur whatever was behind them (backdrop-filter). It looked lovely, but the background
+   never stops moving (grid, sparkles, floating flags), so the browser had to redo every blur on every frame:
+   that alone cut the game from 60 frames a second to about 20. Now each panel paints its OWN copy of the sky
+   under its tinted glass, lined up with the real sky by fx.alignGlass() (--gx/--gy = where the panel is on
+   the screen). A blurred nebula looks just like the nebula, so you can't tell the difference, and the grid
+   lines and sparkles the blur used to smear away are simply covered. */
+.panel, .media-card { --tint: linear-gradient(180deg, var(--glass), var(--glass-2)); }
+.icon-btn, .me-chip { --tint: linear-gradient(var(--glass), var(--glass)); }
+.panel, .media-card, .icon-btn, .me-chip {
+  --at: var(--gx, 0px) var(--gy, 0px);
+  background: var(--tint), var(--sky) #05040f; /* #05040f = the bottom of the sky, for any part of a tall panel past one screen height */
+  background-size: auto, var(--sky-fit);
+  background-position: 0 0, var(--at), var(--at), var(--at), var(--at), var(--at);
+  background-repeat: no-repeat;
 }
 .layer { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; z-index: 1; }
 #particles { z-index: 2; }
@@ -57,12 +74,14 @@ a { color: var(--a); }
 /* floating flags behind the home screen */
 .parade { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; transition: opacity .8s; }
 .parade.off { opacity: 0; visibility: hidden; transition: opacity .8s, visibility 0s linear .8s; }
-.parade.off img, .parade.off .pe { animation-play-state: paused; }
+.parade.off .pf { animation-play-state: paused; }
+/* the box (.pf) floats; the blurry flag or emoji inside it holds still, so its blur is painted only once (see parade() in fx.js) */
+.parade .pf { position: absolute; width: var(--w); opacity: var(--o); animation: drift var(--t) linear infinite; animation-delay: var(--dl); }
 .parade img {
-  position: absolute; width: var(--w); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; opacity: var(--o);
+  display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px;
   filter: blur(var(--b)) saturate(1.1); box-shadow: 0 10px 30px -10px #000;
-  animation: drift var(--t) linear infinite; animation-delay: var(--dl);
 }
+.parade .pe { display: block; font-size: calc(var(--w) * .7); line-height: 1; filter: blur(var(--b)); }
 @keyframes drift {
   from { transform: translate3d(0, 110vh, 0) rotate(var(--r1)); }
   to   { transform: translate3d(var(--dx), -30vh, 0) rotate(var(--r2)); }
@@ -80,8 +99,8 @@ a { color: var(--a); }
 .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--a); box-shadow: 0 0 14px 3px var(--a); animation: pulseDot 2s infinite; }
 @keyframes pulseDot { 50% { opacity: .35; } }
 .icon-btn {
-  width: 42px; height: 42px; border-radius: 13px; border: 1px solid var(--line); background: var(--glass);
-  backdrop-filter: blur(10px); cursor: pointer; font-size: 17px; display: grid; place-items: center; transition: transform .15s, border-color .2s;
+  width: 42px; height: 42px; border-radius: 13px; border: 1px solid var(--line);
+  cursor: pointer; font-size: 17px; display: grid; place-items: center; transition: transform .15s, border-color .2s;
 }
 .icon-btn:hover { border-color: var(--a); transform: translateY(-2px); }
 .icon-btn[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
@@ -105,7 +124,7 @@ a { color: var(--a); }
 .pill svg { width: 20px; height: 20px; }
 .me-chip {
   display: flex; align-items: center; gap: 9px; height: 46px; padding: 0 16px 0 6px; border-radius: 999px; cursor: pointer;
-  border: 1px solid rgba(var(--a-rgb), .55); background: var(--glass); backdrop-filter: blur(10px); transition: transform .15s;
+  border: 1px solid rgba(var(--a-rgb), .55); transition: transform .15s;
 }
 .me-chip:hover { transform: translateY(-2px); }
 .me-chip .av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 21px; background: var(--pc, var(--a)); box-shadow: 0 0 16px -3px var(--pc, var(--a)); }
@@ -132,7 +151,6 @@ a { color: var(--a); }
 .panel {
   position: relative; width: 100%; max-width: 760px; margin: 2vh auto auto; padding: clamp(18px, 3vw, 34px);
   border-radius: var(--radius); border: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--glass), var(--glass-2)); backdrop-filter: blur(14px);
   box-shadow: 0 40px 90px -50px #000, inset 0 0 70px -36px rgba(var(--a-rgb), .55);
 }
 .row-end { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
@@ -153,7 +171,6 @@ a { color: var(--a); }
 .btn:disabled { opacity: .45; cursor: default; transform: none; filter: grayscale(.4); }
 .btn.primary { --c: #ffa53c; --c2: #ff7a00; --edge: #9c4300; border-color: transparent; text-shadow: 0 2px 0 rgba(120, 50, 0, .5); box-shadow: 0 5px 0 var(--edge), 0 18px 34px -14px rgba(255, 122, 0, .8); }
 .btn.blue { --c: #4cc9ff; --c2: #1f8fff; --edge: #0b4fa8; border-color: transparent; text-shadow: 0 2px 0 rgba(0, 40, 120, .45); box-shadow: 0 5px 0 var(--edge), 0 18px 34px -14px rgba(31, 143, 255, .8); }
-.btn.ghost { backdrop-filter: blur(8px); }
 .btn.ghost:hover { border-color: var(--a); }
 .btn.sq { width: 52px; padding: 0; }
 .btn.big { min-height: 84px; padding: 0 26px; border-radius: 22px; justify-content: flex-start; text-align: left; flex: 1; }
@@ -226,7 +243,11 @@ a { color: var(--a); }
 .foot a { color: var(--fox-light); }
 
 /* hero: Rufus with flags orbiting around him */
-.hero-stage { position: relative; height: min(64vh, 560px); display: grid; place-items: center; }
+.hero-stage { position: relative; height: min(64vh, 560px); display: grid; place-items: center; container-type: size; }
+/* How far the flags circle from Rufus: as big as his space allows (cqw/cqh = % of the hero stage),
+   leaving room for the biggest flag (84px wide) so nothing drifts over the topic cards. */
+.orbit { --rad: clamp(110px, min(50cqw - 48px, 50cqh - 30px), 230px); }
+@media (max-width: 980px) { .orbit { --rad: 120px; } }
 .hero-fox { position: relative; width: clamp(150px, 19vw, 240px); z-index: 3; cursor: pointer; }
 .hero-bubble {
   position: absolute; z-index: 5; top: 4%; left: 50%; max-width: min(300px, 80%); padding: 12px 16px; border-radius: 18px 18px 18px 4px;
@@ -247,11 +268,12 @@ a { color: var(--a); }
 /* when you pick a topic, the new things fly out from Rufus into orbit */
 @keyframes orbIn { from { scale: 0; opacity: 0; } to { scale: 1; opacity: 1; } }
 .orb i { display: block; animation: spin 46s linear infinite reverse; }
-.orb .oe { display: block; font-size: var(--s, 56px); line-height: 1; font-style: normal; transform: translate(-50%, -50%); filter: drop-shadow(0 0 18px rgba(var(--a-rgb), .75)) drop-shadow(0 10px 14px rgba(0, 0, 0, .5)); animation: bob 3s ease-in-out infinite; animation-delay: var(--dl); }
-.parade .pe { position: absolute; font-size: calc(var(--w) * .7); line-height: 1; opacity: var(--o); filter: blur(var(--b)); animation: drift var(--t) linear infinite; animation-delay: var(--dl); }
-.orb img { display: block; width: var(--s, 72px); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; transform: translate(-50%, -50%); box-shadow: 0 12px 24px -10px #000, 0 0 0 2px rgba(255, 255, 255, .15); animation: bob 3s ease-in-out infinite; animation-delay: var(--dl); }
+/* .ob does the bobbing; the glowing thing inside it is painted once and just rides along (a glow on the moving element itself is redrawn every frame) */
+.orb .ob { display: block; animation: bob 3s ease-in-out infinite; animation-delay: var(--dl); }
+.orb .oe { display: block; font-size: var(--s, 56px); line-height: 1; font-style: normal; transform: translate(-50%, -50%); filter: drop-shadow(0 0 18px rgba(var(--a-rgb), .75)) drop-shadow(0 10px 14px rgba(0, 0, 0, .5)); }
+.orb img { display: block; width: var(--s, 72px); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; transform: translate(-50%, -50%); box-shadow: 0 12px 24px -10px #000, 0 0 0 2px rgba(255, 255, 255, .15); }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes bob { 50% { transform: translate(-50%, calc(-50% - 10px)); } }
+@keyframes bob { 50% { transform: translateY(-10px); } }
 
 /* ---------- PROFILE ---------- */
 .saved { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
@@ -302,6 +324,7 @@ a { color: var(--a); }
 }
 .quit-btn:hover { background: rgba(255, 77, 109, .25); transform: translateY(-2px); }
 @media (max-width: 640px) { .quit-btn span { display: none; } }
+/* (the quit card and the 3-2-1 countdown keep their real blur: they cover the whole screen for a moment and cost nothing while hidden) */
 .modal { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; padding: 16px; background: rgba(5, 3, 15, .7); backdrop-filter: blur(6px); animation: rise .2s both; }
 .modal-card {
   width: min(420px, 100%); padding: 24px 22px 22px; border-radius: 26px; text-align: center; border: 1px solid var(--line);
@@ -414,13 +437,13 @@ a { color: var(--a); }
 
 .media-card {
   position: relative; height: min(60vh, 540px); border-radius: var(--radius); border: 1px solid var(--line); overflow: hidden;
-  background: linear-gradient(180deg, var(--glass), var(--glass-2)); backdrop-filter: blur(12px);
   box-shadow: 0 40px 90px -50px #000, inset 0 0 70px -30px rgba(var(--a-rgb), .55); display: grid; place-items: center;
   container-type: size;
 }
 @media (max-width: 980px) { .media-card { height: 34vh; min-height: 220px; } }
 .timebar { position: absolute; left: 0; right: 0; top: 0; height: 7px; background: rgba(255, 255, 255, .08); }
-.timebar i { display: block; height: 100%; width: 100%; background: var(--tcol, var(--good)); box-shadow: 0 0 14px var(--tcol, var(--good)); transform-origin: left; }
+/* will-change: the bar shrinks 60 times a second (startTimer in app.js); its own layer means only the bar is redrawn, not the card */
+.timebar i { display: block; height: 100%; width: 100%; background: var(--tcol, var(--good)); box-shadow: 0 0 14px var(--tcol, var(--good)); transform-origin: left; will-change: transform; }
 .level-tag { position: absolute; right: 14px; bottom: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; padding: 6px 10px; border-radius: 999px; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); }
 .media { width: 100%; height: 100%; display: grid; place-items: center; padding: 30px 26px; }
 .media.swap { animation: mediaIn .55s cubic-bezier(.2, .9, .3, 1.2); }
@@ -437,13 +460,16 @@ a { color: var(--a); }
   animation: wave 3.4s ease-in-out infinite; box-shadow: 0 30px 50px -24px #000, 0 0 60px -24px rgba(var(--a-rgb), .9); background: #fff;
 }
 .cloth img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* the shiny ripple: a wide strip of light-and-shade stripes (4 flags wide, starting 2 flags to the left) that
+   SLIDES across the flag. Sliding (transform) is free for the graphics chip; scrolling the stripes with
+   background-position meant repainting the whole flag on every frame. */
 .cloth::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light;
+  content: ""; position: absolute; top: 0; bottom: 0; left: -200%; width: 400%; pointer-events: none; mix-blend-mode: soft-light;
   background: repeating-linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .55) 9%, rgba(0, 0, 0, .45) 20%, rgba(255, 255, 255, 0) 30%);
-  background-size: 200% 100%; animation: ripple 2.6s linear infinite;
+  background-size: 50% 100%; animation: ripple 2.6s linear infinite;
 }
 @keyframes wave { 0%, 100% { transform: rotateY(-12deg) skewY(-2deg); } 50% { transform: rotateY(9deg) skewY(1.6deg); } }
-@keyframes ripple { from { background-position: 0 0; } to { background-position: -200% 0; } }
+@keyframes ripple { from { transform: translateX(0); } to { transform: translateX(50%); } } /* 50% of the strip = one stripe pattern, so it loops seamlessly */
 .media .caption { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-family: var(--display); font-size: 22px; text-shadow: 0 2px 0 rgba(0, 0, 0, .4); }
 
 .word-card { text-align: center; }
@@ -458,7 +484,9 @@ a { color: var(--a); }
 .photo-card { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .photo-card img { flex: 0 1 auto; min-height: 0; max-width: 100%; max-height: 100%; border-radius: 14px; object-fit: contain; box-shadow: 0 24px 50px -20px #000, 0 0 0 4px rgba(255, 255, 255, .9); animation: mediaIn .55s cubic-bezier(.2, .9, .3, 1.2); }
 .media:has(.photo-card) { padding: 22px; }
-.emoji-card { font-size: clamp(110px, 16vw, 190px); line-height: 1; filter: drop-shadow(0 20px 30px rgba(0, 0, 0, .5)); animation: floaty 3s ease-in-out infinite; }
+/* the card floats; the emoji inside it carries the shadow, so the shadow is painted once instead of every frame (bigEmoji() in app.js) */
+.emoji-card { font-size: clamp(110px, 16vw, 190px); line-height: 1; animation: floaty 3s ease-in-out infinite; }
+.emoji-card span { display: block; filter: drop-shadow(0 20px 30px rgba(0, 0, 0, .5)); }
 
 /* characters from Rufus's game, drawn as crisp pixel art (see js/sprites.js) */
 .pal { position: relative; display: grid; place-items: center; animation: floaty 3s ease-in-out infinite; }
@@ -502,7 +530,7 @@ a { color: var(--a); }
 
 .qside { min-width: 0; display: flex; flex-direction: column; }
 .q-head { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; }
-.timer { position: relative; width: 68px; height: 68px; flex: none; }
+.timer { position: relative; width: 68px; height: 68px; flex: none; will-change: transform; } /* own layer: the ring redraws every frame, so keep that to this little square */
 .timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .timer .bg { fill: rgba(0, 0, 0, .35); stroke: rgba(255, 255, 255, .1); stroke-width: 6; }
 .timer .fg { fill: none; stroke: var(--tcol, var(--good)); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 175.9; filter: drop-shadow(0 0 6px var(--tcol, var(--good))); }
@@ -615,7 +643,7 @@ a { color: var(--a); }
 .standings {
   position: absolute; right: clamp(14px, 3vw, 40px); top: 70px; width: min(380px, calc(100% - 28px)); z-index: 30; padding: 16px 18px;
   border-radius: 22px; border: 1px solid var(--line); background: linear-gradient(180deg, rgba(30, 22, 70, .92), rgba(14, 10, 38, .96));
-  backdrop-filter: blur(14px); box-shadow: 0 40px 80px -30px #000; animation: slideIn .55s cubic-bezier(.2, .9, .3, 1.1);
+  box-shadow: 0 40px 80px -30px #000; animation: slideIn .55s cubic-bezier(.2, .9, .3, 1.1);
 }
 @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: none; opacity: 1; } }
 .standings ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
@@ -709,7 +737,15 @@ a { color: var(--a); }
 @media (max-width: 980px) { .rufus-dock.ingame .bubble { display: none; } .rufus-dock.ingame .rufus { width: 62px; } }
 
 /* pixel-art Rufus SVG + moods */
-.fox-svg { width: 100%; display: block; overflow: visible; shape-rendering: crispEdges; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .45)); }
+.fox { position: relative; }
+.fox-svg { position: relative; width: 100%; display: block; overflow: visible; shape-rendering: crispEdges; }
+/* His shadow: a black, blurry, perfectly still copy of him underneath (makeFox() in rufus.js). A drop-shadow
+   filter on the wriggling fox made the browser re-blur him every frame; a still copy is blurred once. */
+.fox-shade { position: absolute; inset: 0; width: 100%; overflow: visible; pointer-events: none; opacity: .45; filter: blur(7px); transform: translateY(10px); }
+.fox-shade rect { fill: #000; }
+/* while he does a trick, the real moving shadow comes back for that second */
+.fox:is(.cheer, [class*="t-"]) .fox-svg { filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .45)); }
+.fox:is(.cheer, [class*="t-"]) .fox-shade { opacity: 0; }
 .fox-svg .body { transform-origin: 16px 30px; animation: foxIdle 2.4s ease-in-out infinite; }
 .fox-svg .tail { transform-origin: 8px 16px; animation: tailWag 1.2s ease-in-out infinite; }
 .fox-svg .eyes { transform-origin: 17px 8px; animation: blink 4.5s infinite; }
@@ -843,6 +879,10 @@ a { color: var(--a); }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .screen .anim { opacity: 1; transform: none; }
 }
+
+/* ---------- LITE MODE: slow devices (fx.watchFrameRate adds html.lite when it counts under 40 frames a second) ---------- */
+html.lite .parade .pf:nth-child(n + 7) { display: none; } /* 6 floating flags instead of 14 */
+html.lite :is(.orb .oe, .emoji-card span, .timer .fg, .hearts span, .pal .sprite) { filter: none; } /* no glow on things that move */
 
 /* ---------- STICKERS ---------- */
 /* an emoji with a white die-cut border and a soft shadow, slightly tilted, like a real sticker */

@@ -35,13 +35,14 @@ export function initBackdrop() {
     gx.setTransform(dpr, 0, 0, dpr, 0, 0);
     px.setTransform(dpr, 0, 0, dpr, 0, 0);
     parts = [];
-    const n = Math.round((W * H) / 12000);
+    const n = Math.round((W * H) / (root.classList.contains("lite") ? 30000 : 12000));
     for (let i = 0; i < n; i++) parts.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() * 0.8 + 0.2, tw: Math.random() * 6.28 });
   }
 
   function frame(t) {
     if (document.hidden) { running = false; return; } // stop completely until the tab is visible again
-    if (last && t - last < FRAME_MS) { requestAnimationFrame(frame); return; }
+    const wait = root.classList.contains("lite") ? FRAME_MS * 2 : FRAME_MS; // lite mode: 15 times a second
+    if (last && t - last < wait) { requestAnimationFrame(frame); return; }
     const dt = Math.min(50, t - (last || t));
     last = t;
     for (let i = 0; i < 3; i++) accent[i] += (target[i] - accent[i]) * 0.04;
@@ -88,10 +89,16 @@ export function initBackdrop() {
 
 // ---------- floating flags behind menus ----------
 // items: flag picture paths ("/f/...") or emoji (for topics like Space or Math)
+// Each picture sits inside its own little box (.pf). The BOX is what floats (a transform animation,
+// which the graphics chip does almost for free) while the blurry picture inside it never changes,
+// so the browser paints the blur once. Blurring the moving picture itself made it re-blur all 14
+// of them on every single frame: that was a big part of why taps felt slow.
 export function parade(el, items) {
   el.innerHTML = "";
   const n = Math.min(items.length, innerWidth < 700 ? 8 : 14);
   for (let i = 0; i < n; i++) {
+    const box = document.createElement("div");
+    box.className = "pf";
     let img;
     if (items[i].startsWith("/")) {
       img = new Image();
@@ -104,13 +111,49 @@ export function parade(el, items) {
       img.textContent = items[i];
     }
     const depth = Math.random();
-    img.style.cssText = [
+    box.style.cssText = [
       `left:${Math.random() * 96}%`, `--w:${Math.round(40 + depth * 60)}px`, `--o:${(0.12 + depth * 0.22).toFixed(2)}`,
       `--b:${((1 - depth) * 2.5).toFixed(1)}px`, `--t:${Math.round(26 + (1 - depth) * 30)}s`, `--dl:${-Math.random() * 50}s`,
       `--dx:${Math.round((Math.random() - 0.5) * 200)}px`, `--r1:${Math.round((Math.random() - 0.5) * 40)}deg`, `--r2:${Math.round((Math.random() - 0.5) * 60)}deg`,
     ].join(";");
-    el.appendChild(img);
+    box.appendChild(img);
+    el.appendChild(box);
   }
+}
+
+// ---------- painted glass ----------
+// Glass panels paint their own copy of the sky instead of blurring what's behind them (see "painted glass"
+// in app.css). To make the copy line up with the real sky, each panel is told where it sits on the screen.
+export function alignGlass() {
+  for (const el of document.querySelectorAll(".screen.on :is(.panel, .media-card), .topbar :is(.icon-btn, .me-chip)")) {
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--gx", -Math.round(r.left) + "px");
+    el.style.setProperty("--gy", -Math.round(r.top) + "px");
+  }
+}
+
+// ---------- is this device keeping up? ----------
+// A few seconds after the page has settled, count the frames in 2 seconds. A smooth page draws 60 a
+// second; if this device can't even manage 40, it switches to "lite" (html.lite in app.css): fewer
+// floating flags, a slower background and no glow on things that move. Everything still works,
+// it just gives an old iPad or Chromebook less to draw. Players who asked their device for less
+// motion get lite mode straight away.
+export function watchFrameRate() {
+  if (reduce) { root.classList.add("lite"); return; }
+  setTimeout(() => {
+    if (document.hidden) return; // a hidden tab draws nothing, so there's nothing to count (next visit tries again)
+    let n = 0;
+    const t0 = performance.now();
+    (function count(t) {
+      n++;
+      if (t - t0 < 2000) requestAnimationFrame(count);
+      else if (!document.hidden && n < 80) goLite();
+    })(t0);
+  }, 4000);
+}
+function goLite() {
+  root.classList.add("lite");
+  dispatchEvent(new Event("resize")); // the backdrop re-counts its particles (fewer in lite mode)
 }
 
 // ---------- confetti, bursts and fireworks ----------

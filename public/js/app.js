@@ -114,6 +114,7 @@ function show(name, { accent } = {}) {
   host.ingame(name === "game");
   if (name !== "game") fx.setSpeed(1);
   sound.mood(name === "game" ? "game" : "menu");
+  fx.alignGlass(); // the glass panels on this screen line up their painted sky with the real one
 }
 
 function requireProfile(next) {
@@ -376,13 +377,14 @@ function renderOrbit(items) {
   const orbit = $("orbit");
   orbit.innerHTML = "";
   const small = innerWidth < 980;
-  const rad = small ? 120 : Math.min(230, innerWidth * 0.17);
+  // How far out they circle (--rad) is set in app.css, so the orbit always fits inside Rufus's own space.
   items.forEach((item, i) => {
     const o = el("div", "orb");
     o.style.setProperty("--ang", (i * 360) / items.length + "deg");
-    o.style.setProperty("--rad", rad + "px");
     o.style.setProperty("--k", i);
-    const holder = el("i");
+    const holder = el("i"); // spins the other way, so the thing inside stays upright
+    const bob = el("span", "ob"); // bobs up and down; the glowing thing inside it is painted once and just rides along
+    bob.style.setProperty("--dl", -i * 0.4 + "s");
     let thing;
     if (item.startsWith("/")) {
       thing = new Image();
@@ -393,8 +395,8 @@ function renderOrbit(items) {
       thing = el("span", "oe", item); // an emoji: planet, landmark, maths symbol…
       thing.style.setProperty("--s", (small ? 38 : 50 + (i % 3) * 10) + "px");
     }
-    thing.style.setProperty("--dl", -i * 0.4 + "s");
-    holder.append(thing);
+    bob.append(thing);
+    holder.append(bob);
     o.append(holder);
     orbit.append(o);
   });
@@ -1238,8 +1240,7 @@ function prepGame(g, { topic: t, kind }) {
   $("qPrompt").textContent = "Get ready…";
   const m = $("media");
   m.innerHTML = "";
-  const w = el("div", "emoji-card", t.emoji);
-  m.append(w);
+  m.append(bigEmoji(t.emoji));
   $("levelTag").textContent = "Ready";
   $("timerNum").textContent = "";
 }
@@ -1318,6 +1319,14 @@ function showBanner(b) {
   showBanner.t = setTimeout(() => ban.classList.add("hidden"), b.size === "mini" ? 1600 : b.level >= 6 ? 2200 : 1800);
 }
 
+// A big floating emoji (the clue for animal, space and story questions). The float animation is on the
+// card and the shadow is on the span inside it, so the shadow is painted once instead of on every frame.
+function bigEmoji(text) {
+  const card = el("div", "emoji-card");
+  card.append(el("span", null, text));
+  return card;
+}
+
 function renderMedia(m, fallbackEmoji) {
   const box = $("media");
   box.innerHTML = "";
@@ -1342,7 +1351,7 @@ function renderMedia(m, fallbackEmoji) {
       pal.innerHTML = spriteSVG(m.who);
       pal.append(el("span", "pal-badge", m.text));
       w.append(pal);
-    } else w.append(el("div", "emoji-card", m.text));
+    } else w.append(bigEmoji(m.text));
     w.append(el("div", "place", `📍 ${m.place}`));
     box.append(w);
   } else if (m && m.kind === "make") {
@@ -1402,7 +1411,7 @@ function renderMedia(m, fallbackEmoji) {
     if (m.sub) w.append(el("div", "ws", m.sub));
     box.append(w);
   } else {
-    box.append(el("div", "emoji-card", (m && m.text) || fallbackEmoji || "❓"));
+    box.append(bigEmoji((m && m.text) || fallbackEmoji || "❓"));
   }
 }
 
@@ -1534,17 +1543,21 @@ function startTimer(g, st) {
   const total = st.settings.timer * 1000;
   const end = st.deadline - g.offset;
   const arc = $("timerArc"), num = $("timerNum"), bar = $("timebar"), tEl = $("timer"), card = $("mediaCard");
-  g.lastTick = -1;
+  g.lastTick = -1; g.lastCol = null;
   const loop = () => {
     const left = Math.max(0, end - Date.now());
     const k = left / total;
     arc.style.strokeDashoffset = String(175.9 * (1 - k));
     bar.style.transform = `scaleX(${k})`;
     const secs = Math.ceil(left / 1000);
-    num.textContent = secs;
     const col = k > 0.5 ? "#3ddc97" : k > 0.25 ? "#ffd23f" : "#ff4d6d";
-    tEl.style.setProperty("--tcol", col);
-    card.style.setProperty("--tcol", col);
+    // Only touch the page when something actually changed: this runs 60 times a second.
+    if (secs !== g.lastTick) num.textContent = secs;
+    if (col !== g.lastCol) {
+      g.lastCol = col;
+      tEl.style.setProperty("--tcol", col);
+      card.style.setProperty("--tcol", col);
+    }
     tEl.classList.toggle("urgent", secs <= 3 && left > 0 && !g.locked);
     if (secs !== g.lastTick && left > 0 && !g.locked) {
       if (secs <= 3) sound.play("urgent");
@@ -2063,6 +2076,8 @@ function wire() {
 // ---------- start! ----------
 async function boot() {
   fx.initBackdrop();
+  fx.watchFrameRate(); // slow device? switch to lite mode
+  addEventListener("resize", fx.alignGlass);
   heroFox = makeFox($("heroFox"));
   sound.init({ sfx: store.pref("sfx", true), music: store.pref("music", true) });
   wire();

@@ -77,10 +77,13 @@ export const TRICKS = [
 const SUPER = { id: "super", ms: 1400, sound: "fanfare", pop: ["🎆", "⭐", "🌀"], super: true, say: ["SUPER COMBO! 🎆", "MEGA TAIL SPIN! You found my secret move!"] };
 
 export function makeFox(el) {
-  el.innerHTML = foxSVG();
+  // Two copies of Rufus: a black, blurry, perfectly still one underneath (his shadow) and the real,
+  // wriggling one on top. Making the shadow with a drop-shadow filter on the moving fox meant the
+  // browser had to re-blur him on every frame; a still shadow is painted once (see .fox-shade in app.css).
+  el.innerHTML = foxSVG().replace('class="fox-svg"', 'class="fox-shade"') + foxSVG();
   el.classList.add("fox");
   let t = null, trickT = null, pile = [], taps = [], eyes = "";
-  const look = el.querySelector(".look");
+  const look = el.querySelector(".fox-svg .look"); // the real fox's eyes (the shadow copy has eyes too, but they stay put)
   return {
     el,
     // Do the next trick. Returns it, so the caller can play its sound and say its line.
