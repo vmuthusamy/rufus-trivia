@@ -14,6 +14,15 @@ everyone gets the same questions at the same moment, like Blooket.
 | 🔬 Science & Space | 🧪 Science Lab, 🫀 Your Amazing Body, 🌋 Planet Earth and 🚀 Space (about 7 in 10 questions are science) | hand-written, fact-checked banks |
 | 🧮 Math Blast | sums, times tables, fractions, "make the number" puzzles (which sum makes 48?), mystery-number equations on a balance scale, Rufus story problems starring Fiery, Marthina, Renard and friends | random numbers, never runs out |
 
+**🎲 Mix it up** (solo or challenge): tap the little topic buttons on the Mix card to choose what goes in the pot
+(at least 2), and every question is a dice roll between them. Mixes have their own Hall of Fame board and a 🎲 Mix Master
+sticker. Mix questions are remembered under the topic they came from, so they don't repeat in either game
+(see `src/shared/topics/mix.js`).
+
+**🦊 Rufus fun stickers**: tap Rufus and he does tricks. Seeing all 9 (🎪 Big Show), finding the super combo (🌀),
+hearing hello in all 6 languages (💌 Pen Pals) and catching 3 naps (💤 Nap Buddy) earn just-for-fun stickers. The browser
+counts the taps, so only stickers marked `fun: true` can be asked for (`POST /api/stickers/fun`).
+
 **🎯 Quiz Bingo** (a challenge-room game for Flags, Math Blast and Animal Kingdom): the host picks *Game: Bingo* and
 *Win: Line* (first to fill a row, column or diagonal) or *Blackout* (all 16 squares). Everyone gets their own 4×4 card of
 answers from a shared pool of 24. Rufus calls a question with no choices: tap its answer on your card to stamp it 🐾, or

@@ -268,6 +268,13 @@ a { color: var(--a); }
 /* the Challenge quiz picker: the same, a little smaller */
 .topics.mini .topic.mixer { padding: 8px 12px; }
 .topics.mini .topic.mixer .te { font-size: 26px; }
+.topics.mini .topic.mixer .mx-words { flex-basis: 80px; } /* just the name here, so the buttons fit on the same row */
+@media (max-width: 640px) {
+  .topics.mini > .topic.mixer { column-gap: 8px; padding-left: 10px; padding-right: 10px; }
+  .topics.mini .mx-chips { gap: 4px; }
+  .topics.mini .topic.mixer b { white-space: nowrap; margin: 0; }
+  .topics.mini .mx-chip { width: 30px; height: 30px; font-size: 16px; }
+}
 .topics.mini .mx-chip { width: 32px; height: 32px; font-size: 17px; border-radius: 10px; }
 @media (max-width: 640px) {
   .mx-chips { gap: 5px; }
