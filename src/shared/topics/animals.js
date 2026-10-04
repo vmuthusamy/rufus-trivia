@@ -113,6 +113,8 @@ function classQuestion({ rng, level, used, avoid, missed }) {
     pool = trickyFirst(all).length ? trickyFirst(all) : all;
     if (pool.length) break;
   }
+  // A really long game has asked about every animal already: then any animal may come back (oldest first).
+  if (!pool.length) pool = pickable.filter((a) => a.cls === cls);
   const info = CLASSES[cls];
   const a = pickFresh(rng, pool, { used, avoid, missed, keyOf });
   const notCls = pickable.filter((x) => x.cls !== cls);
