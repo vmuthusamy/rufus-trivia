@@ -26,10 +26,14 @@ export const STICKERS = [
   { id: "globetrotter", emoji: "🧳", name: "Explorer", how: "Play every topic at least once", rarity: 2 },
   // topic masters: 15 right in one game
   { id: "flags_master", emoji: "🚩", name: "Flag Master", how: "Get 15 right in one Flag Frenzy game", rarity: 3 },
-  { id: "world_master", emoji: "🗺️", name: "World Traveller", how: "Get 15 right in one Capitals & Landmarks game", rarity: 3 },
-  { id: "space_master", emoji: "🧑‍🚀", name: "Space Ace", how: "Get 15 right in one Space Explorer game", rarity: 3 },
-  { id: "math_master", emoji: "🧙", name: "Math Wizard", how: "Get 15 right in one Math Blast game", rarity: 3 },
+  { id: "culture_master", emoji: "🎬", name: "Super Fan", how: "Get 15 right in one Books & Pop Culture game", rarity: 3 },
   { id: "animals_master", emoji: "🐍", name: "Snake Charmer", how: "Get 15 right in one Animal Kingdom game", rarity: 3 },
+  { id: "science_master", emoji: "🔬", name: "Science Whiz", how: "Get 15 right in one Science & Space game", rarity: 3 },
+  { id: "math_master", emoji: "🧙", name: "Math Wizard", how: "Get 15 right in one Math Blast game", rarity: 3 },
+  // retired: their topics are gone, so nobody new can earn them. Whoever has one keeps it
+  // (a rare collector's sticker!), and the sticker book only shows them to their owners.
+  { id: "world_master", emoji: "🗺️", name: "World Traveller", how: "Got 15 right in one Capitals & Landmarks game", rarity: 3, retired: true },
+  { id: "space_master", emoji: "🧑‍🚀", name: "Space Ace", how: "Got 15 right in one Space Explorer game", rarity: 3, retired: true },
 ];
 
 export const STICKER_BY_ID = Object.fromEntries(STICKERS.map((s) => [s.id, s]));

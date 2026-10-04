@@ -1,0 +1,145 @@
+// 📚 The books question bank inside "Books & Pop Culture" (see culture.js for how it's mixed).
+// level: 1 = easy, 2 = medium, 3 = hard. Facts must be true; when a story is told different ways, say "in the book".
+
+import { bankTopic } from "../kit.js";
+
+export const books = bankTopic({
+  id: "books",
+  title: "Book Club",
+  emoji: "📚",
+  eyebrow: "Book Club",
+  guide: { who: "bookworm", place: "The library" }, // the bookworm from Adventures of Rufus
+  questions: [
+    // 🍫 Roald Dahl's stories
+    { q: "In Roald Dahl's book, what does Charlie find inside his chocolate bar?", a: "A Golden Ticket", wrong: ["A silver coin", "A secret map", "A tiny key", "A gold star"], level: 1, emoji: "🍫",
+      fact: "Only five Golden Tickets were hidden in Wonka bars all around the world." },
+    { q: "In Matilda, who is Matilda's kind teacher?", a: "Miss Honey", wrong: ["Miss Plum", "Miss Sugar", "Miss Daisy", "Miss Pepper"], level: 1, emoji: "🏫",
+      fact: "Matilda taught herself to read at three, and had read every children's book in her local library by the age of four and a quarter!" },
+    { q: "In Matilda, what special power does Matilda discover?", a: "Moving things with her eyes", wrong: ["Talking to animals", "Turning herself invisible", "Flying like a bird", "Breathing underwater"], level: 2, emoji: "✨",
+      fact: "She first uses it to tip a glass of water, with a newt inside, all over the horrible Miss Trunchbull!" },
+    { q: "What does the BFG catch and keep in jars?", a: "Dreams", wrong: ["Fireflies", "Butterflies", "Snowflakes", "Raindrops"], level: 1, emoji: "👂",
+      fact: "The BFG drinks frobscottle, a fizzy drink whose bubbles go down instead of up!" },
+    { q: "In Fantastic Mr Fox, the three farmers are Boggis, Bunce and who?", a: "Bean", wrong: ["Biggs", "Bloggs", "Brown", "Bones"], level: 3, emoji: "🦊",
+      fact: "Mr Fox and his four children dig tunnels right into the farmers' chicken houses and storehouses to fetch a feast." },
+    { q: "In The Twits, what does Mrs Twit sneak into Mr Twit's spaghetti?", a: "Worms", wrong: ["Slugs", "Beetles", "Snails", "Tadpoles"], level: 2, emoji: "🍝",
+      fact: "The Twits also keep a family of monkeys called the Muggle-Wumps, who play a brilliant trick on them in the end." },
+    { q: "In James and the Giant Peach, which birds pull the peach through the sky?", a: "Seagulls", wrong: ["Pelicans", "Eagles", "Swans", "Pigeons"], level: 3, emoji: "🍑",
+      fact: "The peach flies all the way across the ocean and lands on top of the Empire State Building in New York!" },
+
+    // 🦉 Harry Potter (books 1-3)
+    { q: "Which Hogwarts house is Harry Potter sorted into?", a: "Gryffindor", wrong: ["Slytherin", "Hufflepuff", "Ravenclaw"], level: 1, emoji: "🎩",
+      fact: "The Sorting Hat thinks about putting Harry in Slytherin, until Harry asks it not to." },
+    { q: "What is the name of Harry Potter's snowy owl?", a: "Hedwig", wrong: ["Errol", "Snowdrop", "Hooty", "Archimedes"], level: 1, emoji: "🦉",
+      fact: "Hagrid buys her for Harry's 11th birthday, and Harry finds her name in a book called A History of Magic." },
+    { q: "What is the wizard sport played on flying broomsticks called?", a: "Quidditch", wrong: ["Gobstones", "Exploding Snap", "Wizard chess", "Skyball"], level: 1, emoji: "🧹",
+      fact: "Harry is his team's Seeker. Catching the tiny Golden Snitch wins 150 points and ends the game." },
+    { q: "Which Hogwarts subject is all about magical plants?", a: "Herbology", wrong: ["Potions", "Transfiguration", "Charms", "Astronomy"], level: 2, emoji: "🏰",
+      fact: "Herbology lessons happen in the greenhouses behind the castle, taught by Professor Sprout." },
+    { q: "In Harry Potter, what kind of magical creature is Buckbeak?", a: "A hippogriff", wrong: ["A griffin", "A dragon", "A unicorn", "A phoenix"], level: 3, emoji: "🧙",
+      fact: "A hippogriff is half horse, half eagle. You must bow to one and wait for it to bow back before you go near!" },
+
+    // 📓 Diary of a Wimpy Kid
+    { q: "In Diary of a Wimpy Kid, who is Greg Heffley's best friend?", a: "Rowley", wrong: ["Rodrick", "Manny", "Bryce", "Holly"], level: 1, emoji: "📓",
+      fact: "Greg says his book is a journal, not a diary! His big brother is Rodrick and his little brother is Manny." },
+    { q: "In Diary of a Wimpy Kid, what mouldy food sits on the school basketball court?", a: "A slice of cheese", wrong: ["A slice of pizza", "A banana peel", "An old sandwich", "A half-eaten apple"], level: 2, emoji: "🏀",
+      fact: "Touch it and you get the dreaded Cheese Touch, which you can only get rid of by passing it on!" },
+
+    // 🐶 Dog Man and Captain Underpants
+    { q: "What job does Dog Man do?", a: "Police officer", wrong: ["Firefighter", "Teacher", "Chef", "Lifeguard"], level: 1, emoji: "🐶",
+      fact: "In the stories, Dog Man comics are made by George and Harold, the same boys who made Captain Underpants." },
+    { q: "In Dog Man, what kind of animal is Petey, the baddie?", a: "A cat", wrong: ["A rat", "A parrot", "A squirrel", "A frog"], level: 2, emoji: "🦹",
+      fact: "Petey makes a little copy of himself called Li'l Petey, who turns out to be kind and good." },
+    { q: "In Captain Underpants, what turns the hero back into Mr Krupp?", a: "Water on his head", wrong: ["Snapping fingers", "A loud sneeze", "A ringing bell", "A cold breeze"], level: 3, emoji: "🦸",
+      fact: "Mr Krupp is George and Harold's head teacher. They hypnotised him, so a finger snap turns him into the hero." },
+
+    // ⚡ Percy Jackson and Wings of Fire
+    { q: "In The Lightning Thief, which Greek god is Percy Jackson's dad?", a: "Poseidon", wrong: ["Zeus", "Hades", "Apollo", "Hermes"], level: 2, emoji: "🏛️",
+      fact: "Rick Riordan first made up Percy's adventures as bedtime stories for his son, who loved Greek myths." },
+    { q: "In Percy Jackson, where do children of the Greek gods spend the summer?", a: "Camp Half-Blood", wrong: ["Camp Olympus", "Camp Thunderbolt", "Camp Starlight", "Camp Trident"], level: 3, emoji: "🏕️",
+      fact: "Percy's teacher Mr Brunner turns out to be Chiron, a centaur who trains young heroes at the camp." },
+    { q: "In Wings of Fire, which dragon tribe can change the colour of its scales?", a: "RainWings", wrong: ["MudWings", "SandWings", "IceWings", "SkyWings"], level: 3, emoji: "🐉",
+      fact: "Pyrrhia has seven dragon tribes. Glory, one of the five dragonets in the first book, is a RainWing." },
+
+    // 🌳 Picture-book favourites
+    { q: "In The Gruffalo, which small animal walks through the wood, tricking everyone?", a: "A mouse", wrong: ["A rabbit", "A hedgehog", "A squirrel", "A frog"], level: 1, emoji: "🌳",
+      fact: "Julia Donaldson wrote The Gruffalo and Axel Scheffler drew the pictures. It first came out in 1999." },
+    { q: "In The Gruffalo, which animal does the mouse meet first?", a: "A fox", wrong: ["An owl", "A snake", "A badger", "A bear"], level: 2, emoji: "👣",
+      fact: "Next come an owl and a snake. The mouse fools them all with tales of terrible tusks, orange eyes and purple prickles!" },
+    { q: "What is Winnie-the-Pooh's favourite food?", a: "Honey", wrong: ["Jam", "Cheese", "Carrots", "Fish"], level: 1, emoji: "🐻",
+      fact: "Pooh got part of his name from Winnie, a real bear at London Zoo that Christopher Robin Milne loved to visit." },
+    { q: "Which of Pooh's friends doesn't appear until the second book, The House at Pooh Corner?", a: "Tigger", wrong: ["Piglet", "Eeyore", "Owl", "Rabbit", "Kanga"], level: 3, emoji: "🎈",
+      fact: "Tigger, Piglet, Eeyore, Kanga and Roo were based on real toys owned by A. A. Milne's son, Christopher Robin." },
+    { q: "In Where the Wild Things Are, what is the boy called?", a: "Max", wrong: ["Sam", "Tom", "Ben", "Leo"], level: 2, emoji: "👑",
+      fact: "Max wears a wolf suit, and when he sails home from the Wild Things his supper is waiting, still hot." },
+    { q: "In Green Eggs and Ham, who keeps asking someone to try the food?", a: "Sam-I-am", wrong: ["The Grinch", "Horton", "The Lorax", "Thing One"], level: 2, emoji: "🍳",
+      fact: "Dr. Seuss wrote the whole book using just 50 different words, after his publisher bet him he couldn't!" },
+    { q: "In How the Grinch Stole Christmas!, how many sizes does the Grinch's heart grow?", a: "Three", wrong: ["Two", "Four", "Five", "Ten"], level: 2, emoji: "🎄",
+      fact: "At the start, the Grinch's heart is 'two sizes too small'. He lives above Who-ville with his dog, Max." },
+    { q: "What does the Very Hungry Caterpillar become at the end of the book?", a: "A butterfly", wrong: ["A dragonfly", "A ladybird", "A bumblebee", "A grasshopper"], level: 1, emoji: "🐛",
+      fact: "Eric Carle made the pictures by painting tissue paper, then cutting it out and gluing it down as a collage." },
+
+    // 🗝️ Classic stories
+    { q: "In Alice's Adventures in Wonderland, who does Alice follow into Wonderland?", a: "The White Rabbit", wrong: ["The Cheshire Cat", "The Mad Hatter", "The Dormouse", "The Caterpillar"], level: 1, emoji: "👧",
+      fact: "He is always in a hurry, and checks the time on a watch he takes out of his waistcoat pocket." },
+    { q: "In Alice in Wonderland, which grinning animal can slowly vanish into thin air?", a: "The Cheshire Cat", wrong: ["The March Hare", "The Dormouse", "The Mock Turtle", "The Caterpillar"], level: 2, emoji: "🃏",
+      fact: "People said 'grinning like a Cheshire cat' long before the book came out. It was in a dictionary by 1788!" },
+    { q: "Where do Peter Pan and the Lost Boys live?", a: "Neverland", wrong: ["Wonderland", "Narnia", "Toyland", "Lilliput"], level: 1, emoji: "🧚",
+      fact: "In 1929, J. M. Barrie gave the rights to Peter Pan to Great Ormond Street, a children's hospital in London." },
+    { q: "In The Lion, the Witch and the Wardrobe, what is the great lion called?", a: "Aslan", wrong: ["Tumnus", "Caspian", "Leo", "Rex"], level: 1, emoji: "❄️",
+      fact: "'Aslan' is the Turkish word for lion. C. S. Lewis found the name in the notes of an old Arabian Nights book." },
+    { q: "In Narnia, what kind of creature is Mr Tumnus?", a: "A faun", wrong: ["A dwarf", "A centaur", "A beaver", "An elf"], level: 2, emoji: "🌲",
+      fact: "A faun has goat's legs and horns. Lucy meets him by a lamp-post in the snow, and he invites her home for tea." },
+    { q: "In Narnia, which sweet does the White Witch give Edmund?", a: "Turkish delight", wrong: ["Toffee", "Fudge", "Marshmallows", "Liquorice"], level: 2, emoji: "🍬",
+      fact: "The White Witch keeps Narnia stuck in winter all year round, and Christmas never comes." },
+    { q: "In Charlotte's Web, what kind of animal is Wilbur?", a: "A pig", wrong: ["A goat", "A sheep", "A cow", "A horse"], level: 1, emoji: "🕸️",
+      fact: "Charlotte the spider weaves words like 'Some Pig' and 'Terrific' into her web to show how special he is." },
+    { q: "In Charlotte's Web, what is the name of the greedy rat?", a: "Templeton", wrong: ["Scabbers", "Whiskers", "Nibbles", "Barnaby"], level: 3, emoji: "🎡",
+      fact: "Templeton fetches new words for Charlotte's web, like 'Radiant', which he finds written on a box of soap flakes." },
+    { q: "Which country does Paddington Bear come from?", a: "Peru", wrong: ["Brazil", "Mexico", "Chile", "Canada"], level: 2, emoji: "🧳",
+      fact: "The Brown family find him at Paddington Station in London, wearing a label asking people to look after him." },
+    { q: "What is Paddington Bear's favourite food?", a: "Marmalade", wrong: ["Honey", "Peanut butter", "Cheese", "Chocolate spread"], level: 1, emoji: "🧸",
+      fact: "Michael Bond got the idea from a lonely toy bear he saw on a shop shelf on Christmas Eve 1956." },
+    { q: "In The Jungle Book, what is the name of the boy raised by wolves?", a: "Mowgli", wrong: ["Akela", "Kimba", "Tarzan", "Raja"], level: 1, emoji: "🌴",
+      fact: "In Rudyard Kipling's book from 1894, Mother Wolf names him. 'Mowgli the Frog I will call thee,' she says." },
+    { q: "In The Jungle Book, what kind of animal is Bagheera?", a: "A black panther", wrong: ["A striped tiger", "A brown bear", "A grey wolf", "A rock python"], level: 2, emoji: "🐾",
+      fact: "Kipling says Bagheera is 'inky black all over'. He shows Mowgli how to climb trees, and Baloo the bear teaches him the Law of the Jungle." },
+    { q: "In The Hobbit, what is the name of the dragon sleeping on the treasure?", a: "Smaug", wrong: ["Norbert", "Toothless", "Falkor", "Puff"], level: 3, emoji: "⛰️",
+      fact: "On the way, Bilbo finds a magic ring that makes him invisible whenever he puts it on." },
+    { q: "Pippi Longstocking lives with a monkey and which other animal?", a: "A horse", wrong: ["A pig", "A goat", "A parrot", "A cow"], level: 3, emoji: "🐒",
+      fact: "Pippi is so strong she can lift up her horse! Her monkey is called Mr Nilsson." },
+    { q: "In The Secret Garden, which bird helps Mary find the buried key?", a: "A robin", wrong: ["A magpie", "A blackbird", "A sparrow", "A crow"], level: 3, emoji: "🗝️",
+      fact: "The garden had been locked up for ten years, until Mary found her way in and brought it back to life." },
+
+    // 🌟 Newer favourites
+    { q: "In The Wild Robot, what baby animal does Roz the robot look after?", a: "A gosling", wrong: ["A bear cub", "A fawn", "A baby owl", "A beaver kit"], level: 2, emoji: "🤖",
+      fact: "Roz is short for ROZZUM unit 7134, and the little goose is called Brightbill." },
+    { q: "In Wonder, which boy starts fifth grade at Beecher Prep after years of learning at home?", a: "Auggie Pullman", wrong: ["Max Turner", "Charlie Brooks", "Ollie Bennett", "Sam Fletcher"], level: 3, emoji: "🌟",
+      fact: "His teacher, Mr Browne, gives the class a precept, which is a wise motto, every month." },
+    { q: "What is the name of the newspaper Geronimo Stilton runs?", a: "The Rodent's Gazette", wrong: ["The Daily Cheese", "The Mouse Times", "The Squeaky News", "The Whisker Post"], level: 3, emoji: "📰",
+      fact: "Geronimo is a mouse who lives in New Mouse City on Mouse Island. His sister Thea writes for his paper too." },
+    { q: "In the Tom Gates books, what is Tom's favourite snack?", a: "Caramel wafers", wrong: ["Cheese puffs", "Carrot sticks", "Fish fingers", "Pickled onions"], level: 3, emoji: "🎸",
+      fact: "Tom plays guitar in a band called DogZombies with his best friend and next-door neighbour, Derek." },
+
+    // 🐢 Fables and fairy tales
+    { q: "In Aesop's fable of the Tortoise and the Hare, why does the hare lose?", a: "He stops for a nap", wrong: ["He trips over a rock", "He gets lost", "He stops to eat lunch", "His legs get tired"], level: 1, emoji: "🐢",
+      fact: "Aesop is said to have been a storyteller in ancient Greece more than 2,500 years ago." },
+    { q: "In Aesop's fable, a fox can't reach some fruit, so says it must be sour. What fruit?", a: "Grapes", wrong: ["Apples", "Cherries", "Plums", "Pears"], level: 2, emoji: "🦊",
+      fact: "This fable gave us the saying 'sour grapes', for pretending you never wanted something you couldn't get." },
+    { q: "In Goldilocks and the Three Bears, whose porridge is just right?", a: "Baby Bear's", wrong: ["Daddy Bear's", "Mummy Bear's", "Grandpa Bear's"], level: 1, emoji: "🥣",
+      fact: "In the first published version, by Robert Southey in 1837, the visitor was a rude old woman, not a girl!" },
+    { q: "In Cinderella, what does the fairy godmother turn into a coach?", a: "A pumpkin", wrong: ["A watermelon", "A turnip", "A cabbage", "A teapot"], level: 1, emoji: "👠",
+      fact: "In Charles Perrault's version from 1697, she also turns mice into horses and a rat into the coachman." },
+    { q: "In Jack and the Beanstalk, what does Jack swap for the magic beans?", a: "A cow", wrong: ["A goat", "A pig", "A horse", "A sheep"], level: 1, emoji: "🌱",
+      fact: "In the old English version written down by Joseph Jacobs, the cow is called Milky-white." },
+
+    // 📖 Book words
+    { q: "What do we call the person who draws the pictures in a book?", a: "The illustrator", wrong: ["The author", "The editor", "The publisher", "The librarian"], level: 1, emoji: "🖍️",
+      fact: "Quentin Blake drew the pictures for lots of Roald Dahl's books, starting with The Enormous Crocodile in 1978." },
+    { q: "What do we call books full of true facts, like a book about sharks?", a: "Non-fiction", wrong: ["Fiction", "Fairy tales", "Poetry", "Fantasy"], level: 1, emoji: "🦈",
+      fact: "'Fiction' means made-up stories. It comes from a Latin word meaning to shape, like shaping clay." },
+    { q: "What is the short bit on the back cover telling you what a book is about?", a: "The blurb", wrong: ["The index", "The glossary", "The contents", "The spine"], level: 2, emoji: "📖",
+      fact: "The word 'blurb' caught on thanks to a joke book cover by American writer Gelett Burgess, starring a made-up 'Miss Belinda Blurb'!" },
+    { q: "Which part of a book explains what the tricky words mean?", a: "The glossary", wrong: ["The index", "The blurb", "The contents", "The spine"], level: 2, emoji: "🔤",
+      fact: "The word comes from 'glossa', ancient Greek for tongue, which also meant a strange word that needs explaining." },
+  ],
+});

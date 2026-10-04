@@ -4,14 +4,23 @@
 // The order here is the order of the cards on the home screen.
 
 import flags from "./flags.js";
+import culture from "./culture.js";
+import animals from "./animals.js";
+import science from "./science.js";
+import math from "./math.js";
 import world from "./world.js";
 import space from "./space.js";
-import math from "./math.js";
-import animals from "./animals.js";
 
-export const TOPICS = [flags, world, animals, space, math];
+export const TOPICS = [flags, culture, animals, science, math];
 
-export const TOPIC_BY_ID = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
+// Retired topics: hidden from the menus and nobody can start a new game of them, but a game that was
+// already running when they were retired can still finish (and old scores stay in the Hall of Fame).
+const RETIRED = [world, space];
+
+export const TOPIC_BY_ID = Object.fromEntries([...TOPICS, ...RETIRED].map((t) => [t.id, t]));
+
+// Can you start a new game of this topic?
+export const canPlay = (id) => TOPICS.some((t) => t.id === id);
 
 // What the browser is allowed to know about a topic (no answers in here!).
 //   orbit: what circles around Rufus on the home screen ("flags", or a list of emoji)

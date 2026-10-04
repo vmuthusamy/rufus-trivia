@@ -122,7 +122,7 @@ export default {
   blurb: "195 countries. Can you name them all?",
   size: COUNTRIES.length,
   orbit: "flags",
-  music: "adventure",
+  music: "parade",
 
   next({ rng, level, used, avoid, missed }) {
     const c = pickFresh(rng, poolFor(level, rng), { used, avoid, missed, keyOf: key });

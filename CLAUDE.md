@@ -1,6 +1,6 @@
 # Rufus Trivia 🦊
 
-A trivia game (flags, capitals & landmarks, animals, space, maths) starring Rufus the fox, for kids around 9-10.
+A trivia game (flags, books & pop culture, animals, science & space, maths) starring Rufus the fox, for kids around 9-10.
 Live at https://rufustrivia.com · repo https://github.com/vmuthusamy/rufus-trivia
 Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
 

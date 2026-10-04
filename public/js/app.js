@@ -270,7 +270,9 @@ async function openStickers() {
   } catch {}
 }
 function renderBook() {
-  const { have, sel } = S.book, all = S.meta.stickers, pins = (S.profile && S.profile.pins) || [];
+  const { have, sel } = S.book, pins = (S.profile && S.profile.pins) || [];
+  // Retired stickers (their topic is gone) only show up for players who already own one.
+  const all = S.meta.stickers.filter((x) => !x.retired || have.has(x.id));
   const grid = $("bookGrid");
   grid.innerHTML = "";
   $("bookProgress").textContent = `${all.filter((x) => have.has(x.id)).length} of ${all.length} stickers collected`;
@@ -2000,15 +2002,36 @@ function wire() {
   document.querySelectorAll("[data-go='home']").forEach((b) => { b.onclick = () => { sound.play("click"); leaveGame(true); }; });
   $("segPeriod").querySelectorAll("button").forEach((b) => { b.onclick = () => { S.hall.period = b.dataset.period; sound.play("pick"); renderHallTabs(); loadHall(); }; });
 
+  // Tap Rufus: he does his next trick (see TRICKS in rufus.js), with sparkles, a sound and something to say.
   const poke = (fox, where) => {
-    fox.mood("cheer", 900);
-    sound.play("coin");
+    const t = fox.trick();
+    if (t.sound) sound.play(t.sound);
     const c = fx.center(where);
-    fx.burst(c.x, c.y, { count: 24, power: 7 });
-    return line("poke");
+    if (t.super) fx.fireworks(3);
+    else fx.burst(c.x, c.y, { count: 24, power: 7 });
+    fx.popEmoji(t.pop, c.x, c.y - where.offsetHeight * 0.5); // from the top of his head
+    return t.line;
   };
-  $("rufus").onclick = () => host.say(poke(host.fox, $("rufus")), { mood: "cheer" });
+  $("rufus").onclick = () => host.say(poke(host.fox, $("rufus")));
   $("heroFox").onclick = () => heroSay(poke(heroFox, $("heroFox")));
+
+  // Both Rufuses watch your mouse (or where you tap). Once per frame at most, so it costs almost nothing.
+  let lookAt = null;
+  const watch = (e) => {
+    if (!lookAt) requestAnimationFrame(() => {
+      if (S.screen === "home") heroFox.lookAt(lookAt.x, lookAt.y);
+      host.fox.lookAt(lookAt.x, lookAt.y);
+      lookAt = null;
+    });
+    lookAt = { x: e.clientX, y: e.clientY };
+  };
+  addEventListener("pointermove", watch, { passive: true });
+  addEventListener("pointerdown", watch, { passive: true });
+
+  // Left alone on the home screen, Rufus gets a bit fidgety: every so often he does a quiet trick by himself.
+  setInterval(() => {
+    if (S.screen === "home" && !document.hidden && Math.random() < 0.5) heroFox.trick(["dance", "peek", "nap", "giggle"][Math.floor(Math.random() * 4)]);
+  }, 9000);
 
   const setToggle = (btn, on) => btn.setAttribute("aria-pressed", String(on));
   setToggle($("soundBtn"), sound.sfxOn);

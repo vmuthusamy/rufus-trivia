@@ -8,7 +8,7 @@
 //   - Scores reach the Hall of Fame straight from here, never from a browser.
 
 import { DurableObject } from "cloudflare:workers";
-import { TOPICS, TOPIC_BY_ID, topicCard } from "./shared/topics/index.js";
+import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.js";
 import { STICKER_BY_ID, stickersForAnswer, stickersForFinish, stickersForStart, showcase } from "./shared/stickers.js";
 import { freshSeed } from "./shared/rng.js";
 import { buildGame, buildQuestion, publicQuestion } from "./shared/game.js";
@@ -158,7 +158,7 @@ export class GameRoom extends DurableObject {
   async onSettings(msg) {
     const s = this.s;
     const count = Number(msg.count), timer = Number(msg.timer), level = String(msg.level);
-    if (!TOPIC_BY_ID[msg.topic] || !ROOM_LIMITS.counts.includes(count) || !ROOM_LIMITS.timers.includes(timer) ||
+    if (!canPlay(msg.topic) || !ROOM_LIMITS.counts.includes(count) || !ROOM_LIMITS.timers.includes(timer) ||
         !ROOM_LIMITS.levels.includes(level)) return; // not allowed: ignore
     s.topic = msg.topic;
     s.settings = { count, timer, level };
@@ -293,7 +293,7 @@ export class GameRoom extends DurableObject {
     const here = this.connectedPids();
     for (const id of s.order) {
       if (!here.has(id)) continue;
-      this.hall().recordPlay(id, s.topic, s.kind).then((h) => {
+      this.hall().recordPlay(id, s.topic, s.kind, TOPICS.map((t) => t.id)).then((h) => {
         const pl = this.s && this.s.players[id];
         if (!pl) return;
         const ids = stickersForStart({ kind: s.kind, isHost: id === s.hostId, players: here.size, topicsPlayed: h.topicsPlayed, allTopics: TOPICS.length, roomGames: h.roomGames });

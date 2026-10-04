@@ -9,10 +9,13 @@ everyone gets the same questions at the same moment, like Blooket.
 | Topic | What's in it | Where the questions come from |
 |---|---|---|
 | 🚩 Flag Frenzy | 195 countries, 4 question styles, lookalike flags on hard | flag-icons data, generated fresh every game |
-| 🗺️ Capitals & Landmarks | 185 capitals + ~190 world landmarks with photos + "find it on the map" for 193 countries | flag-icons + Wikidata + Wikimedia Commons + Natural Earth |
+| 📚 Books & Pop Culture | 📚 Book Club (favourite books and their characters), 🎬 Movie Magic (U/PG films and their characters), 🎮 Games, Toys & TV | hand-written, fact-checked banks |
 | 🦁 Animal Kingdom | baby animals, animal groups, "is it a mammal?", amazing animal records, plus 🐍 Snake Spotter, 🦊 Rufus's Fox Facts and 🦖 Fiery's Dino Dig | an animal facts table + hand-written banks |
-| 🚀 Space Explorer | planets, stars and astronauts | a hand-written question bank |
+| 🔬 Science & Space | 🧪 Science Lab, 🫀 Your Amazing Body, 🌋 Planet Earth and 🚀 Space (about 7 in 10 questions are science) | hand-written, fact-checked banks |
 | 🧮 Math Blast | sums, times tables, fractions, "make the number" puzzles (which sum makes 48?), mystery-number equations on a balance scale, Rufus story problems starring Fiery, Marthina, Renard and friends | random numbers, never runs out |
+
+Retired topics (🗺️ Capitals & Landmarks, 🚀 Space Explorer) are hidden from the menus but their code stays, so games that were
+already running can finish and old scores stay in the Hall of Fame. See `RETIRED` in `src/shared/topics/index.js`.
 
 - **No AI, no inference costs.** Questions come from open data, hand-written banks and random numbers.
 - **Fresh every game.** Each device remembers what it has seen, so the next game avoids it, and brings back missed questions for practice.

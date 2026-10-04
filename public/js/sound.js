@@ -212,6 +212,45 @@ export const MUSIC = {
     kick: [0, 2, 8, 10], snare: [4, 12], ghost: [15],
     toms: [6, 7, 13, 14], // bongos: high, high, low, low
   },
+  // Movie-night showtime for Books & Pop Culture: a swinging "curtain up!" tune with poppy short notes,
+  // a walking bass and big chord stabs. The chords are the classic showtime loop (I - vi - ii - V).
+  popcorn: {
+    name: "Popcorn Party", emoji: "🍿", bpm: 132, swing: 0.2, duty: 0.5, twin: 0, stab: true, hats: 2, openHat: 6, bassLen: 0.7, leadLen: 0.5,
+    chords: [
+      { root: 41, notes: [65, 69, 72, 77] }, // F
+      { root: 38, notes: [62, 65, 69, 74] }, // Dm
+      { root: 43, notes: [62, 65, 67, 70] }, // Gm7
+      { root: 36, notes: [64, 67, 70, 72] }, // C7 (the "here it comes!" chord)
+    ],
+    bass: [0, -1, -1, 0, -1, -1, 7, -1, 12, -1, -1, 12, -1, 7, -1, 5],
+    lead: [
+      [3, -1, 3, -1, 2, -1, 3, -1, -1, -1, 1, -1, 2, -1, -1, -1],
+      [0, -1, 1, -1, 2, -1, 3, -1, 2, -1, 1, -1, 2, -1, -1, -1],
+      [3, 3, -1, 2, -1, 2, -1, 1, -1, 2, -1, 3, -1, -1, -1, -1],
+      [1, -1, 2, -1, 3, -1, -1, 3, -1, 2, 1, -1, 0, -1, -1, -1],
+    ],
+    kick: [0, 8, 11], snare: [4, 12], ghost: [7, 15],
+  },
+  // A carnival parade for Flag Frenzy: flags from every country marching past! A fanfare tune,
+  // a shaker on every 16th note (hats: 1) and samba-style bongos.
+  parade: {
+    name: "World Parade", emoji: "🎺", bpm: 140, swing: 0.1, duty: 0.25, twin: 0, stab: true, hats: 1, openHat: 14, bassLen: 0.6, leadLen: 0.8,
+    chords: [
+      { root: 43, notes: [62, 67, 71, 74] }, // G
+      { root: 40, notes: [64, 67, 71, 76] }, // Em
+      { root: 36, notes: [64, 67, 72, 76] }, // C
+      { root: 38, notes: [62, 66, 69, 74] }, // D
+    ],
+    bass: [0, -1, -1, 0, -1, -1, 7, -1, 0, -1, -1, 12, -1, -1, 7, -1],
+    lead: [
+      [0, -1, 1, 2, 3, -1, -1, -1, 2, -1, 3, -1, 2, 1, -1, -1],
+      [3, -1, 2, -1, 1, -1, 2, -1, 3, -1, -1, 3, 2, -1, -1, -1],
+      [1, 1, 2, -1, 3, -1, 2, -1, 1, -1, 0, -1, 1, -1, 2, -1],
+      [3, -1, 3, 2, 3, -1, -1, 2, -1, 1, -1, 2, 3, -1, -1, -1],
+    ],
+    kick: [0, 8], snare: [4, 12], ghost: [10, 15],
+    toms: [3, 6, 11, 14], // bongos: high, high, low, low
+  },
 };
 
 // The order phrases play in: verse A (8 bars), then verse B (8 bars), then round again.

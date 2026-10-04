@@ -133,13 +133,15 @@ export class HallOfFame extends DurableObject {
   }
 
   // Count a game someone played; returns what we need for "Explorer" and "Team Player".
-  recordPlay(pid, topic, kind) {
+  // current = the topics you can play today (retired ones like Space Explorer don't count towards Explorer).
+  recordPlay(pid, topic, kind, current) {
     this.sql.exec(
       `INSERT INTO played (pid, topic, kind, n) VALUES (?, ?, ?, 1)
        ON CONFLICT (pid, topic, kind) DO UPDATE SET n = n + 1`, pid, topic, kind,
     );
+    const played = this.sql.exec("SELECT DISTINCT topic FROM played WHERE pid = ?", pid).toArray().map((r) => r.topic);
     return {
-      topicsPlayed: this.sql.exec("SELECT COUNT(DISTINCT topic) AS n FROM played WHERE pid = ?", pid).one().n,
+      topicsPlayed: played.filter((t) => !current || current.includes(t)).length,
       roomGames: this.sql.exec("SELECT COALESCE(SUM(n), 0) AS n FROM played WHERE pid = ? AND kind = 'room'", pid).one().n,
     };
   }

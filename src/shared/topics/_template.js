@@ -25,7 +25,7 @@ export default bankTopic({
   color: "#3ddc97",          // the colour of this topic's card
   blurb: "One line about what this quiz is about.",
   orbit: ["🦕", "🦖", "🌋", "🥚"], // emoji that circle around Rufus when this topic is picked
-  music: "adventure",             // song: "adventure", "cosmic", "city", "brain" or "safari" (see public/js/sound.js)
+  music: "adventure",             // song: "adventure", "parade", "popcorn", "cosmic", "city", "brain" or "safari" (see public/js/sound.js)
   questions: [
     {
       q: "What do caterpillars turn into?",

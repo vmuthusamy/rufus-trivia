@@ -11,7 +11,7 @@ export function foxSVG() {
       ${R(8, 12, 16, 12, ORANGE)}${R(10, 4, 14, 12, ORANGE)}
       ${R(10, 0, 4, 6, ORANGE)}${R(20, 0, 4, 6, ORANGE)}${R(11, 1, 2, 4, EAR)}${R(21, 1, 2, 4, EAR)}
       ${R(12, 16, 10, 6, LIGHT)}
-      <g class="eyes">${R(13, 7, 3, 3, "#000")}${R(19, 7, 3, 3, "#000")}${R(14, 7, 1, 1, "#fff")}${R(20, 7, 1, 1, "#fff")}</g>
+      <g class="look"><g class="eyes">${R(13, 7, 3, 3, "#000")}${R(19, 7, 3, 3, "#000")}${R(14, 7, 1, 1, "#fff")}${R(20, 7, 1, 1, "#fff")}</g></g>
       ${R(16, 10, 2, 2, "#000")}
       <g class="grin">${R(12, 13, 2, 2, "#fff")}${R(14, 12, 2, 2, "#fff")}${R(16, 13, 2, 2, "#fff")}${R(18, 12, 2, 2, "#fff")}${R(20, 13, 2, 2, "#fff")}</g>
       <g class="frown">${R(14, 13, 6, 1, "#000")}${R(13, 14, 1, 1, "#000")}${R(20, 14, 1, 1, "#000")}</g>
@@ -22,7 +22,6 @@ export function foxSVG() {
 
 export const LINES = {
   hello: ["Hi! I'm Rufus! Pick a topic and let's play!", "Psst... I know all 195 flags. Do you?", "Ready for an adventure? Tap Solo Quest!"],
-  poke: ["Hee hee, that tickles!", "Ich bin ein glücklicher Fuchs! (I'm a happy fox!)", "Foxes curl their bushy tails around themselves like a blanket to keep warm!", "Tail spin! 🌀", "I brushed my teeth today. Look at this grin!", "Fun fact: a group of foxes is called a skulk!"],
   correct: ["Tail-spin-tastic!", "Fox-tastic!", "You nailed it!", "Woohoo! Treats for everyone!", "Big toothy grin time!", "That's my friend!", "Boom! Right answer!"],
   fast: ["Whoa, lightning paws!", "Faster than a fox chasing treats!", "Speedy!"],
   wrong: ["Oof! Even foxes slip sometimes.", "So close! Let's learn this one.", "No worries, the next one's yours!", "Tricky one! Remember it for next time."],
@@ -41,17 +40,75 @@ export const LINES = {
 };
 
 export function line(kind, vars = {}) {
-  const list = LINES[kind] || [""];
-  const s = list[Math.floor(Math.random() * list.length)];
+  const s = pickOne(LINES[kind] || [""]);
   return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
+const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+
+// 🎪 RUFUS'S TRICKS: tap Rufus and he does the next one. They come from a shuffled pile,
+// so you see every trick before any of them comes round again.
+//   id     the animation (see "RUFUS'S TRICKS" in app.css: .fox.t-spin, .fox.t-flip...)
+//   ms     how long it lasts
+//   sound  a sound effect from sound.js
+//   pop    emoji that pop out of him
+//   say    what he says (one at random)
+// Want a new trick? Add a line here and a matching .fox.t-yourtrick animation in app.css.
+export const TRICKS = [
+  { id: "spin", ms: 900, sound: "coin", pop: ["🌀", "✨"], say: ["Tail spin! 🌀", "Whoosh! My famous tail spin!", "Tail-spin-tastic!"] },
+  { id: "flip", ms: 1000, sound: "join", pop: ["⭐", "✨"], say: ["Backflip! Ta-da!", "Did you see that? A perfect 10!"] },
+  { id: "dance", ms: 1600, sound: "pick", pop: ["🎵", "🎶"], say: ["Dance party! My dad Felix taught me this one.", "Wiggle wiggle wiggle!"] },
+  { id: "pounce", ms: 1200, sound: "lock", pop: ["❄️", "🐾"], say: ["Mousing pounce! Foxes leap up high and dive nose-first into the snow to find mice.",
+    "Scientists think foxes might use the Earth's magnetism to aim their pounces!"] },
+  { id: "peek", ms: 1100, sound: "click", pop: ["👀"], say: ["Peekaboo! I see you!", "Where did I go? Here I am!"] },
+  { id: "giggle", ms: 900, sound: "coin", pop: ["😆", "💛"], say: ["Hee hee, that tickles!", "Ha ha! Stop it!", "I brushed my teeth today. Look at this grin!"] },
+  { id: "nap", ms: 2200, sound: null, pop: ["💤"], say: ["Zzz... Foxes curl their bushy tails around themselves like a blanket to keep warm.", "Just a quick fox nap... zzz"] },
+  { id: "snack", ms: 1000, sound: "coin", pop: ["🍓", "🫐"], say: ["Treats! Berries are my favourite.", "Nom nom! Wild foxes love berries and fruit too."] },
+  { id: "hello", ms: 1200, sound: "pick", pop: ["💬", "🌍"], say: [
+    "Hallo! Ich bin ein glücklicher Fuchs! (That's German for \"I'm a happy fox!\")",
+    "Bonjour ! In French, a fox is \"un renard\", just like my friend Renard!",
+    "Ciao! Sono una volpe felice! (Italian for \"I'm a happy fox!\") Marthina taught me.",
+    "¡Hola! ¡Soy un zorro feliz! (Spanish for \"I'm a happy fox!\")",
+    "Konnichiwa! In Japanese, a fox is a \"kitsune\".",
+    "Namaste! In Hindi, a fox is a \"lomdi\".",
+    "Fun fact: a group of foxes is called a skulk!",
+  ] },
+];
+// Tap really fast (5 taps in 2.5 seconds) for the SUPER COMBO.
+const SUPER = { id: "super", ms: 1400, sound: "fanfare", pop: ["🎆", "⭐", "🌀"], super: true, say: ["SUPER COMBO! 🎆", "MEGA TAIL SPIN! You found my secret move!"] };
 
 export function makeFox(el) {
   el.innerHTML = foxSVG();
   el.classList.add("fox");
-  let t = null;
+  let t = null, trickT = null, pile = [], taps = [], eyes = "";
+  const look = el.querySelector(".look");
   return {
     el,
+    // Do the next trick. Returns it, so the caller can play its sound and say its line.
+    trick(id) {
+      const now = Date.now();
+      if (!id) taps = [...taps.filter((at) => now - at < 2500), now]; // only real taps count towards the combo
+      let trick = TRICKS.find((x) => x.id === id);
+      if (!trick && taps.length >= 5) { trick = SUPER; taps = []; }
+      if (!trick) {
+        if (!pile.length) pile = [...TRICKS].sort(() => Math.random() - 0.5); // shuffle a fresh pile
+        trick = pile.pop();
+      }
+      el.classList.remove(...TRICKS.map((x) => "t-" + x.id), "t-super");
+      void el.offsetWidth; // restart the animation, even for the same trick twice
+      el.classList.add("t-" + trick.id);
+      clearTimeout(trickT);
+      trickT = setTimeout(() => el.classList.remove("t-" + trick.id), trick.ms);
+      return { ...trick, line: pickOne(trick.say) };
+    },
+    // Rufus's eyes follow your mouse (or finger): one pixel left/right/up/down.
+    lookAt(x, y) {
+      const r = el.getBoundingClientRect();
+      if (!r.width) return;
+      const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height * 0.3);
+      const step = (d, far) => (Math.abs(d) < far ? 0 : Math.sign(d));
+      const next = `translate(${step(dx, r.width * 0.4)} ${step(dy, r.height * 0.4)})`;
+      if (next !== eyes) look.setAttribute("transform", (eyes = next)); // only touch the page when they move
+    },
     mood(m, ms = 1600) {
       el.classList.remove("happy", "cheer", "sad", "think");
       void el.offsetWidth; // restart the animation

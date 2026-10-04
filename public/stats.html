@@ -121,7 +121,7 @@
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const TOPIC_NAMES = { flags: "🚩 Flag Frenzy", world: "🗺️ Capitals & Landmarks", space: "🚀 Space Explorer", math: "🧮 Math Blast", animals: "🦁 Animal Kingdom", capitals: "🏙️ Capital Quest (old)" };
+  const TOPIC_NAMES = { flags: "🚩 Flag Frenzy", culture: "📚 Books & Pop Culture", science: "🔬 Science & Space", world: "🗺️ Capitals & Landmarks (old)", space: "🚀 Space Explorer (old)", math: "🧮 Math Blast", animals: "🦁 Animal Kingdom", capitals: "🏙️ Capital Quest (old)" };
   const fmt = (n) => Number(n || 0).toLocaleString();
   const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 

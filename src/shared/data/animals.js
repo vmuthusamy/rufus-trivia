@@ -92,7 +92,8 @@ export const ANIMALS = [
     note: "Some snakes hatch from eggs and some are born alive, depending on the kind of snake." },
   { name: "Crocodile", plural: "crocodiles", emoji: "🐊", cls: "reptile", baby: ["hatchling"], bl: 2, group: ["bask", "float", "congregation"], gl: 3,
     note: "Crocodile mums carry their babies gently in their mouths down to the water." },
-  { name: "Turtle", plural: "turtles", emoji: "🐢", cls: "reptile", trick: true, baby: ["hatchling"], bl: 2, group: ["bale", "turn", "dole"], gl: 3 },
+  { name: "Turtle", plural: "turtles", emoji: "🐢", cls: "reptile", trick: true, baby: ["hatchling"], bl: 2, group: ["bale", "turn", "dole"], gl: 3,
+    note: "Turtles are reptiles, not amphibians! They have scaly skin, breathe with lungs from the day they hatch, and even sea turtles lay their eggs on land." },
   { name: "Lizard", plural: "lizards", emoji: "🦎", cls: "reptile", baby: ["hatchling"], bl: 2, group: ["lounge"], gl: 3 },
 
   // ---------- amphibians ----------

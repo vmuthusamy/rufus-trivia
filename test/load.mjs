@@ -42,7 +42,7 @@ function connect(code, player) {
 async function room(n) {
   const host = bot(0);
   const res = await fetch(`${BASE}/api/rooms`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ topic: ["flags", "world", "math", "space"][n % 4], count: QUESTIONS, timer: 10, level: "mixed", player: host }) });
+    body: JSON.stringify({ topic: ["flags", "culture", "animals", "science", "math"][n % 5], count: QUESTIONS, timer: 10, level: "mixed", player: host }) });
   const made = await res.json();
   if (!made.code) throw new Error(`couldn't make a room: ${made.error} (rooms allow 5, 10, 15 or 20 questions)`);
   const { code } = made;

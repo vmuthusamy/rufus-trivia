@@ -203,6 +203,22 @@ export function floatText(text, x, y) {
   setTimeout(() => d.remove(), 1400);
 }
 
+// Little emoji that pop out of something and float away (Rufus's tricks use this: 🎵, 💤, 🍓...).
+export function popEmoji(list, x, y, n = 4) {
+  if (reduce) n = 1;
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement("div");
+    d.className = "pop-emoji";
+    d.textContent = list[i % list.length];
+    d.style.left = x + "px";
+    d.style.top = y + "px";
+    d.style.setProperty("--dx", Math.round((Math.random() - 0.5) * 140) + "px"); // drift left or right
+    d.style.setProperty("--d", i * 90 + "ms"); // one after another
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1600 + i * 90);
+  }
+}
+
 // Roll a number up like a slot machine.
 export function countUp(el, to, ms = 900, onStep) {
   const from = Number(el.dataset.v || 0);

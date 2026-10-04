@@ -16,7 +16,7 @@
 //   POST /api/visit                     "this device opened the site today" (anonymous)
 //   GET  /api/stats                     private visitor/game stats (needs the x-stats-key header)
 
-import { TOPICS, TOPIC_BY_ID, topicCard } from "./shared/topics/index.js";
+import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.js";
 import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick } from "./shared/names.js";
 import { SOLO, ROOM_LIMITS } from "./shared/scoring.js";
 import { COUNTRIES } from "./shared/data/countries.js";
@@ -105,7 +105,8 @@ export default {
       if (path === "/api/solo" && request.method === "POST") {
         const b = await body(request);
         const player = cleanPlayer(b.player);
-        if (!TOPIC_BY_ID[b.topic] || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
+        if (TOPIC_BY_ID[b.topic] && !canPlay(b.topic)) return json({ error: "That quiz has retired. Pick another one!" }, 400);
+        if (!canPlay(b.topic) || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
         const id = env.ROOMS.newUniqueId();
         await env.ROOMS.get(id).init({ kind: "solo", topic: b.topic, hostId: player.id });
         ctx.waitUntil(statsStub(env).count("solo", b.topic).catch(() => {}));
@@ -128,7 +129,8 @@ export default {
         const settings = {
           count: Number(b.count), timer: Number(b.timer), level: String(b.level),
         };
-        if (!TOPIC_BY_ID[b.topic] || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
+        if (TOPIC_BY_ID[b.topic] && !canPlay(b.topic)) return json({ error: "That quiz has retired. Pick another one!" }, 400);
+        if (!canPlay(b.topic) || !player) return json({ error: "Pick a topic and a nickname first." }, 400);
         if (!ROOM_LIMITS.counts.includes(settings.count) || !ROOM_LIMITS.timers.includes(settings.timer) ||
             !ROOM_LIMITS.levels.includes(settings.level)) {
           return json({ error: "Those room settings aren't allowed." }, 400);

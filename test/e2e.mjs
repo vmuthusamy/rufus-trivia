@@ -237,12 +237,12 @@ async function reviewFixes() {
   // Changing the quiz: only the host, only allowed values.
   B.send({ t: "settings", topic: "math", count: 5, timer: 10, level: "easy" });
   A.send({ t: "settings", topic: "nope", count: 5, timer: 10, level: "easy" });
-  A.send({ t: "settings", topic: "space", count: 7, timer: 10, level: "easy" });
+  A.send({ t: "settings", topic: "science", count: 7, timer: 10, level: "easy" });
   await sleep(400);
   assert.equal(B.last().topic.id, "flags", "non-host and invalid quiz changes are ignored");
-  A.send({ t: "settings", topic: "space", count: 5, timer: 15, level: "easy" });
+  A.send({ t: "settings", topic: "science", count: 5, timer: 15, level: "easy" });
   const changed = await B.waitFor((s) => s.event === "settings");
-  assert.deepEqual([changed.topic.id, changed.settings.count, changed.settings.timer], ["space", 5, 15]);
+  assert.deepEqual([changed.topic.id, changed.settings.count, changed.settings.timer], ["science", 5, 15]);
 
   // A stand-in host (while the real host's Wi-Fi blips) can't remove the real host.
   A.ws.close();
@@ -338,7 +338,7 @@ async function stickersTest() {
 
   // Stickers follow you: the champion joins a brand-new room and shows them off.
   const host2 = profile("Mega", "Llama");
-  const r2 = await post("/api/rooms", { topic: "space", count: 5, timer: 10, level: "easy", player: host2 });
+  const r2 = await post("/api/rooms", { topic: "science", count: 5, timer: 10, level: "easy", player: host2 });
   const H = player(`/api/rooms/${r2.data.code}/ws`, host2);
   const C = player(`/api/rooms/${r2.data.code}/ws`, champ.profile);
   await Promise.all([H.ready, C.ready]);
