@@ -22,7 +22,7 @@ const pendingPurchase = (pid) => orders.get(pid, C().packs.map((p) => p.id));
 const keepPurchase = (pid, order) => orders.set(pid, order);
 
 // What we know from the server, and which room of the house we're looking at.
-const W = { pid: null, wallet: null, loading: null, request: 0, receipt: null };
+const W = { pid: null, wallet: null, loading: null, request: 0, receipt: null, error: false };
 const V = { view: "house", room: "cards", filter: "all", pack: "char", sel: null, bought: null, flipped: [], busy: false };
 
 const C = () => d.S.meta.cards;
@@ -33,7 +33,7 @@ const label = (c) => (c.rarity ? C().rarities[c.rarity].label : "Rarity not assi
 const rank = (c) => (c.rarity ? C().rarities[c.rarity].n : 0);
 
 function loadArt() {
-  artLoad = artLoad || import("./card-art.js").then((m) => { art = m; return m; });
+  artLoad = artLoad || import("./card-art.js").then((m) => { art = m; return m; }).catch((error) => { artLoad = null; throw error; });
   return artLoad;
 }
 
@@ -90,10 +90,16 @@ function renderWallet() {
   const chip = $("meCoins");
   if (!chip) return;
   const on = !!(d.S.profile && W.wallet);
-  chip.classList.toggle("hidden", !on);
-  if (on) $("meCoinsN").textContent = W.wallet.coins.toLocaleString();
+  // Keep the door visible while loading. A missing wallet is not a zero balance.
+  chip.classList.toggle("hidden", !d.S.profile);
+  $("meCoinsN").textContent = W.error ? "Retry" : on ? W.wallet.coins.toLocaleString() : "…";
+  chip.setAttribute("aria-label", W.error ? "Coins unavailable: retry in Card House" : on ? "My Rufus Coins: open the Card House" : "Loading Rufus Coins: open the Card House");
   const collection = $("meCards"), home = $("cardsBtn");
-  collection.classList.toggle("hidden", !on);
+  collection.classList.toggle("hidden", !d.S.profile);
+  if (!on) {
+    collection.textContent = "🃏";
+    collection.setAttribute("aria-label", "Open the Card House");
+  }
   if (on) {
     const have = C().cards.filter((c) => (W.wallet.cards[c.id] || 0) > 0).length;
     collection.textContent = `🃏 ${have}`;
@@ -109,15 +115,20 @@ async function loadWallet() {
   const p = d.S.profile;
   if (!p) { W.pid = null; W.wallet = null; renderWallet(); return null; }
   const pid = p.id;
+  W.error = false;
+  renderWallet();
   W.loading = d.post("/api/burrow", { player: d.playerPayload() })
     .then((w) => { if (request === W.request && d.S.profile?.id === pid) { W.pid = pid; W.wallet = w; renderWallet(); } return w; })
-    .catch(() => null);
+    .catch(() => {
+      if (request === W.request && d.S.profile?.id === pid) { W.error = true; renderWallet(); }
+      return null;
+    });
   return W.loading;
 }
 
 // A different player sat down: show their coins, not the last player's.
 export function walletFor(profile) {
-  if (profile ? profile.id !== W.pid : W.pid) { W.wallet = null; renderWallet(); loadWallet(); }
+  if (profile ? profile.id !== W.pid : W.pid) { W.wallet = null; W.error = false; renderWallet(); loadWallet(); }
 }
 
 // Refresh the visible balance without interrupting a pack reveal or keyboard focus.
@@ -493,9 +504,12 @@ export async function openCardHouse() {
     V.view = "house";
     V.bought = null;
     try {
-      await Promise.all([loadArt(), loadWallet(), d.refreshStickers().catch(() => {})]);
+      // Stickers decorate cards, but a slow sticker request must not keep the door shut.
+      d.refreshStickers().catch(() => {});
+      await Promise.all([loadArt(), loadWallet()]);
     } catch {
-      root.innerHTML = `<p class="rc-lede">The Card House didn't open. Check your connection and try again.</p>`;
+      if (d.S.screen !== "cards") return;
+      root.innerHTML = `<p class="rc-lede">The Card House didn't open. Check your connection and try again.</p><button type="button" class="btn primary" data-rc="retry">Try again</button>`;
       return;
     }
     if (d.S.screen !== "cards") return;

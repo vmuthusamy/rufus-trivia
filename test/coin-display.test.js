@@ -9,12 +9,12 @@ test("every earned coin is pending, even beyond the old daily limit", () => {
 
 test("old results and out-of-order reads cannot replace a newer shop balance", async () => {
   const nodes = new Map();
-  const node = () => ({ textContent: "", innerHTML: "", classList: { toggle() {}, add() {}, remove() {} }, setAttribute() {}, addEventListener() {}, querySelector() { return node(); } });
+  const node = () => ({ textContent: "", innerHTML: "", hidden: false, classList: { toggle(key, value) { this[key] = value; }, add() {}, remove() {} }, setAttribute() {}, addEventListener() {}, querySelector() { return node(); } });
   globalThis.document = { getElementById(id) { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } };
   const { initCards, walletFor, showFinalCoins, refreshCoinsAfterGame } = await import("../public/js/cards.js");
   const requests = [];
   const S = { profile: { id: "test-coin-player" }, screen: "home", meta: { cards: { cards: [], economy: { packPrice: 100 } } } };
-  initCards({ S, playerPayload: () => S.profile, post: () => new Promise((resolve) => requests.push(resolve)) });
+  initCards({ S, playerPayload: () => S.profile, post: () => new Promise((resolve, reject) => { resolve.reject = reject; requests.push(resolve); }) });
   const w = (coins) => ({ coins, today: 300, limit: 300, day: "2026-11-01", cards: {}, unopened: [] });
   const flush = () => new Promise((resolve) => setImmediate(resolve));
   walletFor(S.profile);
@@ -29,5 +29,16 @@ test("old results and out-of-order reads cannot replace a newer shop balance", a
   newer(w(80)); await flush();
   older(w(100)); await flush();
   assert.equal(nodes.get("meCoinsN").textContent, "80", "late response must not overwrite a newer read");
+  S.profile = { id: "second-test-player" };
+  walletFor(S.profile);
+  assert.equal(nodes.get("meCoins").classList.hidden, false, "wallet button remains available while loading");
+  assert.equal(nodes.get("meCoinsN").textContent, "…", "do not show the previous player's balance");
+  requests.shift().reject(new Error("Network unavailable")); await flush();
+  assert.equal(nodes.get("meCoinsN").textContent, "Retry");
+  assert.equal(nodes.get("meCoins").classList.hidden, false);
+  assert.equal(nodes.get("meCards").classList.hidden, false);
+  walletFor(S.profile);
+  requests.shift()(w(40)); await flush();
+  assert.equal(nodes.get("meCoinsN").textContent, "40", "retry restores the authoritative balance");
   delete globalThis.document;
 });

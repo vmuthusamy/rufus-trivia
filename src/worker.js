@@ -109,7 +109,7 @@ export default {
           // to preload flags so questions appear instantly. Gives away nothing.
           gallery: shuffled(COUNTRIES.map((c) => c.img)),
         });
-        meta.headers.set("cache-control", "public, max-age=300"); // only changes when we deploy
+        // Keep catalogue data in step with the deployed UI; json() already sends no-store.
         return meta;
       }
 

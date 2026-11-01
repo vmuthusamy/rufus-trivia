@@ -2,6 +2,7 @@
 // The server runs the game and keeps the answers secret. This file just shows
 // what the server says, as excitingly as possible, and sends your answers back.
 
+import { loadGameMeta } from "./game-meta.js";
 import { CONFIG } from "./config.js";
 import { store } from "./store.js";
 import { readProfileBackup, makeProfileBackup } from "./profile-backup.js";
@@ -2778,9 +2779,9 @@ async function boot() {
   for (const id of ["meCoinIcon", "hudCoinIcon"]) $(id).innerHTML = spriteSVG("paw");
   wire();
   try {
-    [S.meta] = await Promise.all([api("/api/meta"), restoreProfiles()]); // both at once: faster first screen
-  } catch {
-    toast("Can't reach the game server. Is it running?", 10000);
+    [S.meta] = await Promise.all([loadGameMeta(), restoreProfiles()]); // both at once: faster first screen
+  } catch (error) {
+    toast(error.message || "Could not load the game. Please reload and try again.", 10000);
     return;
   }
   S.mix = loadMix();
