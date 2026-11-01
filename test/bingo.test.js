@@ -109,7 +109,7 @@ test("flags: no lookalike flags in one game, and continents never muddled with c
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 const SNAKES = ["Rattlesnake", "Cobra", "Milk snake", "Hognose snake", "Green anaconda", "Reticulated python", "Inland taipan",
   "Sidewinder", "Paradise tree snake", "Barbados threadsnake"];
-const FOXES = ["Fennec fox", "Arctic fox", "Red fox", "Gray fox", "Felix", "Renard", "Marthina", "A vixen"];
+const FOXES = ["Fennec fox", "Arctic fox", "Red fox", "Gray fox", "Felix", "Renard", "Martina", "A vixen"];
 test("animals: one right square per call, even with babies, groups and kinds of animals", () => {
   for (const { levelSetting, pool } of poolsOf("animals")) {
     const labels = pool.map(labelOf);

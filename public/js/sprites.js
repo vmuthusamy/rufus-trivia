@@ -139,6 +139,27 @@ export const SPRITES = {
       ["#008B8B", "M2 9h12v1h-12zM6 13h4v1h-4z"],
     ],
   },
+  // Rufus's rocket ship from Level 17 (drawRocketShip): Rufus waves out of the window
+  rocket: {
+    box: [0, 0, 40, 26],
+    layers: [
+      ["#E23B2E", "M4 1h10v6h-10zM4 19h10v6h-10z"],
+      ["#EDEFF6", "M6 7h26v12h-26z"],
+      ["#E23B2E", "M32 9h4v8h-4zM36 11h3v4h-3z"],
+      ["#B9BECF", "M6 17h26v2h-26z"],
+      ["#3E7ACC", "M19 9h9v8h-9z"],
+      ["#8FD3FF", "M20 10h7v6h-7z"],
+      ["#F5872B", "M21 11h5v5h-5z"],
+      ["#FFF8F0", "M22 14h3v2h-3z"],
+      ["#000", "M22 12h1v1h-1zM24 12h1v1h-1z"],
+      ["#8A90A6", "M2 10h4v6h-4z"],
+    ],
+  },
+  // the secret colour gems (drawRedGem, drawPurpleGem, drawGreenGem, drawYellowGem): one shape, four colours (see bigGem below)
+  gemRed: bigGem("#DD2222", "#FF6666", "#880000"),
+  gemPurple: bigGem("#9C36DD", "#C77DFF", "#6A1B9A"),
+  gemGreen: bigGem("#22BB44", "#66EE88", "#0A7A22"),
+  gemYellow: bigGem("#FFCC00", "#FFEE88", "#B8860B"),
   squirrel: {
     box: [0, 0, 24, 24],
     layers: [
@@ -241,6 +262,19 @@ export const SPRITES = {
     ],
   },
 };
+
+// The big diamond the secret gems share: body colour, shine and dark edge.
+function bigGem(body, shine, edge) {
+  return {
+    box: [0, 0, 20, 20],
+    layers: [
+      [body, "M8 1h4v2h-4zM6 3h8v2h-8zM4 5h12v2h-12zM2 7h16v4h-16zM4 11h12v2h-12zM6 13h8v2h-8zM8 15h4v2h-4z"],
+      [shine, "M6 5h4v4h-4zM8 3h3v3h-3z"],
+      ["#FFFFFF", "M7 5h2v2h-2zM9 3h1v1h-1z"],
+      [edge, "M2 10h16v1h-16zM8 16h4v1h-4z"],
+    ],
+  };
+}
 
 // An <svg> string for one sprite. Crisp edges keep the pixels sharp at any size.
 export function spriteSVG(name, label = "") {

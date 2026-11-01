@@ -12,6 +12,8 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
 - `npm run build:data` → only after upgrading `flag-icons`; regenerates `src/shared/data/countries.js` and `public/f/`
 - `npm run build:landmarks` → refreshes landmarks from Wikidata + Commons photos and regenerates `public/credits.html`.
   Never hand-edit `src/shared/data/landmarks.js`; edit `landmark-notes.js` and re-run.
+- `npm run build:cards` → re-copies the 🃏 cards from `experiments/cards-and-coins/prototype.html` into `public/js/card-art.js`
+  and `src/shared/data/card-list.js`. Never hand-edit those two.
 - `npm run build:maps` → redraws the country maps in `public/m/` + `src/shared/data/maps.js` from Natural Earth
   (offline, from npm packages). Never hand-edit `maps.js`; tweak the numbers at the top of `scripts/build-maps.mjs`.
 
@@ -38,6 +40,17 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
   must never contain `-`; the browser files them under the real topic (`rememberSeen` in app.js). Mix can't be bingo.
 - **Rufus fun stickers** (`fun: true` in `stickers.js`) are the ONLY stickers a browser may ask for (`/api/stickers/fun`):
   taps on Rufus are counted in the browser (`funProgress` in `rufus.js`); his idle fidgets never count.
+- **🃏 Rufus Coins and cards**: right answers earn coins, coins buy packs, packs hold cards. The rules and every number are in
+  `src/shared/cards.js` (`ECONOMY`, `PACKS`); a brand new pack needs an entry there. A rarer card's `safety` number must stay bigger.
+  Each player has their own `Burrow` Durable Object (`src/burrow.js`; the logic is `src/shared/burrow-core.js` so `npm test` can run it on real SQLite).
+  GameRoom pays coins once, when a game ends (`queuePayouts`/`payOut` in `room.js`), and a burrow remembers every game it paid, so a retry can't pay twice.
+  Packs are rolled and saved in the burrow before a browser sees them; the buy `nonce` makes a double tap buy once. The Card House screen is
+  `public/js/cards.js` + `public/css/cards.css` (every class starts `rc-`). Cards are only for show: nothing about them may ever reach scoring, timing or question choice.
+  Never put card pictures in `/api/meta` or a `/f/` flag file in card art (that's the Flag Frenzy answer key), and cards stay hidden during questions.
+  Stamps are just your 3 sticker pins shown on your card, so stamping never uses a sticker up.
+- **Arcade theme** (only while 🎲 Mix it up is the topic): `arcadeCheck()` in the "ARCADE" section of `app.js` puts
+  `html.arcade` on the page (CSS: "ARCADE" at the end of `app.css`; `fx.setArcade()` for the grid; `data-arcade="..."` words
+  in `index.html`); the music is `MUSIC.arcade`, the original menu tune from Adventures of Rufus, and the sprites are in `sprites.js`.
 - Eye candy must stay at 60 frames a second (taps feel slow otherwise). Three rules keep it there:
   no `backdrop-filter` (glass panels paint their own copy of the sky: "painted glass" in `app.css` + `fx.alignGlass()`);
   a `filter`/`drop-shadow` goes on a still child, never on the element that moves (see the parade boxes, `.orb .ob`,

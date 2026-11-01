@@ -90,6 +90,13 @@ const SFX = {
     ["E6", "G6", "C7", "E7"].forEach((n, i) => tone(NOTE[n], t + 0.28 + i * 0.07, 0.2, { vol: 0.1, type: "triangle" }));
   },
   coin(t) { tone(NOTE.B5, t, 0.06, { vol: 0.1 }); tone(NOTE.E6, t + 0.06, 0.18, { vol: 0.1 }); },
+  // 🕹️ Mix it up's arcade: a coin dropping into the slot ("clink!") and the machine saying thank you ("ding-DING!")
+  credit(t) {
+    noise(t, 0.04, { vol: 0.1, freq: 5000 });
+    tone(NOTE.D6, t + 0.03, 0.05, { vol: 0.11 });
+    tone(NOTE.A6, t + 0.09, 0.07, { vol: 0.11 });
+    tone(NOTE.D7, t + 0.16, 0.3, { vol: 0.09, type: "triangle" });
+  },
   fanfare(t) {
     const mel = [["C5", 0, 0.12], ["E5", 0.12, 0.12], ["G5", 0.24, 0.12], ["C6", 0.36, 0.3], ["G5", 0.7, 0.12], ["C6", 0.84, 0.6]];
     mel.forEach(([n, at, d]) => { tone(NOTE[n], t + at, d + 0.05, { vol: 0.15 }); tone(NOTE[n] / 2, t + at, d + 0.05, { type: "triangle", vol: 0.12 }); });
@@ -269,6 +276,32 @@ export const MUSIC = {
     kick: [0, 8], snare: [4, 12], ghost: [10, 15],
     toms: [3, 6, 11, 14], // bongos: high, high, low, low
   },
+  // 🕹️ For 🎲 Mix it up. FROM ADVENTURES OF RUFUS: this is "Adventure", the very first menu tune of
+  // Arvind's game (menuMusic.menuThemes[0] in rufusfamily.com's index.html), written by the Rufus family.
+  // Same chords (C - G - Am - F), same four melody bars, same tempo, same "oom-pah" bass (root on the
+  // beat, the fifth in between) and the same drums (kick on 1 and 3, snare on 2 and 4).
+  // Three switches make our band play it the game's way (see playStep below):
+  //   loop    : the melody goes bar 1, 2, 3, 4, 1, 2... like the game (no verse A / verse B, no quiet intro)
+  //   sparkle : the game's little "sparkle" harmony: on every off-beat, the NEXT chord note one octave up, very short
+  //   fills   : false = no drum fill every 8 bars (the game doesn't have them)
+  arcade: {
+    name: "Rufus Family Arcade", emoji: "🕹️", bpm: 132, swing: 0, duty: 0.5, twin: 0, hats: 0,
+    loop: true, sparkle: true, fills: false, bassLen: 1.4, leadLen: 0.88,
+    chords: [
+      { root: 36, notes: [60, 64, 67, 72] }, // C
+      { root: 31, notes: [59, 62, 67, 71] }, // G
+      { root: 33, notes: [57, 60, 64, 69] }, // Am
+      { root: 29, notes: [60, 65, 69, 72] }, // F
+    ],
+    bass: [0, -1, 7, -1, 0, -1, 7, -1, 0, -1, 7, -1, 0, -1, 7, -1],
+    lead: [
+      [3, 2, 1, 2, 3, 3, 2, 1, 0, 1, 2, 3, 2, 1, 2, 3],
+      [2, 3, 2, 1, 2, 2, 1, 0, 1, 2, 3, 2, 1, 2, 1, 0],
+      [0, 1, 2, 3, 2, 1, 2, 3, 1, 2, 3, 2, 0, 1, 2, 1],
+      [3, 2, 1, 0, 1, 2, 3, 2, 3, 2, 1, 0, 2, 1, 0, 1],
+    ],
+    kick: [0, 8], snare: [4, 12],
+  },
 };
 
 // The order phrases play in: verse A (8 bars), then verse B (8 bars), then round again.
@@ -330,14 +363,15 @@ let musicTimer = null, step = 0, nextAt = 0, track = MUSIC.adventure, gameMode =
 function playStep(t, at, stepDur) {
   const s = step % 16, bar = Math.floor(step / 16);
   const chord = t.chords[bar % t.chords.length];
-  const intro = bar < 2;                                  // first 2 bars: just drums + bass
+  const intro = !t.loop && bar < 2;                       // first 2 bars: just drums + bass
   const section = Math.floor(bar / 8) % 2;                // verse A or B
-  const phrase = t.lead[(section ? FORM_B : FORM_A)[bar % 8] % t.lead.length];
+  const phrase = t.loop ? t.lead[bar % t.lead.length]     // loop: bar 1, 2, 3, 4, 1, 2... (like Adventures of Rufus)
+    : t.lead[(section ? FORM_B : FORM_A)[bar % 8] % t.lead.length];
   const when = at + (s % 2 === 1 ? t.swing * stepDur : 0); // swing!
   const hot = intensity;                                  // 0 menu, 1 playing, 2 streak 5+, 3 streak 15+
 
   // drums (with a fill at the end of every 8 bars)
-  const fill = bar % 8 === 7 && s >= 12;
+  const fill = t.fills !== false && bar % 8 === 7 && s >= 12;
   if (t.kick.includes(s) || (hot >= 3 && (s === 10 || s === 14))) kick(when, 0.9);
   if (fill) snare(when, 0.22 + (s - 12) * 0.12);
   else if (t.snare.includes(s)) snare(when, 0.5);
@@ -370,6 +404,8 @@ function playStep(t, at, stepDur) {
   const twin = t.twin || (hot >= 2 ? 4 : 0);                         // twin harmony on a streak
   if (twin) note(midi(n - twin), when, len, pulse(0.125), 0.12);
   if (t.echo) note(midi(n + 12), when + stepDur * 3, len * 0.8, pulse(0.5), 0.06);
+  // sparkle (from Adventures of Rufus's menu music): on the off-beats, a tiny high "ting" of the next chord note
+  if (t.sparkle && s % 2 === 1) note(midi(chord.notes[(idx + 1) % chord.notes.length] + 12), when, stepDur * 0.5, pulse(0.5), 0.09);
 }
 
 function scheduleMusic() {

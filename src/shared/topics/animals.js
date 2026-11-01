@@ -41,7 +41,7 @@ const KINDS = {
   Snake: ["Rattlesnake", "Cobra", "Milk snake", "Hognose snake", "Green anaconda", "Reticulated python",
     "Inland taipan", "Sidewinder", "Paradise tree snake", "Barbados threadsnake", "Other snakes",
     "Black mamba", "Adder", "King cobra"],
-  Fox: ["Fennec fox", "Arctic fox", "Red fox", "Gray fox", "Bat-eared fox", "A vixen", "Felix", "Renard", "Marthina"],
+  Fox: ["Fennec fox", "Arctic fox", "Red fox", "Gray fox", "Bat-eared fox", "A vixen", "Felix", "Renard", "Martina"],
   Whale: ["Blue whale"],
   Lizard: ["Chameleon"],
   Leopard: ["Cheetah"],

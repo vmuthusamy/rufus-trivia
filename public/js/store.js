@@ -26,6 +26,13 @@ export const store = {
     crypto.getRandomValues(b);
     return "p" + [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, 20);
   },
+  // The tag on the end of a secret agent name ("Funky Fox z12346"), made from the player's id.
+  // Same recipe as agentTag() in src/shared/names.js (the server makes the real name; this is for showing it).
+  agentTag(id) {
+    let h = 2166136261; // "FNV-1a": stirs the id's letters into one big number
+    for (const ch of String(id || "")) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return "abcdefghijklmnopqrstuvwxyz"[h % 26] + String(Math.floor(h / 26) % 100000).padStart(5, "0");
+  },
   profiles() { return get("rt_profiles", []); },
   active() {
     const id = get("rt_active", null);

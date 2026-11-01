@@ -28,7 +28,7 @@ export const STICKERS = [
   { id: "bingo_line", emoji: "🎯", name: "Bingo!", how: "Be first to fill a line in a Bingo game", rarity: 2 },
   { id: "bingo_blackout", emoji: "🌑", name: "Blackout", how: "Be first to stamp your whole card in a Blackout Bingo game", rarity: 4 },
   { id: "felix_socks", emoji: "🧦", name: "Felix's Lucky Socks", how: "Get BINGO in 8 calls or fewer", rarity: 3 },
-  { id: "marthina_pizza", emoji: "🍕", name: "Marthina's Perfect Pizza", how: "Get BINGO without a single wrong tap", rarity: 3 },
+  { id: "marthina_pizza", emoji: "🍕", name: "Martina's Perfect Pizza", how: "Get BINGO without a single wrong tap", rarity: 3 },
   { id: "renard_eye", emoji: "🧐", name: "Renard's Sharp Eye", how: "Spot 5 calls that aren't on your card in one Bingo game", rarity: 2 },
   { id: "fiery_stomp", emoji: "🦖", name: "Fiery's Double Stomp", how: "Finish two lines with one stamp", rarity: 4 },
   { id: "golden_paw", emoji: "🐾", name: "Golden Paw", how: "Get BINGO on a Second chance! call", rarity: 3 },

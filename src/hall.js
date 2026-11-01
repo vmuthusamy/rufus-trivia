@@ -2,13 +2,16 @@
 // Only GameRoom (on the server) can submit scores, so nobody can post a fake score from their browser.
 
 import { DurableObject } from "cloudflare:workers";
-import { ADJECTIVES, ANIMALS, nameKey } from "./shared/names.js";
+import { ADJECTIVES, ANIMALS, nameKey, agentTag } from "./shared/names.js";
 
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 const NAME_KEEP = 365 * 24 * 60 * 60 * 1000; // a name nobody has played with for a year is free again
 const LOCK_MS = 15 * 60 * 1000;
 const FUN_WINDOW = 10 * 60 * 1000; // speed limit window for Rufus fun stickers (see awardFun)
 const ANIMAL_BY_EMOJI = Object.fromEntries(ANIMALS.map(([name, emoji]) => [emoji, name]));
+// Scores saved before secret agent tags existed just say "Funky Fox": the board adds the player's tag.
+const ANIMAL_NAMES = new Set(ANIMALS.map(([name]) => name));
+const untagged = (name) => { const w = name.split(" "); return w.length === 2 && ADJECTIVES.includes(w[0]) && ANIMAL_NAMES.has(w[1]); };
 
 // A name key kids can read out and type: "comet-otter-473".
 function newNameCode() {
@@ -42,6 +45,7 @@ export class HallOfFame extends DurableObject {
         at INTEGER NOT NULL, fails INTEGER NOT NULL DEFAULT 0, fail_at INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS names_pid ON names (pid);
+      CREATE TABLE IF NOT EXISTS showcase (pid TEXT PRIMARY KEY, card TEXT NOT NULL, stamps TEXT NOT NULL, at INTEGER NOT NULL);
     `);
   }
 
@@ -117,6 +121,26 @@ export class HallOfFame extends DurableObject {
   // Same, with when each one was earned (for the sticker book).
   stickerDetails(pid) {
     return this.sql.exec("SELECT id, at FROM stickers WHERE pid = ? ORDER BY at, id", pid).toArray();
+  }
+
+  // ---------- 🃏 show-off cards ----------
+  // A copy of the card a player chose, so the board can show it without asking every player's burrow.
+  // (The Worker has already checked they own the card.) Stamps are stickers, so they must be earned.
+  setShowcase(pid, card, pins) {
+    const earned = new Set(this.stickers(pid));
+    const stamps = [...new Set(pins)].filter((id) => typeof id === "string" && earned.has(id)).slice(0, 3);
+    this.sql.exec(
+      "INSERT OR REPLACE INTO showcase (pid, card, stamps, at) VALUES (?, ?, ?, ?)",
+      pid, card, JSON.stringify(stamps), Date.now(),
+    );
+    return stamps;
+  }
+
+  showcases(pids) {
+    if (!pids.length) return {};
+    const marks = pids.map(() => "?").join(",");
+    const rows = this.sql.exec(`SELECT pid, card, stamps FROM showcase WHERE pid IN (${marks})`, ...pids).toArray();
+    return Object.fromEntries(rows.map((r) => [r.pid, { card: r.card, stamps: JSON.parse(r.stamps) }]));
   }
 
   // ---------- "remember me": a device's players, backed up so Safari wiping storage doesn't lose them ----------
@@ -204,17 +228,22 @@ export class HallOfFame extends DurableObject {
   }
 
   // Top 10 for a topic. period: "all" or "week".
+  // Players whose best is 0 points aren't listed (they still see their own best as "me").
   top(topic, period, pid) {
     const since = period === "week" ? Date.now() - WEEK : 0;
     const rows = this.sql.exec(
       `SELECT pid, name, emoji, color, MAX(score) AS score, correct, created
        FROM runs WHERE topic = ? AND created >= ?
-       GROUP BY pid ORDER BY score DESC, created ASC LIMIT 10`, topic, since,
+       GROUP BY pid HAVING MAX(score) > 0 ORDER BY score DESC, created ASC LIMIT 10`, topic, since,
     ).toArray();
     const myBest = pid ? this.bestOf(topic, pid, since) : null;
+    const shown = this.showcases(rows.map((r) => r.pid)); // 🃏 never send r.pid itself: it's private
     return {
       topic, period,
-      rows: rows.map((r) => ({ name: r.name, emoji: r.emoji, color: r.color, score: r.score, correct: r.correct, me: r.pid === pid })),
+      rows: rows.map((r) => ({
+        name: untagged(r.name) ? `${r.name} ${agentTag(r.pid)}` : r.name, emoji: r.emoji, color: r.color, score: r.score, correct: r.correct, me: r.pid === pid,
+        card: shown[r.pid] ? shown[r.pid].card : null, stamps: shown[r.pid] ? shown[r.pid].stamps : [],
+      })),
       me: myBest == null ? null : { best: myBest, rank: this.rankOf(topic, myBest, since) },
     };
   }

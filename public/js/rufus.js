@@ -71,7 +71,7 @@ export const TRICKS = [
 export const HELLOS = [
   { lang: "German", say: "Hallo! Ich bin ein glücklicher Fuchs! (That's German for \"I'm a happy fox!\")" },
   { lang: "French", say: "Bonjour ! In French, a fox is \"un renard\", just like my friend Renard!" },
-  { lang: "Italian", say: "Ciao! Sono una volpe felice! (Italian for \"I'm a happy fox!\") Marthina taught me." },
+  { lang: "Italian", say: "Ciao! Sono una volpe felice! (Italian for \"I'm a happy fox!\") Martina taught me." },
   { lang: "Spanish", say: "¡Hola! ¡Soy un zorro feliz! (Spanish for \"I'm a happy fox!\")" },
   { lang: "Japanese", say: "Konnichiwa! In Japanese, a fox is a \"kitsune\"." },
   { lang: "Hindi", say: "Namaste! In Hindi, a fox is a \"lomdi\"." },

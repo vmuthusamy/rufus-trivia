@@ -16,8 +16,9 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/cards.css">
   <!-- start fetching the game data and code right away, in parallel -->
   <link rel="preload" href="/api/meta" as="fetch" crossorigin="anonymous">
   <link rel="modulepreload" href="/js/app.js">
@@ -29,6 +30,7 @@
   <link rel="modulepreload" href="/js/streaks.js">
   <link rel="modulepreload" href="/js/config.js">
   <link rel="modulepreload" href="/js/sprites.js">
+  <link rel="modulepreload" href="/js/cards.js">
 </head>
 <body>
   <!-- ===== Background layers (nebula, synthwave grid, particles, confetti) ===== -->
@@ -37,6 +39,8 @@
   <canvas id="particles" class="layer"></canvas>
   <div class="parade" id="parade" aria-hidden="true"></div>
   <div class="vignette" id="vignette"></div>
+  <!-- 🕹️ Mix it up's arcade: a still CRT screen (scanlines + dark corners) over everything; hidden for other topics -->
+  <div class="crt" aria-hidden="true"></div>
   <canvas id="confetti" class="layer top"></canvas>
 
   <div class="app" id="app">
@@ -59,6 +63,8 @@
         <span class="av" id="meAv">🦊</span><span class="nm" id="meName">Pick a name</span>
       </button>
       <button class="stk-n hidden" id="meStk" aria-label="My sticker book"></button>
+      <button class="stk-n hidden" id="meCards" aria-label="My card collection"></button>
+      <button class="rc-wallet hidden" id="meCoins" aria-label="My Rufus Coins: open the Card House"><span class="rc-coin" id="meCoinIcon" aria-hidden="true"></span><span id="meCoinsN">0</span></button>
     </header>
 
     <main class="screens">
@@ -67,19 +73,20 @@
         <div class="home-grid">
           <div class="hero-text">
             <h1 class="title anim"><span class="t1">Rufus</span><span class="t2">Trivia</span></h1>
-            <p class="tagline anim"><span>🦊</span> Fox-powered trivia</p>
+            <p class="tagline anim"><span>🦊</span> <em data-arcade="Rufus family arcade">Fox-powered trivia</em></p>
             <p class="lead anim">Flags, books, films, animals, science and maths! Smash your high score, then challenge your friends to a live showdown.</p>
 
             <div class="topics anim" id="topicCards" role="radiogroup" aria-label="Choose a topic"></div>
 
             <div class="actions anim">
-              <button class="btn big primary" id="soloBtn"><span class="ic">▶</span><span><b>Solo Quest</b><small>3 hearts · beat your record</small></span></button>
-              <button class="btn big blue" id="challengeBtn"><span class="ic">⚔️</span><span><b>Challenge</b><small>make a room for friends</small></span></button>
+              <button class="btn big primary" id="soloBtn"><span class="ic">▶</span><span><b>Solo Quest</b><small data-arcade="3 hearts · press start">3 hearts · beat your record</small></span></button>
+              <button class="btn big blue" id="challengeBtn"><span class="ic">⚔️</span><span><b>Challenge</b><small data-arcade="2 players or more · VS">make a room for friends</small></span></button>
             </div>
             <div class="actions small anim">
               <button class="btn ghost" id="joinBtn">🔑 Join with a code</button>
               <button class="btn ghost" id="hallBtn">🏆 Hall of Fame</button>
               <button class="btn ghost" id="stickerBtn">🎖️ Sticker book</button>
+              <button class="btn ghost" id="cardsBtn">🃏 Card House</button>
             </div>
           </div>
 
@@ -107,17 +114,17 @@
 
           <div class="builder anim">
             <div class="avatar-big" id="pvAvatar"><span id="pvEmoji">🦊</span></div>
-            <div class="name-reel" id="pvName"><span id="pvAdj">Turbo</span> <span id="pvAnimal">Fox</span><span class="own" id="pvOwn"></span></div>
+            <div class="name-reel" id="pvName"><span id="pvAdj">Turbo</span> <span id="pvAnimal">Fox</span> <span class="agent-tag" id="pvTag"></span><span class="own" id="pvOwn"></span></div>
             <div class="reel-row" id="reelRow">
               <button class="btn ghost sq" id="adjPrev" aria-label="Previous word">◀</button>
               <button class="btn ghost" id="adjSpin">🎲 Spin a name</button>
               <button class="btn ghost sq" id="adjNext" aria-label="Next word">▶</button>
             </div>
             <!-- secret agent names are the main way; typing your own name is optional -->
-            <button class="link-btn" id="ownNameToggle">✏️ Want your real name on the leaderboard?</button>
+            <button class="link-btn" id="ownNameToggle">✏️ Choose your own nickname?</button>
             <div class="own-name hidden" id="ownNameBox">
-              <input id="ownNameInput" maxlength="14" placeholder="Your first name" autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="ownNameHint">
-              <p class="hint" id="ownNameHint">First name only, please. Never your full name or where you live.</p>
+              <input id="ownNameInput" maxlength="14" placeholder="Your nickname" autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="ownNameHint">
+              <p class="hint" id="ownNameHint">Use a nickname, not your full name or where you live.</p>
               <div class="unlock hidden" id="unlockBox">
                 <p class="hint">Is this you? Type the name key from your other device:</p>
                 <div class="unlock-row">
@@ -137,7 +144,17 @@
             <button class="btn ghost" id="profileCancel">Back</button>
             <button class="btn primary" id="profileSave">Let's go! ▶</button>
           </div>
-          <p class="fine anim">A secret agent name keeps you anonymous. Using your real name? First name only!</p>
+          <p class="fine anim">Use a secret agent name or nickname. Your display name is visible to other players.</p>
+          <details class="profile-backup">
+            <summary>For grown-ups: save or restore this player</summary>
+            <p>Save the player first, then download a private backup. It restores their server-saved coins, cards and stickers on another browser. Recent-question history stays on this device.</p>
+            <p><strong>Keep the file private.</strong> Anyone with it can use this player. Without a backup or a name key, losing this browser and its cookie can lose access to the collection.</p>
+            <div class="row-center">
+              <button type="button" class="btn ghost" id="downloadProfileBackup">Download private backup</button>
+              <button type="button" class="btn ghost" id="restoreProfileBackup">Restore from file</button>
+              <input type="file" id="profileBackupFile" accept="application/json,.json" hidden>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -223,6 +240,8 @@
           <div class="hud-mid" id="hudMid"></div>
           <div class="hud-right">
             <span class="streak" id="hudStreak" aria-live="polite"></span>
+            <span class="rc-hud hidden" id="hudCoins" aria-label="Pending Rufus Coins"><span class="rc-coin" id="hudCoinIcon" aria-hidden="true"></span><b>0</b><small>Pending</small></span>
+            <span class="hiscore" aria-label="High score"><small>Hi-score</small><b id="hudHi">0</b></span> <!-- 🕹️ arcade only -->
             <span class="score"><small>Score</small><b id="hudScore">0</b></span>
           </div>
         </div>
@@ -280,19 +299,22 @@
           <div class="final-solo hidden" id="finalSolo">
             <p class="eyebrow anim" id="finalEyebrow">Run complete</p>
             <h2 class="final-title anim" id="finalTitle">Out of hearts!</h2>
-            <div class="bigscore anim"><span id="finalScore">0</span><small>points</small></div>
-            <div class="stamp hidden" id="pbStamp">NEW<br>RECORD!</div>
+            <div class="bigscore anim"><span id="finalScore">0</span><small data-arcade="score">points</small></div>
+            <p class="final-hi anim" id="finalHi"></p> <!-- 🕹️ arcade only: HI-SCORE 12,340 -->
+            <div class="stamp hidden" id="pbStamp">NEW<br><span data-arcade="HI-SCORE!">RECORD!</span></div>
             <div class="stats anim" id="finalStats"></div>
             <div class="hall-result anim" id="hallResult"></div>
           </div>
 
           <div class="final-room hidden" id="finalRoom">
-            <p class="eyebrow anim">Final scores</p>
+            <p class="eyebrow anim" data-arcade="High scores">Final scores</p>
             <h2 class="final-title anim" id="roomTitle">And the winner is…</h2>
             <div class="podium" id="podium"></div>
             <div class="bfinal hidden" id="bingoFinal"></div> <!-- 🎯 bingo: your card at the end -->
             <ol class="rest" id="restList"></ol>
           </div>
+
+          <div class="rc-final hidden" id="finalCoins" aria-live="polite"></div> <!-- 🃏 Rufus Coins from this game -->
 
           <div class="sheet hidden" id="stickerSheet">
             <p class="label">You earned stickers! Tap each one to stick it in your book</p>
@@ -307,6 +329,7 @@
           <div class="row-center anim">
             <button class="btn ghost" data-go="home">🏠 Home</button>
             <button class="btn ghost" id="finalHallBtn">🏆 Hall of Fame</button>
+            <button class="btn ghost hidden" id="finalCardsBtn">🃏 Card House</button>
             <button class="btn ghost hidden" id="newQuizBtn">🔀 New quiz</button>
             <button class="btn primary" id="againBtn">Play again ▶</button>
             <p class="waiting hidden" id="waitRematch">Waiting for the host…</p>
@@ -326,6 +349,18 @@
           <div class="row-end anim">
             <button class="btn ghost" data-go="home">Back</button>
             <button class="btn primary" id="bookPlayBtn">Go earn more ▶</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== CARD HOUSE ===================== -->
+      <!-- 🃏 Everything inside is drawn by public/js/cards.js (styles: public/css/cards.css) -->
+      <section class="screen" id="scr-cards" data-accent="#a78bfa">
+        <div class="panel rc-house">
+          <div id="cardsRoot"></div>
+          <div class="row-end">
+            <button class="btn ghost" data-go="home">Back to home</button>
+            <button class="btn primary" id="cardsPlayBtn">Go earn coins ▶</button>
           </div>
         </div>
       </section>
@@ -377,7 +412,7 @@
     <i class="sticker" id="stEmoji">🎩</i>
     <span class="st-txt"><b>New sticker!</b><span id="stName"></span><small id="stHow"></small></span>
   </button>
-  <div class="countdown hidden" id="countdown"><div class="cd-ring"></div><span id="cdNum">3</span></div>
+  <div class="countdown hidden" id="countdown"><div class="cd-ring"></div><p class="cd-ready" id="cdReady">PLAYER 1 READY?</p><span id="cdNum">3</span></div>
   <div class="banner hidden" id="banner"><span class="b-emoji" id="bannerEmoji">🔥</span><span id="bannerText">ON FIRE!</span><small id="bannerSub"></small></div>
   <div class="toast hidden" id="toast" role="status"></div>
   <div class="sr-only" aria-live="assertive" id="announcer"></div>

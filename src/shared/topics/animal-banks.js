@@ -110,10 +110,10 @@ export const foxes = bankTopic({
       fact: "Foxes dig dens underground (also called earths) to raise their kits." },
     { q: "In Adventures of Rufus, who is Rufus's dad?", a: "Felix", wrong: ["Renard", "Fiery", "King Clown"], level: 1,
       fact: "Felix taught Rufus to smile, and to sing. Mostly to sing!" },
-    { q: "Which fox in Adventures of Rufus is called The Grumpy One?", a: "Renard", wrong: ["Felix", "Rufus", "Marthina"], level: 1,
+    { q: "Which fox in Adventures of Rufus is called The Grumpy One?", a: "Renard", wrong: ["Felix", "Rufus", "Martina"], level: 1,
       fact: "Those angry eyebrows give Renard away. But even grumps have a spark!" },
-    { q: "In Adventures of Rufus, which fox is The Chef?", a: "Marthina", wrong: ["Renard", "Felix", "Fiery"], level: 1,
-      fact: "Marthina is The Chef. Mangia, mangia!" },
+    { q: "In Adventures of Rufus, which fox is The Chef?", a: "Martina", wrong: ["Renard", "Felix", "Fiery"], level: 1,
+      fact: "Martina is The Chef. Mangia, mangia!" },
     { q: "What is a fox's bushy tail called?", a: "A brush", wrong: ["A broom", "A feather", "A mop"], level: 2,
       fact: "A fox's tail is called a brush. Foxes curl it around themselves like a blanket to sleep. Rufus's has a white tip!" },
     { q: "Which kind of fox can climb trees?", a: "Gray fox", wrong: ["Arctic fox", "Fennec fox", "Bat-eared fox"], level: 2,
@@ -138,7 +138,7 @@ export const foxes = bankTopic({
     { q: "Lots of red foxes have the same colour on the tip of their tail. Which colour?", a: "White", wrong: ["Blue", "Green", "Purple"], level: 1,
       fact: "Many red foxes have a white tail tip, just like Rufus! Even dark or silvery red foxes often keep that white tip." },
     { q: "Rufus's grumpy friend Renard has a French name. What does 'renard' mean in French?", a: "Fox", wrong: ["Grumpy", "Bread", "Cloud"], level: 1,
-      alsoRight: ["Foxes", "Fennec fox", "Arctic fox", "Red fox", "Gray fox", "Bat-eared fox", "A vixen", "Felix", "Renard", "Marthina"], // 🎯 Renard IS a fox!
+      alsoRight: ["Foxes", "Fennec fox", "Arctic fox", "Red fox", "Gray fox", "Bat-eared fox", "A vixen", "Felix", "Renard", "Martina"], // 🎯 Renard IS a fox!
       fact: "Renard means fox! The word comes from Reynard the Fox, a clever trickster in old stories told all over Europe." },
     { q: "What do foxes do with food they can't finish?", a: "Bury it to eat later", wrong: ["Throw it away", "Give it to the cat", "Leave it on the road"], level: 2,
       fact: "Foxes dig a little hole, drop the food in and cover it up. This is called caching, and they remember lots of hiding spots!" },

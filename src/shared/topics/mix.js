@@ -17,9 +17,9 @@ export const MIX = {
   id: "mix",
   title: "Mix it up",
   emoji: "🎲",
-  color: "#a78bfa",
+  color: "#ff4fd8",   // arcade magenta: Mix it up is the Rufus family arcade (see "ARCADE" in public/js/app.js)
   blurb: "Rufus stirs your favourite topics together",
-  music: "adventure", // Fox Adventure (see MUSIC in public/js/sound.js)
+  music: "arcade",    // 🕹️ Rufus Family Arcade, from Adventures of Rufus (see MUSIC in public/js/sound.js)
   min: 2,             // the fewest topics a mix can have
 };
 

@@ -329,7 +329,7 @@ a { color: var(--a); }
 .orb { position: absolute; left: 0; top: 0; transform: rotate(var(--ang)) translateX(var(--rad)) rotate(calc(-1 * var(--ang))); animation: orbIn .8s cubic-bezier(.2, 1.3, .4, 1) both; animation-delay: calc(var(--k) * 70ms); }
 /* when you pick a topic, the new things fly out from Rufus into orbit */
 @keyframes orbIn { from { scale: 0; opacity: 0; } to { scale: 1; opacity: 1; } }
-.orb i { display: block; animation: spin 46s linear infinite reverse; }
+.orb i { display: block; transform-origin: 0 0; animation: spin 46s linear infinite reverse; } /* turns around the orbit point, where the flag's middle sits */
 /* .ob does the bobbing; the glowing thing inside it is painted once and just rides along (a glow on the moving element itself is redrawn every frame) */
 .orb .ob { display: block; animation: bob 3s ease-in-out infinite; animation-delay: var(--dl); }
 .orb .oe { display: block; font-size: var(--s, 56px); line-height: 1; font-style: normal; transform: translate(-50%, -50%); filter: drop-shadow(0 0 18px rgba(var(--a-rgb), .75)) drop-shadow(0 10px 14px rgba(0, 0, 0, .5)); }
@@ -357,6 +357,8 @@ a { color: var(--a); }
 .reel-row.off { opacity: .35; pointer-events: none; }
 .name-reel .own { color: var(--gold); }
 .name-reel .own:empty { display: none; }
+.name-reel .agent-tag { font-size: .5em; opacity: .75; } /* "z12346": smaller, so the name still reads first */
+.name-reel .agent-tag:empty { display: none; }
 .link-btn { min-height: 44px; margin-top: 12px; border: 0; background: none; color: var(--a); font-weight: 900; font-size: 15px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .link-btn:hover { color: #fff; }
 .own-name { width: 100%; max-width: 380px; margin-top: 10px; display: flex; flex-direction: column; align-items: center; }
@@ -1194,3 +1196,133 @@ html.lite .bsq.inline::after { animation: none; }
   .bgrid { --row: clamp(40px, calc((100dvh - 420px) / 4), 112px); }
   .is-bingo .q-head { margin-bottom: 8px; }
 }
+
+/* =========================================================
+   🕹️ ARCADE: 🎲 Mix it up is the "Rufus family arcade", in honour of Adventures of Rufus (rufusfamily.com).
+   arcadeCheck() in app.js puts .arcade on <html> while Mix it up is the topic; every other topic looks just like before.
+   Kept cheap so it stays at 60 frames a second: the CRT screen is one still layer (painted once, never animated),
+   the pixel sprites hold still inside their moving boxes, and the only blinking is opacity (free for the graphics chip).
+   ========================================================= */
+:root { --pixel: "Press Start 2P", var(--mono); --arc-m: #ff4fd8; --arc-c: #00e5ff; --arc-y: #ffe03d; --arc-ink: #0d0221; }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes blinkSoft { 70% { opacity: 1; } 71%, 100% { opacity: .15; } } /* on most of the time, off for a blink */
+/* arcade letters are always capitals */
+html.arcade :is(.h, .final-title, .title .t2), .hiscore small, .topics .topic.mixer b, .mx-coin { text-transform: uppercase; }
+
+/* the sky: deep arcade purple, magenta up top, cyan down low (5 layers, like --sky above; the glass panels copy it) */
+html.arcade {
+  --sky:
+    radial-gradient(70% 55% at 82% 8%, rgba(255, 79, 216, .30), transparent 60%),
+    radial-gradient(55% 45% at 6% 4%, rgba(0, 229, 255, .18), transparent 60%),
+    radial-gradient(60% 50% at 25% 75%, rgba(124, 58, 237, .22), transparent 60%),
+    radial-gradient(120% 90% at 50% 125%, rgba(255, 79, 216, .22), transparent 60%),
+    linear-gradient(180deg, #16052f 0%, #0c0324 55%, #05010f 100%);
+}
+
+/* the CRT screen: fine scanlines + darker corners, over everything (but under pop-ups), never moving, never in the way */
+.crt { display: none; }
+html.arcade .crt {
+  display: block; position: fixed; inset: 0; z-index: 64; pointer-events: none;
+  background:
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 60%, rgba(8, 0, 24, .42) 100%),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, .13) 0 1px, transparent 1px 3px);
+}
+/* the lobby keeps just the dark corners: no lines across the QR code, so phones can always scan it */
+html.arcade.on-lobby .crt { background: radial-gradient(ellipse 120% 100% at 50% 50%, transparent 60%, rgba(8, 0, 24, .42) 100%); }
+
+/* pixel sprites from the game: circling Rufus (renderOrbit) and floating in the background (fx.parade) */
+.orb .osp { display: block; width: var(--s, 50px); transform: translate(-50%, -50%); filter: drop-shadow(0 0 10px rgba(var(--a-rgb), .55)) drop-shadow(0 8px 6px rgba(0, 0, 0, .5)); }
+.orb .osp .sprite, .parade .px .sprite { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.parade .px { display: block; }
+html.arcade .orbit-ring { border: 2px dashed rgba(0, 229, 255, .45); }
+html.lite .orb .osp { filter: none; }
+
+/* the pixel font: only for titles, HUD labels and the countdown (it's chunky, so it gets smaller sizes) */
+html.arcade :is(.h, .final-title, .eyebrow, .tagline em, .brand, .qcount, .topic-chip, .score small, .level-tag, .stamp, .code-tiles span, .pod .sc) { font-family: var(--pixel); font-weight: 400; }
+html.arcade .brand { font-size: 10px; letter-spacing: .12em; }
+html.arcade .eyebrow { font-size: 10px; letter-spacing: .1em; line-height: 1.6; }
+html.arcade .h { font-size: clamp(17px, 2.3vw, 27px); line-height: 1.35; letter-spacing: 0; text-shadow: 3px 3px 0 rgba(255, 79, 216, .9), 0 0 30px rgba(0, 229, 255, .3); }
+html.arcade .tagline em { font-style: normal; font-size: 10px; letter-spacing: .06em; }
+/* "TRIVIA" under Rufus's name, in arcade letters */
+html.arcade .title .t2 { font-family: var(--pixel); font-size: .3em; letter-spacing: .08em; margin-top: 16px; color: var(--arc-c); filter: none; text-shadow: 4px 4px 0 var(--arc-m), 0 0 34px rgba(0, 229, 255, .45); }
+
+/* HUD: an arcade score box (SCORE + HI-SCORE) */
+.hiscore { display: none; }
+html.arcade .topic-chip { font-size: 9px; letter-spacing: .04em; line-height: 1.4; }
+html.arcade .qcount { font-size: 10px; letter-spacing: 0; } html.arcade .qcount b { font-size: 14px; }
+html.arcade :is(.score, .hiscore) {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px; line-height: 1; padding: 8px 12px; border-radius: 6px;
+  background: var(--arc-ink); border: 2px solid var(--arc-c); box-shadow: 0 0 0 2px var(--arc-ink), 0 0 18px -4px var(--arc-c);
+}
+html.arcade .score small, .hiscore small { font-family: var(--pixel); font-size: 8px; letter-spacing: .06em; color: var(--arc-m); white-space: nowrap; }
+html.arcade .score b { font-family: var(--pixel); font-size: 18px; color: var(--arc-y); text-shadow: 2px 2px 0 #a3006d; }
+.hiscore b { font-family: var(--pixel); font-weight: 400; font-size: 12px; color: #fff; }
+html.arcade .hiscore { flex: none; min-width: 0; border-color: rgba(0, 229, 255, .45); box-shadow: none; }
+html.arcade .level-tag { font-size: 8px; letter-spacing: .06em; }
+@media (max-width: 640px) {
+  html.arcade .score b { font-size: 15px; }
+  html.arcade .hiscore { padding: 7px 8px; } html.arcade .hiscore b { font-size: 10px; } html.arcade .hiscore small { font-size: 7px; }
+  html.arcade .topic-chip { display: none; } /* the screen is narrow: the HI-SCORE box takes its place */
+}
+
+/* countdown: PLAYER 1 READY? ... 3, 2, 1, GO! */
+.cd-ready { display: none; }
+html.arcade .cd-ready {
+  display: block; position: absolute; top: 20%; left: 0; right: 0; margin: 0; padding: 0 16px; text-align: center;
+  font-family: var(--pixel); font-size: clamp(14px, 2.6vw, 26px); line-height: 1.5; color: var(--arc-y); text-shadow: 3px 3px 0 var(--arc-m);
+  animation: blinkSoft 1s steps(1) infinite;
+}
+html.arcade .countdown span { font-family: var(--pixel); font-size: clamp(64px, 17vw, 190px); color: #fff; text-shadow: 8px 8px 0 var(--arc-m), 0 0 60px rgba(0, 229, 255, .7); }
+html.arcade .countdown span.go { color: var(--arc-y); }
+html.arcade .cd-ring { border-radius: 0; border-color: rgba(0, 229, 255, .6); }
+
+/* results: GAME OVER / ALL CLEAR!, SCORE and HI-SCORE, CONTINUE? */
+.final-hi { display: none; }
+html.arcade .final-title { font-size: clamp(22px, 4.6vw, 50px); line-height: 1.3; color: var(--arc-y); text-shadow: 4px 4px 0 var(--arc-m), 0 0 40px rgba(255, 224, 61, .35); }
+html.arcade .bigscore { font-family: var(--pixel); font-size: clamp(34px, 7.5vw, 80px); margin-top: 6px; text-shadow: 5px 5px 0 #a3006d, 0 0 50px rgba(255, 224, 61, .45); }
+html.arcade .bigscore small { font-family: var(--pixel); font-size: 10px; letter-spacing: .2em; margin-top: 12px; color: var(--arc-m); }
+html.arcade .final-hi { display: block; margin: 10px 0 0; font-family: var(--pixel); font-size: 11px; letter-spacing: .08em; color: var(--arc-c); }
+html.arcade .stamp { font-size: clamp(12px, 1.5vw, 17px); line-height: 1.5; color: var(--arc-y); border-color: var(--arc-m); background: rgba(255, 79, 216, .12); box-shadow: 0 0 40px -6px rgba(255, 79, 216, .7); }
+html.arcade .stat .v { font-family: var(--pixel); font-size: 17px; margin-top: 10px; }
+html.arcade .code-tiles span { font-size: clamp(20px, 2.6vw, 32px); }
+html.arcade .pod .sc { font-size: 13px; margin-top: 4px; }
+
+/* the 🎲 Mix it up card is always a little arcade cabinet, so it stands out among the topics:
+   a dark cabinet with scanlines, a neon edge, the name in arcade letters and round arcade buttons for the topics */
+.topic.mixer {
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2b0b4f, #12052a);
+}
+.topic.mixer[aria-checked="true"] {
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, .04) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #4a0f6e, #1a0638);
+}
+.mixer::before { background: linear-gradient(90deg, var(--arc-m), var(--arc-c) 50%, var(--arc-y)); opacity: .6; }
+.topics .topic.mixer b { font-family: var(--pixel); font-size: 13px; line-height: 1.5; color: var(--arc-y); text-shadow: 2px 2px 0 #a3006d; }
+/* big screens (the slim bar): name + coin on the first line, the description under them */
+.topics:not(.mini) .topic.mixer small { display: block; margin-top: 3px; }
+.mx-coin { display: inline-block; margin-right: 10px; font-family: var(--pixel); font-size: 8px; letter-spacing: .06em; color: var(--arc-c); vertical-align: 2px; }
+.mx-coin i { font-style: normal; }
+.mx-coin .c-in { animation: blink 1.2s steps(1) infinite; }
+.mx-coin .c-ok, .mixer[aria-checked="true"] .mx-coin .c-in { display: none; }
+.mixer[aria-checked="true"] .mx-coin .c-ok { display: inline; color: var(--arc-y); }
+.topics.mini .mx-coin { display: none; }
+.mx-chip {
+  border-radius: 50%; border: 2px solid var(--cc);
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--cc) 55%, #1a0630), color-mix(in srgb, var(--cc) 22%, #0a0018) 75%);
+  box-shadow: 0 3px 0 #05010f, 0 0 12px -3px var(--cc);
+}
+.mx-chip[aria-pressed="false"] { border-radius: 50%; box-shadow: 0 3px 0 #05010f; background: #0a0018; }
+.mx-chip:active { transform: translateY(2px); box-shadow: 0 1px 0 #05010f; }
+@media (max-width: 640px), (min-width: 981px) and (max-width: 1180px) {
+  .topics:not(.mini) .topic.mixer b { font-size: clamp(10px, 8cqw, 13px); min-height: 2.6em; }
+  .topics:not(.mini) .mx-coin { display: block; margin: 4px 0 0; }
+}
+
+/* Private player backups live with the profile controls. */
+.profile-backup { margin-top: 24px; padding: 16px; border: 1px solid var(--muted); border-radius: 16px; }
+.profile-backup summary { cursor: pointer; font-weight: 800; min-height: 44px; }
+.profile-backup p { line-height: 1.6; }
+.profile-backup .row-center { flex-wrap: wrap; gap: 12px; }

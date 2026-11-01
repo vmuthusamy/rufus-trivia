@@ -296,11 +296,14 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</pre></details></div>
 <div class="card"><b>Lilita One</b> and <b>Nunito</b> fonts from <a href="https://fonts.google.com">Google Fonts</a> <span class="tag">SIL Open Font License 1.1</span><br>
 <a href="https://openfontlicense.org">openfontlicense.org</a></div>
+<div class="card"><b>Press Start 2P</b> font (the arcade letters in 🎲 Mix it up) by CodeMan38 (Cody Boisclair), from <a href="https://fonts.google.com/specimen/Press+Start+2P">Google Fonts</a> <span class="tag">SIL Open Font License 1.1</span><br>
+<a href="https://openfontlicense.org">openfontlicense.org</a></div>
 <div class="card"><b>Emoji</b> (the animals, planets and so on) are drawn by your own device's emoji font. The game doesn't include any emoji images.</div>
 
 <h2>🎵 Made for this game</h2>
 <div class="card"><b>Rufus the fox</b> pixel art comes from <a href="https://rufusfamily.com">Adventures of Rufus</a>, made by a 9-year-old game designer and his family.<br>
-<b>Music and sound effects</b> are original tunes, played live by your browser (no recordings).<br>
+<b>Music and sound effects</b> are original tunes, played live by your browser (no recordings).
+🎲 Mix it up's "Rufus Family Arcade" tune and its pixel friends (Felix, Marthina, Renard, Fiery, the gems and the rocket) come from Adventures of Rufus too.<br>
 <b>Space and maths questions</b> and the Rufus story problems were written for this game.</div>
 <div class="card"><b>Rufus Trivia's own code</b> <span class="tag">GPL-3.0</span><br>
 Source code: <a href="https://github.com/vmuthusamy/rufus-trivia">github.com/vmuthusamy/rufus-trivia</a></div>

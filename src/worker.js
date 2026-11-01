@@ -10,6 +10,10 @@
 //   POST /api/hall/rename               update my name on my Hall of Fame scores
 //   POST /api/stickers                  my sticker collection
 //   POST /api/stickers/fun              🦊 Rufus fun stickers (tapping Rufus): only those, nothing else
+//   POST /api/burrow                    🃏 my Rufus Coins and cards
+//   POST /api/packs/buy                 buy a pack with coins (a repeat with the same nonce buys nothing)
+//   POST /api/packs/opened              I've seen what was in this pack
+//   POST /api/showcase                  the card (and stamps) I show next to my name
 //   GET/POST /api/me                    "remember me": this device's players, via a cookie
 //   POST /api/names/check               is this typed-in name allowed? (and claim it: names are one-of-a-kind)
 //   POST /api/names/mine                my reserved name and its name key
@@ -18,11 +22,12 @@
 //   GET  /api/stats                     private visitor/game stats (needs the x-stats-key header)
 
 import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./shared/topics/index.js";
-import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick } from "./shared/names.js";
+import { ADJECTIVES, ANIMALS, COLORS, cleanPlayer, checkNick, agentName } from "./shared/names.js";
 import { SOLO, ROOM_LIMITS, roomSettings } from "./shared/scoring.js";
 import { COUNTRIES } from "./shared/data/countries.js";
 import { STICKERS, funStickers } from "./shared/stickers.js";
 import { MIX, playable } from "./shared/topics/mix.js";
+import { CARD_BY_ID, ECONOMY, PACKS, publicCards } from "./shared/cards.js";
 
 const STICKER_IDS = new Set(STICKERS.map((s) => s.id));
 
@@ -40,8 +45,10 @@ function newDeviceId() {
 export { GameRoom } from "./room.js";
 export { HallOfFame } from "./hall.js";
 export { Stats } from "./stats.js";
+export { Burrow } from "./burrow.js";
 
 const statsStub = (env) => env.STATS.get(env.STATS.idFromName("global"));
+const burrowStub = (env, pid) => env.BURROW.get(env.BURROW.idFromName(pid)); // one burrow per player
 
 // Compare the stats key without leaking how many characters matched.
 async function sameKey(a, b) {
@@ -97,6 +104,7 @@ export default {
           solo: SOLO,
           room: ROOM_LIMITS,
           stickers: STICKERS,
+          cards: publicCards(), // 🃏 names and odds only: no pictures, so no answers
           // Every flag picture, shuffled, with NO names: used to decorate the menus and
           // to preload flags so questions appear instantly. Gives away nothing.
           gallery: shuffled(COUNTRIES.map((c) => c.img)),
@@ -202,6 +210,20 @@ export default {
         return json(await env.HALL.get(env.HALL.idFromName("global")).unlockName(typed.nick, b.key));
       }
 
+      // A private backup contains the same bearer ID this browser normally uses.
+      // Validate its appearance and restore stamps only from server-earned stickers, never file data.
+      if (path === "/api/profile/restore" && request.method === "POST") {
+        const player = cleanPlayer((await body(request)).player);
+        if (!player) return json({ error: "That backup doesn't contain a valid player." }, 400);
+        const hall = env.HALL.get(env.HALL.idFromName("global"));
+        const saved = await hall.myName(player.id);
+        const earned = new Set(await hall.stickers(player.id));
+        const showcase = (await hall.showcases([player.id]))[player.id];
+        const pins = (showcase?.stamps || []).filter((id) => earned.has(id)).slice(0, 3);
+        return json({ player: { id: player.id, adj: player.adj, animal: player.animal,
+          color: player.color, nick: saved.nick || null, pins } });
+      }
+
       // My sticker collection (for the sticker book). Needs my private player id, so only I can ask.
       if (path === "/api/stickers" && request.method === "POST") {
         const b = await body(request);
@@ -223,6 +245,44 @@ export default {
         const res = await env.HALL.get(env.HALL.idFromName("global")).awardFun(player.id, ids, who);
         if (!res.ok) return json({ error: "Whoa, slow down! Try again in a few minutes." }, 429);
         return json({ fresh: res.fresh, stickers: res.stickers });
+      }
+
+      // 🃏 My coins and cards. Needs my private player id, so only I can ask.
+      if (path === "/api/burrow" && request.method === "POST") {
+        const player = cleanPlayer((await body(request)).player);
+        if (!player) return json({ error: "Pick a nickname first." }, 400);
+        return json(await burrowStub(env, player.id).state());
+      }
+
+      // 🃏 Buy a pack. The burrow rolls it and saves it before anyone sees it.
+      if (path === "/api/packs/buy" && request.method === "POST") {
+        const b = await body(request);
+        const player = cleanPlayer(b.player);
+        if (!player) return json({ error: "Pick a nickname first." }, 400);
+        if (typeof b.pack !== "string" || !Object.hasOwn(PACKS, b.pack)) return json({ error: "That pack doesn't exist." }, 400);
+        const r = await burrowStub(env, player.id).buy({ pack: b.pack, nonce: b.nonce });
+        if (r.ok) return json(r);
+        if (r.short) return json({ error: `You need ${r.short} more coins. Each right answer earns ${ECONOMY.coinsPerRight}!`, short: r.short, coins: r.coins }, 400);
+        return json({ error: r.error || "Try that again." }, 400);
+      }
+
+      if (path === "/api/packs/opened" && request.method === "POST") {
+        const b = await body(request);
+        const player = cleanPlayer(b.player);
+        if (!player) return json({ error: "Pick a nickname first." }, 400);
+        return json(await burrowStub(env, player.id).opened({ id: b.id }));
+      }
+
+      // 🃏 Show off a card. It has to be mine, and the stamps have to be stickers I've earned.
+      if (path === "/api/showcase" && request.method === "POST") {
+        const b = await body(request);
+        const player = cleanPlayer(b.player);
+        if (!player) return json({ error: "Pick a nickname first." }, 400);
+        if (typeof b.card !== "string" || !Object.hasOwn(CARD_BY_ID, b.card)) return json({ error: "That card doesn't exist." }, 400);
+        const mine = await burrowStub(env, player.id).feature({ card: b.card });
+        if (!mine.ok) return json({ error: "Collect that card first!" }, 400);
+        const stamps = await env.HALL.get(env.HALL.idFromName("global")).setShowcase(player.id, b.card, Array.isArray(b.pins) ? b.pins : []);
+        return json({ card: b.card, stamps });
       }
 
       // "Remember me": this device's players, backed up on the server and found again with a cookie.
@@ -258,7 +318,7 @@ export default {
         if (!player) return json({ error: "That name won't work." }, 400);
         const hall = env.HALL.get(env.HALL.idFromName("global"));
         // Only the name's owner can put it on the board.
-        if (player.nick && !(await hall.claimName(player.id, player)).ok) player.name = `${player.adj} ${player.animal}`;
+        if (player.nick && !(await hall.claimName(player.id, player)).ok) player.name = agentName(player);
         return json(await hall.rename({ pid: player.id, name: player.name, emoji: player.emoji, color: player.color }));
       }
 

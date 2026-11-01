@@ -1,6 +1,6 @@
 // 🚩 FLAG FRENZY - the main topic.
 // Every question is built fresh from 195 countries, 4 question styles and
-// randomly picked wrong answers, so games almost never repeat.
+// seeded wrong answers. Recent countries are avoided until the available pool runs out.
 
 import { COUNTRIES } from "../data/countries.js";
 import { FAMOUS, KNOWN, LOOKALIKES, CONTINENT_TRICKY, FACTS } from "../data/flag-notes.js";
@@ -134,7 +134,15 @@ export default {
   music: "parade",
 
   next({ rng, level, used, avoid, missed }) {
-    const c = pickFresh(rng, poolFor(level, rng), { used, avoid, missed, keyOf: key });
+    const preferred = poolFor(level, rng);
+    const unused = COUNTRIES.filter((c) => !used.has(c.code));
+    const fresh = (pool) => pool.filter((c) => !used.has(c.code) && !(avoid && avoid.has(c.code)));
+    let pool = fresh(preferred);
+    // Familiar flags first. Once those are recent, explore the next tier before recycling them.
+    if (!pool.length) pool = fresh(unused.filter((c) => tier(c) <= Math.min(3, level + 1)));
+    if (!pool.length) pool = fresh(unused);
+    if (!pool.length) pool = unused.length ? unused : COUNTRIES;
+    const c = pickFresh(rng, pool, { used, avoid, missed, keyOf: key });
     let mode = rng.weighted(MIX[level] || MIX[2]);
     if (mode === "flagToContinent" && CONTINENT_TRICKY.has(c.code)) mode = "flagToName";
     const q = MODES[mode](rng, c, level);

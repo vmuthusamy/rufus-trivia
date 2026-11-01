@@ -92,7 +92,7 @@ test("mix: rooms file asked questions under the real topic, so rematches stay fr
 test("mix: the card says what's in it; there's a Mix Master sticker", () => {
   const card = gameCard("mix", ["flags", "math"]);
   assert.equal(card.id, MIX.id);
-  assert.equal(card.music, "adventure");
+  assert.equal(card.music, "arcade");
   assert.deepEqual(card.mix, ["flags", "math"]);
   assert.equal(gameCard("flags").mix, undefined);
   assert.ok(STICKER_BY_ID.mix_master);

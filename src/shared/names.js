@@ -23,6 +23,17 @@ export const COLORS = ["#ff8a1f", "#ff4d6d", "#ffd23f", "#3ddc97", "#38bdf8", "#
 
 const ANIMAL_EMOJI = Object.fromEntries(ANIMALS);
 
+// ---------- secret agent tags ----------
+// Lots of players spin the same name, so every secret agent name ends with a tag: "Funky Fox z12346".
+// The tag is made from the player's private id, so a player always has the same one (on every device,
+// in every room) and nobody can pick theirs. public/js/store.js has the same recipe for the browser.
+export function agentTag(id) {
+  let h = 2166136261; // "FNV-1a": stirs the id's letters into one big number
+  for (const ch of String(id || "")) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return "abcdefghijklmnopqrstuvwxyz"[h % 26] + String(Math.floor(h / 26) % 100000).padStart(5, "0");
+}
+export const agentName = (p) => `${p.adj} ${p.animal} ${agentTag(p.id)}`;
+
 // ---------- typed-in names ----------
 // Rules: 2-14 characters, letters only (plus space, hyphen, apostrophe).
 // No numbers or symbols means no ages, phone numbers, emails or web links.
@@ -76,7 +87,7 @@ export function cleanPlayer(p) {
   if (!adj || !animal) return null;
   const typed = checkNick(p.nick);
   const nick = typed.ok ? typed.nick : null;
-  return { id, adj, animal, color, nick, name: nick || adj + " " + animal, emoji: ANIMAL_EMOJI[animal] };
+  return { id, adj, animal, color, nick, name: nick || agentName({ adj, animal, id }), emoji: ANIMAL_EMOJI[animal] };
 }
 
 // Keys for "seen recently" / "missed" lists: short, safe strings only.

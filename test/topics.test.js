@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { TOPICS, TOPIC_BY_ID } from "../src/shared/topics/index.js";
 import { buildGame, buildQuestion, publicQuestion } from "../src/shared/game.js";
+import { makeRng } from "../src/shared/rng.js";
 import { COUNTRIES } from "../src/shared/data/countries.js";
 import { LOOKALIKES, FACTS, FAMOUS, KNOWN } from "../src/shared/data/flag-notes.js";
 
@@ -93,4 +94,44 @@ test("flags: lots of variety - 50 games of 10 touch most of the 195 countries", 
   const seen = new Set();
   for (let i = 0; i < 50; i++) buildGame(TOPIC_BY_ID.flags, { seed: "v" + i, count: 10, levelSetting: "mixed" }).forEach((q) => seen.add(q.key));
   assert.ok(seen.size > 120, `only saw ${seen.size} countries`);
+});
+
+test("the nine trick is only claimed where it's true", () => {
+  const math = TOPICS.find((t) => t.id === "math");
+  const seen = new Map();
+  for (let i = 0; i < 40000; i++) {
+    const q = math.next({ rng: makeRng(`nine:${i}`), level: 2, used: new Set(), avoid: new Set(), missed: new Set() });
+    if (/^mul/.test(q.key)) seen.set(q.key, q.fact);
+  }
+  const claims = [...seen.values()].filter((f) => f.includes("Nine trick"));
+  assert.ok(claims.length >= 10, "the sample should reach the 9-times table");
+  for (const fact of claims) {
+    const answer = fact.match(/= (\d+)\./)[1];
+    assert.equal([...answer].reduce((sum, d) => sum + Number(d), 0), 9, fact);
+  }
+  assert.ok([...seen.keys()].includes("mul9x11") && !seen.get("mul9x11").includes("Nine trick"), "9 × 11 = 99, and 9 + 9 is 18");
+});
+
+
+test("flags widen beyond recently seen easy flags without changing the requested question style", () => {
+  const recent = new Set(COUNTRIES.filter((c) => FAMOUS.has(c.code) || KNOWN.has(c.code)).map((c) => c.code));
+  const used = new Set();
+  for (let i = 0; i < 12; i++) {
+    const q = TOPIC_BY_ID.flags.next({ rng: makeRng("widen-" + i), level: 1, used, avoid: recent, missed: new Set() });
+    assert.ok(!recent.has(q.key)); assert.ok(!used.has(q.key));
+    assert.equal(q.level, 1); assert.notEqual(q.mode, "oddOneOut");
+    used.add(q.key);
+  }
+});
+
+test("forty short flag runs explore nearly all countries without recent repeats when fresh flags remain", () => {
+  let history = []; const seen = new Set();
+  for (let i = 0; i < 40; i++) {
+    const avoid = new Set(history);
+    const questions = buildGame(TOPIC_BY_ID.flags, { seed: "short-fresh-" + i, count: 12, levelSetting: "mixed", avoid, missed: new Set() });
+    assert.equal(new Set(questions.map((q) => q.key)).size, questions.length);
+    for (const q of questions) { assert.ok(!avoid.has(q.key)); seen.add(q.key); }
+    history = [...history, ...questions.map((q) => q.key)].slice(-160);
+  }
+  assert.ok(seen.size >= 190, `only ${seen.size} countries across 40 short games`);
 });

@@ -54,9 +54,11 @@ const MAKERS = {
       const a = between(rng, 3, 12), b = between(rng, 3, 12);
       return { key: `mul${a}x${b}`, eyebrow: "Times tables", show: `${a} × ${b}`, ans: a * b,
         wrong: [a * (b - 1), a * (b + 1), (a + 1) * b, a + b],
-        fact: a === 9 || b === 9
-          ? `${a} × ${b} = ${a * b}. Nine trick: the digits of a 9-times answer add up to 9!`
-          : `${a} × ${b} = ${a * b}. That's also ${b} × ${a}!` };
+        fact: a * b === 99 // the one answer in these tables that breaks the nine trick: 9 + 9 = 18!
+          ? `${a} × ${b} = 99. Trick: ten 11s make 110, so take away one 11 and you get 99.`
+          : a === 9 || b === 9
+            ? `${a} × ${b} = ${a * b}. Nine trick: the digits of this 9-times answer add up to 9!`
+            : `${a} × ${b} = ${a * b}. That's also ${b} × ${a}!` };
     },
     function share(rng) {
       const b = between(rng, 2, 10), q = between(rng, 2, 12), a = b * q;
@@ -208,7 +210,7 @@ function equation(rng, level) {
 const CREW = [
   { who: "rufus", name: "Rufus", things: [["treats", "🍓"], ["golden paws", "🐾"], ["comics", "📚"]] },
   { who: "fiery", name: "Fiery", things: [["marshmallows", "🍡"], ["dino eggs", "🥚"], ["logs for the campfire", "🪵"]] },
-  { who: "marthina", name: "Marthina", things: [["cupcakes", "🧁"], ["meatballs", "🍝"], ["pizza slices", "🍕"]] },
+  { who: "marthina", name: "Martina", things: [["cupcakes", "🧁"], ["meatballs", "🍝"], ["pizza slices", "🍕"]] },
   { who: "renard", name: "Renard", things: [["croissants", "🥐"], ["baguettes", "🥖"], ["grumpy faces", "😤"]] },
   { who: "felix", name: "Felix", things: [["music notes", "🎵"], ["odd socks", "🧦"], ["pancakes", "🥞"]] },
   { who: "squirrel", name: "A sneaky squirrel", things: [["acorns", "🌰"]] },
@@ -335,7 +337,7 @@ function makeNumber(rng, level) {
 }
 
 // ---------- RUFUS STORY PROBLEMS ----------
-// Set in the real levels of Adventures of Rufus, with his friends (Marthina, Renard, Fiery)
+// Set in the real levels of Adventures of Rufus, with his friends (Martina, Renard, Fiery)
 // and the baddies (squirrels, wasps, bookworms, King Clown, Mr. Donut, the Moon snakes...).
 // Each one: level (1-3), place (the game level it happens in), emoji, and make(rng).
 // make() returns { key, prompt, ans, wrong?, fact }. Keep them gentle: dodge, chase, share, cool down.
@@ -383,8 +385,8 @@ const STORIES = [
   } },
   { level: 1, place: "Rufus's Treat Party", emoji: "🍪", who: "marthina", make(rng) {
     const a = between(rng, 10, 50), b = between(rng, 5, 40);
-    return { key: `treat${a}+${b}`, prompt: `Rufus has ${a} treats. Marthina gives him ${b} more. How many treats does he have now?`,
-      ans: a + b, fact: `${a} + ${b} = ${a + b} treats. Thanks, Marthina!` };
+    return { key: `treat${a}+${b}`, prompt: `Rufus has ${a} treats. Martina gives him ${b} more. How many treats does he have now?`,
+      ans: a + b, fact: `${a} + ${b} = ${a + b} treats. Thanks, Martina!` };
   } },
 
   // ----- medium: times tables and sharing -----
@@ -400,7 +402,7 @@ const STORIES = [
   } },
   { level: 2, place: "Rufus's Treat Party", emoji: "🦊", who: "rufus", make(rng) {
     const q = between(rng, 3, 12);
-    return { key: `share4x${q}`, prompt: `Rufus shares ${q * 4} treats equally between 4 friends: himself, Marthina, Renard and Fiery. How many does each friend get?`,
+    return { key: `share4x${q}`, prompt: `Rufus shares ${q * 4} treats equally between 4 friends: himself, Martina, Renard and Fiery. How many does each friend get?`,
       ans: q, wrong: [q * 2, q + 4], fact: `${q * 4} ÷ 4 = ${q} treats each. Sharing is caring!` };
   } },
   { level: 2, place: "The Library", emoji: "🐛", who: "bookworm", make(rng) {

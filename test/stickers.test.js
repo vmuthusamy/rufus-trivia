@@ -51,7 +51,7 @@ test("BINGO: a line or a blackout sticker, and Felix's socks only when it took 8
   assert.equal(STICKER_BY_ID.felix_socks.rarity, 3);
 });
 
-test("Marthina's pizza for a BINGO with every call right; the Golden Paw for one on a Second chance! call", () => {
+test("Martina's pizza for a BINGO with every call right; the Golden Paw for one on a Second chance! call", () => {
   assert.deepEqual(stickersForBingo({ win: "line", calls: 12, perfect: true, again: false }), ["bingo_line", "marthina_pizza"]);
   assert.deepEqual(stickersForBingo({ win: "line", calls: 30, perfect: false, again: true }), ["bingo_line", "golden_paw"]);
   assert.deepEqual(stickersForBingo({ win: "blackout", calls: 26, perfect: true, again: true }), ["bingo_blackout", "marthina_pizza", "golden_paw"]);

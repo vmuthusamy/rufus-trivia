@@ -13,6 +13,7 @@
     "build:landmarks": "node scripts/build-landmarks.mjs",
     "build:maps": "node scripts/build-maps.mjs",
     "build:icons": "node scripts/build-icons.mjs",
+    "build:cards": "node scripts/build-card-art.mjs",
     "test:load": "node test/load.mjs"
   },
   "license": "GPL-3.0-only",

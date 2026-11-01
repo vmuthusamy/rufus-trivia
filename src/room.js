@@ -15,7 +15,8 @@ import { freshSeed } from "./shared/rng.js";
 import { buildGame, buildQuestion, publicQuestion } from "./shared/game.js";
 import { SOLO, ROOM_LIMITS, BINGO_BONUS, bingoPoints, roomSettings, scoreAnswer } from "./shared/scoring.js";
 import { BINGO, buildPool, cardFor, callOrder, secondChance, awayFrom, hasWon, linesDone, publicCall, publicSquare } from "./shared/bingo.js";
-import { cleanPlayer, cleanKeys } from "./shared/names.js";
+import { cleanPlayer, cleanKeys, agentName } from "./shared/names.js";
+import { coinsFor } from "./shared/cards.js";
 
 const COUNTDOWN_MS = 3500;        // "3, 2, 1, GO!"
 const GRACE_MS = 700;             // a little wiggle room for slow Wi-Fi after the timer ends
@@ -25,6 +26,8 @@ const BINGO_REVEAL_MS = 4500;     // 🎯 bingo: a quick look at the answer, the
 const BINGO_WIN_MS = 8000;        // 🎯 bingo: time to cheer the BINGO before the results
 const IDLE_TTL_MS = 3 * 60 * 60 * 1000; // tidy up games nobody has touched for 3 hours
 const RECONNECT_GRACE_MS = 5000;   // if someone's Wi-Fi blips mid-question, wait this long for them to come back
+const PAYOUT_RETRY_MS = 20000;     // 🃏 couldn't reach a burrow to pay coins? Try again this much later...
+const PAYOUT_FAST_TRIES = 12;      // ...this many times, and after that every time the room wakes up
 
 export class GameRoom extends DurableObject {
   constructor(ctx, env) {
@@ -230,7 +233,7 @@ export class GameRoom extends DurableObject {
       owned = (w && w.stickers) || [];
       if (w && w.name && !w.name.ok) {
         try { ws.send(JSON.stringify({ t: "nameTaken", nick: p.nick })); } catch {}
-        Object.assign(p, { nick: null, name: `${p.adj} ${p.animal}` });
+        Object.assign(p, { nick: null, name: agentName(p) });
       }
       player = s.players[p.id]; // they might have been added while we waited
     }
@@ -259,6 +262,7 @@ export class GameRoom extends DurableObject {
     if (this.isBingo() && s.bingo) this.dealCard(p.id); // 🎯 joined a bingo game late: here's your card
     ws.serializeAttachment({ pid: p.id });
     this.save();
+    this.loadCard(p.id);
 
     if (s.kind === "solo" && s.phase === "lobby") return this.startGame();
     this.broadcast(event);
@@ -271,6 +275,8 @@ export class GameRoom extends DurableObject {
     const topic = topicFor(s.topic, s.mix);
     s.round += 1;
     s.seed = freshSeed();
+    s.gameId = crypto.randomUUID(); // 🃏 room codes get reused, so this is what makes each game's coins unique
+    s.coinResults = {};
     for (const id of s.order) {
       Object.assign(s.players[id], { score: 0, streak: 0, bestStreak: 0, correct: 0, lives: SOLO.lives, history: [] });
     }
@@ -451,8 +457,10 @@ export class GameRoom extends DurableObject {
     s.phase = "final";
     s.phaseAt = Date.now();
     s.deadline = null;
+    this.queuePayouts(); // written down before anything else, so a crash here can't lose anyone's coins
     await this.setWake(null);
     this.broadcast("final");
+    await this.payOut();
 
     if (s.kind === "solo") {
       const p = s.players[s.hostId];
@@ -675,10 +683,16 @@ export class GameRoom extends DurableObject {
       if (w.what === "go") await this.nextQuestion();
       else if (w.what === "timeup") await this.timeUp();
       else if (w.what === "advance") await this.advance();
+      else if (w.what === "payout") await this.payOut();
       if (!this.s.wake) await this.scheduleAlarm();
       return;
     }
     if (!w && Date.now() - s.lastActive >= IDLE_TTL_MS - 1000) {
+      // 🃏 Never tidy away a room that still owes someone coins.
+      if (s.payouts && s.payouts.length) {
+        await this.payOut();
+        if (s.payouts.length) { await this.scheduleAlarm(); return; }
+      }
       // Nobody has played for hours: say goodbye and free the room code.
       for (const ws of this.ctx.getWebSockets()) { try { ws.close(4001, "Room closed"); } catch {} }
       this.s = null;
@@ -709,6 +723,64 @@ export class GameRoom extends DurableObject {
 
   hall() {
     return this.env.HALL.get(this.env.HALL.idFromName("global"));
+  }
+
+  // 🃏 RUFUS COINS. Everyone's coins are paid together when a game ends (far fewer database writes
+  // than paying per answer), even if they've closed the tab: the game runs to its end without them.
+  burrow(pid) {
+    return this.env.BURROW ? this.env.BURROW.get(this.env.BURROW.idFromName(pid)) : null;
+  }
+
+  // Which card does this player show off? This never holds up joining a room.
+  loadCard(pid) {
+    const b = this.burrow(pid);
+    if (!b) return;
+    b.featured().then((card) => {
+      const p = this.s && this.s.players[pid];
+      if (!p || p.card === card) return;
+      p.card = card;
+      this.saveSoon();
+      if (["lobby", "final"].includes(this.s.phase)) this.broadcast("card");
+    }).catch(() => {});
+  }
+
+  queuePayouts() {
+    const s = this.s;
+    if (!s.gameId || !this.env.BURROW) return; // (the experiments run GameRoom without any burrows)
+    s.payouts = s.payouts || [];
+    for (const id of s.order) {
+      const coins = coinsFor(s.players[id].correct);
+      if (coins > 0) s.payouts.push({ pid: id, game: s.gameId, coins, tries: 0 });
+    }
+  }
+
+  // Pay everyone waiting. Asking twice can't pay twice: the burrow remembers every game it has paid.
+  async payOut() {
+    const s = this.s;
+    if (!s || !s.payouts || !s.payouts.length || this.paying) return;
+    this.paying = true;
+    let paid = false;
+    try {
+      for (const job of s.payouts.slice()) {
+        try {
+          const r = await this.burrow(job.pid).settle({ game: job.game, coins: job.coins });
+          if (!r.ok) throw new Error("the burrow said no");
+          if (job.game === s.gameId) s.coinResults[job.pid] = r;
+          s.payouts = s.payouts.filter((x) => x !== job);
+          paid = true;
+        } catch (err) {
+          job.tries += 1;
+          console.error("Couldn't pay coins yet", err);
+        }
+      }
+    } finally {
+      this.paying = false;
+    }
+    if (!this.s) return;
+    this.save();
+    if (paid) this.broadcast("coins");
+    // Still owed, and nothing else is about to wake the room? Set a reminder.
+    if (s.payouts.length && !s.wake && s.payouts[0].tries < PAYOUT_FAST_TRIES) await this.setWake(Date.now() + PAYOUT_RETRY_MS, "payout");
   }
 
   // Give a player stickers they don't have yet (saved on the server for good).
@@ -779,6 +851,8 @@ export class GameRoom extends DurableObject {
         answered: !!a,
       };
       if (s.kind === "solo") out.lives = p.lives;
+      // 🃏 their show-off card: never during questions, where a Japan card could give away a Japan question
+      if (s.phase === "lobby" || s.phase === "final") out.card = p.card || null;
       // the stickers they show off: the ones they pinned, or else their 3 rarest
       out.stickers = p.pins && p.pins.length ? p.pins : showcase(p.stickers);
       if (bingo) Object.assign(out, this.bingoPlayer(id, showAnswers && a));
@@ -794,6 +868,8 @@ export class GameRoom extends DurableObject {
       players,
       choosing: s.kind === "room" ? this.choosingCount(except) : 0,
       myStickers: (s.players[pid] && s.players[pid].stickers) || [],
+      // 🃏 Only counts answers already revealed, so this can't give away who got it right.
+      coins: coinsFor((s.players[pid] && s.players[pid].correct) || 0),
       question: q && (s.phase === "question" || s.phase === "reveal") ? (bingo ? publicCall(q) : publicQuestion(q)) : null,
       mine: answers[pid] ? (bingo ? { cell: answers[pid].cell } : { choice: answers[pid].choice }) : null,
     };
@@ -828,6 +904,7 @@ export class GameRoom extends DurableObject {
         me: p ? { score: p.score, correct: p.correct, bestStreak: p.bestStreak, history: p.history } : null,
         learned: learned.slice(0, 12),
         hall: s.kind === "solo" ? s.hall : null,
+        coins: (s.coinResults && s.coinResults[pid]) || null, // 🃏 the receipt, once the burrow has been paid
       };
     }
     return view;

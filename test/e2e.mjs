@@ -4,11 +4,14 @@
 // Plays a solo run and a 2-player challenge over real WebSockets.
 
 import assert from "node:assert/strict";
+import { agentName } from "../src/shared/names.js";
 
 const BASE = process.env.BASE || "http://127.0.0.1:8787";
 const WS = BASE.replace(/^http/, "ws");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rid = () => "t" + Math.random().toString(36).slice(2, 14);
+// Secret agent names end with a tag ("Mega Llama z12346"): is this player "Mega Llama"?
+const named = (p, name) => p.name.startsWith(name + " ");
 // Typed-in names are one-of-a-kind (the first player keeps them), so every test run uses new ones.
 const newNick = (start = "Kid") => start + Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
 
@@ -131,6 +134,126 @@ async function soloQuit() {
   console.log(`  quit after 1 question (${q.question.media.text}): saved with ${fin.final.me.score} points`);
 }
 
+// 🃏 Coins from real games, then the wallet: nothing here may pay twice, spend twice or give away an answer.
+async function cardsTest() {
+  const meta = await (await fetch(BASE + "/api/meta")).json();
+  assert.ok(meta.cards.cards.length >= 21 && meta.cards.packs.length >= 2);
+  const catalogue = JSON.stringify(meta.cards);
+  assert.ok(!catalogue.includes("/f/") && !catalogue.includes("data:image"), "the card list has no pictures, so no answer key");
+  const { packPrice, coinsPerRight, cardsPerPack, dailyCoins } = meta.cards.economy;
+
+  const me = profile("Turbo", "Fox");
+  const friend = profile("Cosmic", "Otter");
+  const wallet = async (who = me) => (await post("/api/burrow", { player: who })).data;
+  const start = await wallet();
+  assert.equal(start.coins, 0);
+  assert.deepEqual(start.cards, { renard: 1 }, "everyone starts with Renard");
+  assert.equal(start.featured, "renard");
+  assert.equal((await post("/api/burrow", { player: { id: "no" } })).status, 400);
+
+  // Play 20-question rooms until there are enough coins for a pack.
+  let credited = 0, games = 0;
+  while (credited < packPrice && games < 8) {
+    games += 1;
+    const { data } = await post("/api/rooms", { topic: "math", count: 20, timer: 10, level: "easy", player: me });
+    const path = `/api/rooms/${data.code}/ws`;
+    const p = player(path, me);
+    await p.ready;
+    const q2 = games === 1 ? player(path, friend) : null;
+    if (q2) await q2.ready;
+    const lobby = await p.waitFor((s) => s.phase === "lobby" && s.players.every((x) => x.card) && s.players.length === (q2 ? 2 : 1));
+    assert.equal(lobby.players[0].card, "renard", "your card shows in the lobby");
+    assert.equal(lobby.coins, 0);
+    p.send({ t: "start" });
+    for (let qi = 0; qi < 20; qi++) {
+      const q = await p.waitFor((s) => s.phase === "question" && s.qi === qi, 9000);
+      assert.equal(q.players[0].card, undefined, "cards are hidden during questions");
+      const before = q.coins;
+      p.send({ t: "answer", q: qi, choice: qi % 4, ms: 900 });
+      if (q2) q2.send({ t: "answer", q: qi, choice: (qi + 1) % 4, ms: 900 });
+      const waiting = p.states.filter((s) => s.phase === "question" && s.qi === qi);
+      for (const s of waiting) assert.equal(s.coins, before, "coins can't move before the reveal");
+      const r = await p.waitFor((s) => s.phase === "reveal" && s.qi === qi);
+      assert.equal(r.coins, before + (r.mine.correct ? coinsPerRight : 0), "right answers earn coins, wrong ones cost nothing");
+      p.send({ t: "next" });
+    }
+    const fin = await p.waitFor((s) => s.phase === "final" && s.final.coins, 9000).catch(() => null);
+    const right = p.last().final.me.correct;
+    if (right === 0) { assert.equal(fin, null, "no right answers: nothing to pay"); p.ws.close(); if (q2) q2.ws.close(); continue; }
+    assert.equal(fin.final.coins.earned, right * coinsPerRight);
+    assert.equal(fin.final.coins.credited, fin.final.coins.earned, "every earned coin is credited");
+    assert.equal(fin.players[0].card, "renard", "your card shows on the results");
+    credited += fin.final.coins.credited;
+    assert.equal(fin.final.coins.coins, credited, "the receipt matches every game so far");
+    p.ws.close();
+    if (q2) q2.ws.close();
+  }
+  assert.ok(credited >= packPrice, `earned ${credited} coins in ${games} games`);
+  assert.equal(dailyCoins, null, "there is no daily earning limit");
+  assert.equal((await wallet()).coins, credited);
+
+  // Buying: a double tap buys once, and you can't spend what you don't have.
+  const buy = (pack, nonce, who = me) => post("/api/packs/buy", { player: who, pack, nonce });
+  assert.equal((await buy("nope", "nonce-000001")).status, 400);
+  assert.equal((await buy("char", "x")).status, 400, "a silly nonce is refused");
+  const broke = await buy("char", "nonce-broke-1", friend);
+  if ((await wallet(friend)).coins < packPrice) assert.equal(broke.status, 400, "no coins, no pack");
+  const first = await buy("char", "nonce-first-1");
+  assert.equal(first.status, 200);
+  const again = await buy("char", "nonce-first-1");
+  assert.equal(again.data.replay, true);
+  assert.deepEqual(again.data.pack, first.data.pack, "a double tap gives the same pack");
+  assert.equal(first.data.pack.cards.length, cardsPerPack);
+  const after = await wallet();
+  assert.equal(after.coins, credited - packPrice, "paid for once");
+  assert.equal(after.unopened.length, 1, "the pack waits, even if the browser never comes back");
+  assert.deepEqual(after.unopened[0].cards, first.data.pack.cards, "a refresh can't re-roll it");
+  await post("/api/packs/opened", { player: me, id: first.data.pack.id });
+  assert.equal((await wallet()).unopened.length, 0);
+
+  // Showing off: only cards you own, and only stickers you've earned.
+  const newCard = first.data.pack.cards.map((c) => c.id).find((id) => id !== "renard") || "renard";
+  assert.equal((await post("/api/showcase", { player: me, card: "nope" })).status, 400);
+  const notMine = meta.cards.cards.map((c) => c.id).find((id) => !after.cards[id]);
+  assert.equal((await post("/api/showcase", { player: me, card: notMine })).status, 400, "you can't show a card you don't own");
+  const shown = await post("/api/showcase", { player: me, card: newCard, pins: ["streak50", "streak40"] });
+  assert.equal(shown.status, 200);
+  assert.deepEqual(shown.data.stamps, [], "stickers you haven't earned can't become stamps");
+  assert.equal((await wallet()).featured, newCard);
+
+  // The Hall of Fame shows the card, and never a private id.
+  const { data: solo } = await post("/api/solo", { topic: "science", player: me });
+  const s = player(`/api/solo/${solo.id}/ws`, me);
+  await s.ready;
+  for (let qi = 0; qi < 60; qi++) {
+    const q = await s.waitFor((x) => (x.phase === "question" && x.qi === qi) || x.phase === "final", 9000);
+    if (q.phase === "final") break;
+    assert.equal(q.players[0].card, undefined);
+    s.send({ t: "answer", q: qi, choice: 0, ms: 600 });
+    await s.waitFor((x) => x.qi === qi && x.phase === "reveal");
+    s.send({ t: "next" });
+  }
+  const end = await s.waitFor((x) => x.phase === "final" && x.final.hall);
+  assert.equal(end.players[0].card, newCard, "your new card shows from now on");
+  s.ws.close();
+  if (end.final.hall.score > 0) {
+    const board = await (await fetch(`${BASE}/api/hall?topic=science&period=all&pid=${me.id}`)).json();
+    const mine = board.rows.find((r) => r.me);
+    if (mine) assert.equal(mine.card, newCard, "your card is on the leaderboard");
+    assert.ok(!JSON.stringify(board).includes(me.id), "a private player id never reaches the board");
+  }
+  // A backup restores the same private identity, never client-supplied wallet or sticker claims.
+  const beforeRestore = await wallet();
+  const restored = await post("/api/profile/restore", { player: { ...me, coins: 999999, cards: { family: 999 }, pins: ["fake-sticker"] } });
+  assert.equal(restored.status, 200);
+  assert.equal(restored.data.player.id, me.id);
+  assert.ok(!restored.data.player.pins.includes("fake-sticker"));
+  assert.equal(restored.data.player.coins, undefined);
+  assert.deepEqual(await wallet(restored.data.player), beforeRestore);
+  assert.equal((await post("/api/profile/restore", { player: { ...me, id: "bad" } })).status, 400);
+  console.log(`  ${games} games, ${credited} coins, bought ${first.data.pack.cards.map((c) => c.id).join(", ")}; showing ${newCard}`);
+}
+
 async function challenge() {
   const a = profile("Mighty", "Panda", "#38bdf8");
   const b = profile("Cosmic", "Otter", "#3ddc97");
@@ -158,7 +281,7 @@ async function challenge() {
   B.send({ t: "hello", player: { ...b, adj: "Silly" } }); // ...picks a name and joins
   await A.waitFor((s) => s.choosing === 0 && s.players.length === 2);
   B.send({ t: "hello", player: b }); // ...then changes their mind in the lobby
-  await A.waitFor((s) => s.players.some((p) => p.name === "Cosmic Otter"));
+  await A.waitFor((s) => s.players.some((p) => named(p, "Cosmic Otter")));
   const bSeat = (await B.waitFor((s) => s.me)).me;
 
   B.send({ t: "start" }); // not the host: ignored
@@ -263,9 +386,9 @@ async function reviewFixes() {
 
   // Switching to a new player on the same connection: no ghost left behind, and they stay host.
   A.send({ t: "hello", player: profile("Mega", "Llama") });
-  const sw = await B.waitFor((s) => s.players.some((p) => p.name === "Mega Llama"));
-  assert.ok(!sw.players.some((p) => p.name === "Brave Lion"), "old player isn't left as a ghost");
-  assert.equal(sw.hostId, sw.players.find((p) => p.name === "Mega Llama").id, "host role moved with them");
+  const sw = await B.waitFor((s) => s.players.some((p) => named(p, "Mega Llama")));
+  assert.ok(!sw.players.some((p) => named(p, "Brave Lion")), "old player isn't left as a ghost");
+  assert.equal(sw.hostId, sw.players.find((p) => named(p, "Mega Llama")).id, "host role moved with them");
 
   // Round 1. Someone's connection drops mid-question: wait a few seconds for them, then a proper timeout.
   A.send({ t: "start" });
@@ -278,7 +401,7 @@ async function reviewFixes() {
   const rv = await B.waitFor((s) => s.phase === "reveal" && s.qi === 0 && s.round === 1, 10000);
   const graceMs = Date.now() - dropAt;
   assert.ok(graceMs >= 4000, "waited for them to come back");
-  const dropped = rv.players.find((p) => p.name === "Mega Llama");
+  const dropped = rv.players.find((p) => named(p, "Mega Llama"));
   assert.ok(dropped.last && dropped.last.timeout, "the dropped player gets a timeout");
   assert.equal(dropped.streak, 0, "and their streak resets");
   const keysOf = (round) => B.states.filter((s) => s.phase === "reveal" && s.round === round).map((s) => s.reveal.key);
@@ -431,7 +554,7 @@ async function namesTest() {
   await O.waitFor((s) => s.players.length === 2);
   await sleep(300);
   const names = O.last().players.map((p) => p.name).sort();
-  assert.deepEqual(names, [nick, "Sneaky Owl"].sort(), "only the owner shows as " + nick);
+  assert.deepEqual(names, [nick, agentName(copycat)].sort(), "only the owner shows as " + nick);
   assert.deepEqual(notes, [nick], "the copycat is told the name is taken");
   O.ws.close(); C.ws.close();
 
@@ -608,7 +731,7 @@ async function mixTest() {
   const cd = await p.waitFor((s) => s.phase === "countdown");
   assert.equal(cd.topic.id, "mix");
   assert.deepEqual(cd.topic.mix, ["flags", "math"], "the mix is tidied into home-screen order");
-  assert.equal(cd.topic.music, "adventure");
+  assert.equal(cd.topic.music, "arcade");
   const keys = [];
   for (let qi = 0; qi < 8; qi++) {
     await p.waitFor((s) => s.phase === "question" && s.qi === qi, 8000);
@@ -715,5 +838,7 @@ console.log("mix it up…");
 await mixTest();
 console.log("rufus fun stickers…");
 await funStickersTest();
+console.log("rufus coins and cards…");
+await cardsTest();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 process.exit(0);

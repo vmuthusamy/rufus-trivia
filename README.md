@@ -42,6 +42,12 @@ already running can finish and old scores stay in the Hall of Fame. See `RETIRED
   on the leaderboard or in a challenge room. The owner gets a secret name key ("comet-otter-473") in their
   profile to be the same player (stickers and all) on another device.
 
+**🃏 Rufus Coins and cards**: right answers earn Rufus Coins, and coins buy packs of collectible cards in Rufus's Card House.
+Packs are themes, and rarity belongs to each card: Common, Rare, Epic, Divine and Legendary. Show off a card next to your name
+in rooms and in the Hall of Fame, with your stickers stamped on it. Cards are just for fun: they never change scores.
+Every correct answer earns 10 coins with no daily cap; packs cost 100 coins. The Card House also shows a
+Thanksgiving limited-edition concept preview; it is not purchasable and has no launch date yet.
+
 ## Run it on your computer
 
 ```bash

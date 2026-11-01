@@ -20,6 +20,12 @@ export function setAccent(hex) {
 let speed = 1, speedTarget = 1;
 export function setSpeed(s) { speedTarget = s; }
 
+// 🕹️ ARCADE (🎲 Mix it up): the floor becomes an old arcade grid (cyan lines running away, magenta lines
+// rolling towards you) and the sparkles become little square pixels in arcade colours. Same amount of drawing.
+let arcade = false;
+const ARCADE_PIXELS = ["255,224,61", "0,229,255", "255,79,216", "255,255,255"]; // yellow, cyan, magenta, white
+export function setArcade(on) { arcade = !!on; }
+
 export function initBackdrop() {
   const gc = document.getElementById("grid"), gx = gc.getContext("2d");
   const pc = document.getElementById("particles"), px = pc.getContext("2d");
@@ -36,7 +42,7 @@ export function initBackdrop() {
     px.setTransform(dpr, 0, 0, dpr, 0, 0);
     parts = [];
     const n = Math.round((W * H) / (root.classList.contains("lite") ? 30000 : 12000));
-    for (let i = 0; i < n; i++) parts.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() * 0.8 + 0.2, tw: Math.random() * 6.28 });
+    for (let i = 0; i < n; i++) parts.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() * 0.8 + 0.2, tw: Math.random() * 6.28, c: ARCADE_PIXELS[i % 4] });
   }
 
   function frame(t) {
@@ -52,20 +58,23 @@ export function initBackdrop() {
     // grid floor
     gx.clearRect(0, 0, W, H);
     const horizon = H * 0.56, vpX = W * 0.5, cols = 22;
-    gx.strokeStyle = `rgba(${rgb},.2)`;
+    const glow = arcade ? "255,79,216" : rgb; // arcade: a magenta glow on the floor
+    gx.strokeStyle = arcade ? "rgba(0,229,255,.26)" : `rgba(${rgb},.2)`;
     gx.lineWidth = 1;
     for (let i = -cols; i <= cols; i++) {
       gx.beginPath(); gx.moveTo(vpX, horizon); gx.lineTo(vpX + i * (W / cols) * 1.6, H); gx.stroke();
     }
     if (!reduce) scroll = (scroll + dt * 0.00007 * speed) % 1;
+    if (arcade) gx.strokeStyle = "rgba(255,79,216,.34)";
     for (let j = 0; j < 22; j++) {
       const f = (j + scroll) / 22, y = horizon + (H - horizon) * f * f;
       gx.globalAlpha = Math.min(1, f * 1.3);
       gx.beginPath(); gx.moveTo(0, y); gx.lineTo(W, y); gx.stroke();
     }
     gx.globalAlpha = 1;
+    if (arcade) { gx.fillStyle = "rgba(255,79,216,.3)"; gx.fillRect(0, horizon - 1, W, 2); } // the bright horizon line
     const grd = gx.createLinearGradient(0, horizon - 40, 0, H);
-    grd.addColorStop(0, `rgba(${rgb},0)`); grd.addColorStop(0.15, `rgba(${rgb},.10)`); grd.addColorStop(1, `rgba(${rgb},0)`);
+    grd.addColorStop(0, `rgba(${glow},0)`); grd.addColorStop(0.15, `rgba(${glow},.10)`); grd.addColorStop(1, `rgba(${glow},0)`);
     gx.fillStyle = grd; gx.fillRect(0, horizon - 40, W, H - horizon + 40);
 
     // particles drifting up, faster when you're on a streak
@@ -74,6 +83,12 @@ export function initBackdrop() {
       if (!reduce) p.y -= p.z * 0.3 * speed * (dt / 16);
       if (p.y < -4) { p.y = H + 4; p.x = Math.random() * W; }
       const a = (0.3 + 0.5 * Math.abs(Math.sin(t * 0.001 + p.tw))) * p.z;
+      if (arcade) { // a square pixel, snapped to whole pixels so it stays crisp
+        const sz = p.z > 0.6 ? 3 : 2;
+        px.fillStyle = `rgba(${p.c},${a.toFixed(2)})`;
+        px.fillRect(Math.round(p.x), Math.round(p.y), sz, sz);
+        continue;
+      }
       px.fillStyle = `rgba(${rgb},${a.toFixed(2)})`;
       px.beginPath(); px.arc(p.x, p.y, p.z * 1.7, 0, 6.283); px.fill();
     }
@@ -88,7 +103,8 @@ export function initBackdrop() {
 }
 
 // ---------- floating flags behind menus ----------
-// items: flag picture paths ("/f/...") or emoji (for topics like Space or Math)
+// items: flag picture paths ("/f/...") or emoji (for topics like Space or Math),
+// or (🕹️ Mix it up's arcade) pixel sprites as ready-made <svg> markup from sprites.js
 // Each picture sits inside its own little box (.pf). The BOX is what floats (a transform animation,
 // which the graphics chip does almost for free) while the blurry picture inside it never changes,
 // so the browser paints the blur once. Blurring the moving picture itself made it re-blur all 14
@@ -100,7 +116,12 @@ export function parade(el, items) {
     const box = document.createElement("div");
     box.className = "pf";
     let img;
-    if (items[i].startsWith("/")) {
+    const pixel = items[i].startsWith("<svg");
+    if (pixel) {
+      img = document.createElement("span");
+      img.className = "px"; // a crisp pixel sprite: no blur (it would smudge the pixels), just smaller and fainter far away
+      img.innerHTML = items[i];
+    } else if (items[i].startsWith("/")) {
       img = new Image();
       img.src = items[i];
       img.alt = "";
@@ -114,7 +135,9 @@ export function parade(el, items) {
     box.style.cssText = [
       `left:${Math.random() * 96}%`, `--w:${Math.round(40 + depth * 60)}px`, `--o:${(0.12 + depth * 0.22).toFixed(2)}`,
       `--b:${((1 - depth) * 2.5).toFixed(1)}px`, `--t:${Math.round(26 + (1 - depth) * 30)}s`, `--dl:${-Math.random() * 50}s`,
-      `--dx:${Math.round((Math.random() - 0.5) * 200)}px`, `--r1:${Math.round((Math.random() - 0.5) * 40)}deg`, `--r2:${Math.round((Math.random() - 0.5) * 60)}deg`,
+      `--dx:${Math.round((Math.random() - 0.5) * 200)}px`,
+      // pixel sprites float upright, like in the game (a tilted pixel looks smudgy)
+      `--r1:${pixel ? 0 : Math.round((Math.random() - 0.5) * 40)}deg`, `--r2:${pixel ? 0 : Math.round((Math.random() - 0.5) * 60)}deg`,
     ].join(";");
     box.appendChild(img);
     el.appendChild(box);

@@ -4,12 +4,14 @@
 
 import { CONFIG } from "./config.js";
 import { store } from "./store.js";
+import { readProfileBackup, makeProfileBackup } from "./profile-backup.js";
 import { sound, MUSIC } from "./sound.js";
 import { makeHost, makeFox, line, funProgress, funEarned, funStatus } from "./rufus.js";
 import { spriteSVG } from "./sprites.js";
 import * as fx from "./fx.js";
 import { openGame } from "./net.js";
 import { celebrate, streakBroken, badge } from "./streaks.js";
+import { initCards, walletFor, openCardHouse, cardThumb, showHudCoins, showFinalCoins, refreshCoinsAfterGame, syncShowcase } from "./cards.js";
 
 const $ = (id) => document.getElementById(id);
 function el(tag, cls, text) {
@@ -68,7 +70,7 @@ const topic = (id) => {
 const emojiFor = (animal) => ((S.meta && S.meta.names.animals.find((a) => a[0] === animal)) || [0, "🦊"])[1];
 const playerPayload = () => S.profile && { id: S.profile.id, adj: S.profile.adj, animal: S.profile.animal, color: S.profile.color, nick: S.profile.nick || null };
 // A typed-in first name wins; otherwise the secret agent name ("Turbo Fox").
-const displayName = (p) => (p.nick ? p.nick : `${p.adj} ${p.animal}`);
+const displayName = (p) => (p.nick ? p.nick : `${p.adj} ${p.animal} ${store.agentTag(p.id)}`);
 const meOf = (st) => st.players.find((p) => p.id === st.me) || { score: 0, streak: 0, lives: 0, rank: 1 };
 // Which question is on screen: the round (rematches) + the question number.
 const qKey = (st) => `${st.round}:${st.qi}`;
@@ -115,6 +117,8 @@ function show(name, { accent } = {}) {
   const t = topic(S.topicId);
   fx.setAccent(accent || (name === "home" && t ? t.color : next.dataset.accent));
   $("parade").classList.toggle("off", !MENU_SCREENS.has(name));
+  arcadeCheck(); // 🕹️ Mix it up dresses the whole site up as an arcade
+  document.documentElement.classList.toggle("on-lobby", name === "lobby"); // (the arcade's CRT lines keep off the QR code)
   host.show(name !== "home");
   host.ingame(name === "game");
   if (name !== "game") fx.setSpeed(1);
@@ -136,6 +140,7 @@ function renderMe() {
   const n = p ? (store.pref("stk_" + p.id, []) || []).length : 0;
   $("meStk").textContent = `🎖️ ${n}`;
   $("meStk").classList.toggle("hidden", !n);
+  if (S.meta) walletFor(p); // 🃏 a different player? Show their coins
 }
 
 // ---------- REMEMBER ME ----------
@@ -313,6 +318,7 @@ function renderInspect() {
       store.setPins(S.profile.id, next);
       S.profile = store.active();
       backupProfiles();
+      syncShowcase(); // 🃏 pins are the stamps on your card, so the Hall of Fame's copy needs to know
       sound.play("coin");
       toast(next.length ? `Showing off: ${next.map((x) => stickerInfo(x).emoji).join(" ")}` : "No pins: your rarest stickers show instead");
       renderInspect();
@@ -426,6 +432,11 @@ function mixerCard({ blurbs, best, onPick }) {
   card.style.setProperty("--tc", t.color);
   const words = el("span", "mx-words");
   words.append(el("b", null, t.title));
+  // 🕹️ the card is a little arcade cabinet: "INSERT COIN" blinks until you pick it, then it says "1 CREDIT"
+  const coin = el("span", "mx-coin");
+  coin.setAttribute("aria-hidden", "true");
+  coin.append(el("i", "c-in", "Insert coin"), el("i", "c-ok", "1 credit"));
+  words.append(coin);
   if (blurbs) words.append(el("small", null, t.blurb));
   const chips = el("span", "mx-chips");
   chips.setAttribute("role", "group");
@@ -442,7 +453,7 @@ function mixerCard({ blurbs, best, onPick }) {
   card.append(el("span", "te", t.emoji), words, chips);
   const score = best && store.best(S.profile && S.profile.id, t.id);
   if (score) card.append(el("span", "best", "★ " + score.toLocaleString()));
-  const choose = () => { sound.play("pick"); onPick(t); };
+  const choose = () => { sound.play(S.topicId === t.id ? "pick" : "credit"); onPick(t); }; // 🕹️ "clink, ding-DING!": a coin in the arcade
   card.onclick = choose;
   card.onkeydown = (e) => { if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); choose(); } };
   return card;
@@ -506,6 +517,12 @@ function renderTopics() {
 
 // Each topic dresses up the home screen: what orbits Rufus, what floats in the background, and the music.
 function themeFor(t) {
+  if (t.mix) { // 🕹️ Mix it up: pixel friends from Adventures of Rufus instead (see ARCADE below)
+    renderOrbit(ARCADE.orbit.map((name) => spriteSVG(name)));
+    fx.parade($("parade"), ARCADE.parade.map((name) => spriteSVG(name)));
+    applyMusic(t);
+    return;
+  }
   const flags = t.orbit === "flags";
   renderOrbit(flags ? S.meta.gallery.slice(14, 22) : t.orbit);
   fx.parade($("parade"), flags ? S.meta.gallery.slice(0, 14) : Array.from({ length: 14 }, (_, i) => t.orbit[i % t.orbit.length]));
@@ -513,14 +530,50 @@ function themeFor(t) {
 }
 
 // "auto" = each topic plays its own song; otherwise the song the player picked from the ♫ menu.
+// (It's called whenever the topic changes, so it's also where the 🕹️ arcade look switches on or off.)
 function applyMusic(t) {
   const pick = store.pref("track", "auto");
   sound.setTrack(pick === "auto" ? (t && t.music) || "adventure" : pick);
+  arcadeCheck();
+}
+
+// ---------- 🕹️ ARCADE: Mix it up is the "Rufus family arcade" ----------
+// While 🎲 Mix it up is the topic (home, setup, lobby, game, results), the whole site dresses up like an old
+// arcade machine, in honour of Arvind's game Adventures of Rufus (rufusfamily.com):
+//   - html.arcade switches on the arcade CSS (see "ARCADE" at the end of app.css): magenta/cyan sky, a pixel font
+//     for titles, a still CRT-screen overlay with scanlines
+//   - fx.setArcade() turns the background floor into an arcade grid with square pixel sparkles
+//   - pixel sprites from the game (sprites.js) circle Rufus and float in the background
+//   - the music is "Rufus Family Arcade", the game's own menu tune (MUSIC.arcade in sound.js)
+//   - words change: "PLAYER 1 READY?", "HI-SCORE", "GAME OVER", "CONTINUE?" (data-arcade="..." in index.html)
+// Every other topic looks exactly like before.
+const ARCADE = {
+  orbit: ["paw", "felix", "gemRed", "marthina", "treat", "renard", "gemYellow", "fiery", "rocket", "gem"],
+  parade: ["paw", "treat", "gem", "felix", "gemPurple", "marthina", "rocket", "renard", "gemGreen", "fiery", "treat", "gemRed", "bookworm", "paw"],
+};
+// Is the game we're looking at a Mix it up one? (In a game: the game's topic. On the menus: the chosen topic.)
+const arcadeOn = () => (S.g && ["lobby", "game", "final"].includes(S.screen) ? S.g.topicId : S.topicId) === "mix";
+function arcadeCheck() {
+  const on = !!S.meta && arcadeOn();
+  if (document.documentElement.classList.contains("arcade") === on) return;
+  document.documentElement.classList.toggle("arcade", on);
+  fx.setArcade(on);
+  // swap the words that have an arcade version (the normal words are kept in data-plain to swap back)
+  for (const e of document.querySelectorAll("[data-arcade]")) {
+    if (e.dataset.plain == null) e.dataset.plain = e.textContent;
+    e.textContent = on ? e.dataset.arcade : e.dataset.plain;
+  }
+  fx.alignGlass(); // the painted glass panels pick up the arcade sky
 }
 
 function renderOrbit(items) {
   const orbit = $("orbit");
   orbit.innerHTML = "";
+  // Start the circle's spin again from the top, so it stays in step with each thing's counter-spin
+  // (otherwise new flags come out tilted and the whole ring slides off Rufus).
+  orbit.style.animation = "none";
+  void orbit.offsetWidth;
+  orbit.style.animation = "";
   const small = innerWidth < 980;
   // How far out they circle (--rad) is set in app.css, so the orbit always fits inside Rufus's own space.
   items.forEach((item, i) => {
@@ -531,7 +584,11 @@ function renderOrbit(items) {
     const bob = el("span", "ob"); // bobs up and down; the glowing thing inside it is painted once and just rides along
     bob.style.setProperty("--dl", -i * 0.4 + "s");
     let thing;
-    if (item.startsWith("/")) {
+    if (item.startsWith("<svg")) { // 🕹️ a pixel sprite from Adventures of Rufus
+      thing = el("span", "osp");
+      thing.innerHTML = item;
+      thing.style.setProperty("--s", (small ? 34 : 46 + (i % 3) * 8) + "px");
+    } else if (item.startsWith("/")) {
       thing = new Image();
       thing.src = item;
       thing.alt = "";
@@ -621,7 +678,7 @@ function pingVisit() {
 // ---------- PROFILE ----------
 function randomDraft() {
   const n = S.meta.names;
-  return { id: null, adj: pick(n.adjectives), animal: pick(n.animals)[0], color: pick(n.colors) };
+  return { id: store.newId(), adj: pick(n.adjectives), animal: pick(n.animals)[0], color: pick(n.colors) };
 }
 
 // opts.back = which screen "Back" returns to; opts.ownName = jump straight to typing a real name
@@ -661,11 +718,13 @@ function renderSaved() {
 }
 
 function renderBuilder(pop) {
+  $("downloadProfileBackup").disabled = !S.draft || !store.profiles().some((p) => p.id === S.draft.id);
   const d = S.draft, n = S.meta.names;
   $("pvEmoji").textContent = emojiFor(d.animal);
   // Show the typed name if there is one, otherwise the secret agent name.
   $("pvAdj").textContent = d.nick ? "" : d.adj;
   $("pvAnimal").textContent = d.nick ? "" : d.animal;
+  $("pvTag").textContent = d.nick ? "" : store.agentTag(d.id); // "z12346": makes the name one-of-a-kind
   $("pvOwn").textContent = d.nick || "";
   $("reelRow").classList.toggle("off", !!d.nick);
   $("ownNameBox").classList.toggle("hidden", !S.ownNameOpen);
@@ -746,7 +805,7 @@ function onOwnNameInput() {
     hint.textContent = "Letters only, please (no numbers or symbols).";
     hint.classList.add("bad");
   } else {
-    hint.textContent = "First name only, please. Never your full name or where you live.";
+    hint.textContent = "Use a nickname, not your full name or where you live.";
   }
   renderBuilder(false);
 }
@@ -806,7 +865,7 @@ async function unlockName() {
     input.classList.remove("bad");
     $("ownNameInput").classList.remove("bad");
     $("ownNameHint").classList.remove("bad");
-    $("ownNameHint").textContent = "First name only, please. Never your full name or where you live.";
+    $("ownNameHint").textContent = "Use a nickname, not your full name or where you live.";
     store.saveProfile(S.draft);
     S.profile = { ...S.draft };
     S.nameKey = { pid: p.id, nick: p.nick, key: key.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") };
@@ -875,6 +934,36 @@ async function saveProfile() {
   }
 }
 
+// A parent can save a private backup for ANY profile, including secret agent names.
+function downloadProfileBackup() {
+  const p = store.profiles().find((x) => x.id === S.draft?.id);
+  if (!p) { toast("Save this player first, then download a backup."); return; }
+  const url = URL.createObjectURL(new Blob([makeProfileBackup(p)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = "rufus-trivia-private-backup.json";
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast("Keep your backup with a parent. Anyone with the file can use this player.", 6000);
+}
+
+async function restoreProfileBackup(file) {
+  if (!file) return;
+  const btn = $("restoreProfileBackup");
+  btn.disabled = true;
+  try {
+    if (file.size > 16384) throw new Error("That backup file is too large.");
+    const player = readProfileBackup(await file.text());
+    const r = await post("/api/profile/restore", { player });
+    store.saveProfile(r.player);
+    S.profile = r.player; S.draft = { ...r.player }; S.ownNameOpen = !!r.player.nick;
+    S.takenNick = null; S.nameKey = null;
+    renderSaved(); renderBuilder(false); renderMe(); renderTopics(); backupProfiles();
+    loadNameKey();
+    toast("Player restored. Your saved coins, cards and stickers are on the server.", 5000);
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; $("profileBackupFile").value = ""; }
+}
+
 // ---------- SOLO ----------
 async function startSolo() {
   try {
@@ -901,7 +990,7 @@ function renderSetup() {
   $("setupTopic").textContent = `${topicName(t)} · ${t.blurb}`;
   topicCards($("quizCards"), {
     blurbs: false, best: false, // the line above already shows the description
-    onPick: (t) => { S.topicId = t.id; fx.setAccent(t.color); renderSetup(); },
+    onPick: (t) => { S.topicId = t.id; fx.setAccent(t.color); applyMusic(t); renderSetup(); }, // applyMusic also does arcadeCheck()
   });
   renderSetupBingo(); // 🎯 Quiz or Bingo (see QUIZ BINGO below)
   seg($("segCount"), r.counts, S.setup.count, (v) => `${v}`, (v) => { S.setup.count = v; renderSetup(); });
@@ -933,7 +1022,7 @@ function closeQuizEditor(save) {
   if (save) {
     g.conn.send({ t: "settings", topic: S.topicId, mix: mixFor(S.topicId), ...S.setup });
     sound.play("coin");
-  }
+  } else applyMusic(topic(g.topicId)); // cancelled: back to the room's own song
   show("lobby", { accent: topic(S.topicId).color });
 }
 
@@ -1136,6 +1225,7 @@ function leaveGame(goHome = true) {
     clearInterval(g.cdT);
     clearTimeout(g.standingsT);
     S.g = null;
+    refreshCoinsAfterGame(g.st);
   }
   $("countdown").classList.add("hidden");
   $("standings").classList.add("hidden");
@@ -1232,6 +1322,7 @@ function onMessage(g, m) {
   g.st = st;
   g.offset = st.serverNow - Date.now();
   handleStickers(g, st);
+  showHudCoins(st); // 🃏
 
   if (st.phase === "lobby") return renderLobby(g, st);
   if (st.phase === "countdown") return renderCountdown(g, st);
@@ -1250,6 +1341,7 @@ function onMessage(g, m) {
     const key = st.round + ":" + st.qi;
     if (g.finalKey !== key) renderFinal(g, st, key);
     if (st.final.hall && !g.hallShown) renderHallResult(g, st);
+    showFinalCoins(st); // 🃏 the receipt arrives just after the results
   }
 }
 
@@ -1315,6 +1407,7 @@ function renderLobby(g, st) {
     const av = avatar("av", p);
     av.style.setProperty("--dl", -i * 0.3 + "s");
     card.append(av, el("div", "nm", p.name));
+    if (p.card) card.append(cardThumb(p.card)); // 🃏 their show-off card
     if (p.stickers && p.stickers.length) card.append(stickerRow(p.stickers));
     if (p.id === st.hostId) card.append(el("span", "tag", "👑 HOST"));
     else if (p.id === st.me) card.append(el("span", "tag", "YOU"));
@@ -1388,6 +1481,8 @@ function prepGame(g, { topic: t, kind }) {
   const sc = $("hudScore");
   sc.dataset.v = 0;
   sc.textContent = "0";
+  // 🕹️ the arcade's HI-SCORE box (only shown in Mix it up): your best Mix it up score on this device
+  $("hudHi").textContent = store.best(S.profile && S.profile.id, t.id).toLocaleString();
   $("answers").innerHTML = "";
   $("answers").className = "answers";
   $("factBox").classList.add("hidden");
@@ -1411,6 +1506,7 @@ function renderCountdown(g, st) {
   host.say(st.kind === "solo" ? "3 hearts. Don't lose them all! Go go go!" : "Here we go! Same questions for everyone!", { mood: "cheer", ms: 2600 });
   if (st.bingo) prepBingo(g, st); // 🎯 show your card while the countdown runs
   const overlay = $("countdown"), num = $("cdNum");
+  $("cdReady").textContent = st.kind === "solo" ? "PLAYER 1 READY?" : "ALL PLAYERS READY?"; // 🕹️ only shown in the arcade
   overlay.classList.remove("hidden");
   const end = st.deadline - g.offset;
   clearInterval(g.cdT);
@@ -1882,7 +1978,9 @@ function renderReveal(g, st) {
 function standingRow(p, st, rankShown) {
   const li = el("li", "srow" + (p.id === st.me ? " me" : ""));
   li.dataset.id = p.id;
-  const nm = el("span", "n", p.name);
+  const nm = el("span", "n");
+  if (p.card) nm.append(cardThumb(p.card)); // 🃏 (only sent before and after a game, never during questions)
+  nm.append(document.createTextNode(p.name));
   (p.stickers || []).forEach((id) => nm.append(stickerEl(id)));
   if (p.streak >= 3) nm.append(el("span", "stk", badge(p.streak).text)); // show friends' streaks too
   li.append(el("span", "r", rankShown ? String(p.rank) : "·"), avatar("av", p), nm);
@@ -1937,8 +2035,13 @@ function renderFinal(g, st, key) {
 
   if (solo) {
     const out = me.lives <= 0 && !f.quit;
-    $("finalEyebrow").textContent = `${st.topic.emoji} ${st.topic.title} · run complete`;
-    $("finalTitle").textContent = f.quit ? "Run ended" : out ? "Out of hearts!" : "Legendary run!";
+    const arcade = arcadeOn(); // 🕹️ Mix it up talks like an arcade machine
+    $("finalEyebrow").textContent = `${st.topic.emoji} ${st.topic.title} · ${arcade ? "Rufus family arcade" : "run complete"}`;
+    $("finalTitle").textContent = arcade
+      ? (f.quit ? "Thanks for playing!" : out ? "Game over" : "All clear!")
+      : (f.quit ? "Run ended" : out ? "Out of hearts!" : "Legendary run!");
+    const hi = Math.max(f.me.score, store.best(S.profile.id, g.topicId));
+    $("finalHi").textContent = `HI-SCORE ${hi.toLocaleString()}`;
     const fs = $("finalScore");
     fs.dataset.v = 0;
     fs.textContent = "0";
@@ -1956,8 +2059,8 @@ function renderFinal(g, st, key) {
     g.localRecord = store.recordGame(S.profile.id, g.topicId, f.me.score, false);
     session.set("rt_solo", ""); // the run is over: nothing to pick back up after a reload
     $("newQuizBtn").classList.add("hidden");
-    again.textContent = "Play again ▶";
-    again.onclick = () => { S.topicId = g.topicId; startSolo(); };
+    again.textContent = arcade ? "Continue? ▶" : "Play again ▶";
+    again.onclick = () => { if (arcade) sound.play("credit"); S.topicId = g.topicId; startSolo(); };
     sound.play(out ? "sad" : "fanfare");
     host.say(line("done"), { mood: out ? "sad" : "happy" });
   } else {
@@ -1976,6 +2079,7 @@ function renderFinal(g, st, key) {
       const av = avatar("av", p);
       if (place === 1) av.append(el("span", "crown", "👑"));
       who.append(av, el("span", "nm", p.name), el("span", "sc", p.score.toLocaleString()));
+      if (p.card) who.append(cardThumb(p.card)); // 🃏
       if (p.stickers && p.stickers.length) who.append(stickerRow(p.stickers));
       const block = el("div", "block", String(place));
       block.style.setProperty("--gd", [0.4, 0.9, 0.1][k] + "s");
@@ -2090,8 +2194,11 @@ async function loadHall() {
       const li = el("li", `hrow${i < 3 ? " g" + (i + 1) : ""}${r.me ? " me" : ""}`);
       li.style.setProperty("--k", i);
       const n = el("span", "n", r.name);
+      if (r.stamps && r.stamps.length) r.stamps.forEach((id) => n.append(stickerEl(id))); // 🃏 stamps from their card
       n.append(el("small", null, `${r.correct} correct${r.me ? " · that's you!" : ""}`));
-      li.append(el("span", "r", i < 3 ? ["🥇", "🥈", "🥉"][i] : String(i + 1)), avatar("av", r), n, el("span", "s", r.score.toLocaleString()));
+      li.append(el("span", "r", i < 3 ? ["🥇", "🥈", "🥉"][i] : String(i + 1)), avatar("av", r));
+      if (r.card) { li.classList.add("rc-has-card"); li.append(cardThumb(r.card)); } // 🃏 their show-off card
+      li.append(n, el("span", "s", r.score.toLocaleString()));
       list.append(li);
     });
   } catch (e) {
@@ -2549,6 +2656,10 @@ function wire() {
   $("joinBtn").onclick = () => { sound.play("click"); openJoin(); };
   $("hallBtn").onclick = () => { sound.play("click"); openHall(); };
   $("stickerBtn").onclick = () => { sound.play("click"); openStickers(); };
+  $("cardsBtn").onclick = () => { sound.play("click"); openCardHouse(); };
+  $("meCoins").onclick = (e) => { e.stopPropagation(); if (S.g) toast("Finish this game first!"); else { sound.play("click"); openCardHouse(); } };
+  $("cardsPlayBtn").onclick = () => { sound.play("click"); requireProfile(startSolo); };
+  $("finalCardsBtn").onclick = () => { leaveGame(false); history.replaceState(null, "", "/"); openCardHouse(); };
   $("stickerToast").onclick = () => { $("stickerToast").classList.toggle("open"); hideStickerToast(4500); };
   $("bookPlayBtn").onclick = () => { sound.play("click"); requireProfile(startSolo); };
   $("meStk").onclick = (e) => { e.stopPropagation(); if (!S.g) { sound.play("click"); openStickers(); } };
@@ -2570,6 +2681,9 @@ function wire() {
   $("leaveLobbyBtn").onclick = () => leaveGame(true);
   $("nextBtn").onclick = () => { if (S.g && S.g.conn.send({ t: "next" })) { sound.play("click"); $("nextBtn").classList.add("hidden"); } };
   $("profileSave").onclick = saveProfile;
+  $("downloadProfileBackup").onclick = downloadProfileBackup;
+  $("restoreProfileBackup").onclick = () => $("profileBackupFile").click();
+  $("profileBackupFile").onchange = (e) => restoreProfileBackup(e.target.files[0]);
   $("profileCancel").onclick = () => {
     S.after = null;
     const g = S.g;
@@ -2653,6 +2767,15 @@ async function boot() {
   addEventListener("resize", fx.alignGlass);
   heroFox = makeFox($("heroFox"));
   sound.init({ sfx: store.pref("sfx", true), music: store.pref("music", true) });
+  // 🃏 the Card House (cards.js) gets what it needs from here, so it doesn't reach into the rest of the game
+  initCards({
+    S, post, show, host, sound, toast, announce, requireProfile, playerPayload, displayName, stickerInfo,
+    myStickers: () => (S.profile ? store.pref("stk_" + S.profile.id, []) : []),
+    refreshStickers: async () => { if (S.profile) saveMyStickers((await post("/api/stickers", { player: playerPayload() })).stickers); },
+    setPins: (pins) => { store.setPins(S.profile.id, pins); S.profile = store.active(); backupProfiles(); },
+    play: () => requireProfile(startSolo),
+  });
+  for (const id of ["meCoinIcon", "hudCoinIcon"]) $(id).innerHTML = spriteSVG("paw");
   wire();
   try {
     [S.meta] = await Promise.all([api("/api/meta"), restoreProfiles()]); // both at once: faster first screen
