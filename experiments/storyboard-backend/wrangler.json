@@ -1,0 +1,45 @@
+{
+  "name": "rufus-trivia",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "../../public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "GameRoom"
+      },
+      {
+        "name": "HALL",
+        "class_name": "HallOfFame"
+      },
+      {
+        "name": "STATS",
+        "class_name": "Stats"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "GameRoom",
+        "HallOfFame"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "Stats"
+      ]
+    }
+  ],
+  "workers_dev": false
+}
