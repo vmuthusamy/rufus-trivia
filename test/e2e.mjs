@@ -817,6 +817,33 @@ async function funStickersTest() {
   console.log("  fun stickers: fun ids only, idempotent, rate-limited");
 }
 
+// The new geography category must work in the real multiplayer server, not just generators.
+async function explorerRoom() {
+  const a=profile("Mighty", "Panda"), b=profile("Cosmic", "Otter");
+  const {status,data}=await post("/api/rooms",{topic:"explorer",count:10,timer:10,level:"easy",player:a});
+  assert.equal(status,200);
+  const path=`/api/rooms/${data.code}/ws`, A=player(path,a), B=player(path,b);
+  await Promise.all([A.ready,B.ready]);
+  await A.waitFor(s=>s.phase==="lobby"&&s.players.length===2);
+  A.send({t:"start"});
+  const keys=[];
+  for(let qi=0;qi<10;qi++){
+    const qa=await A.waitFor(s=>s.phase==="question"&&s.qi===qi);
+    const qb=await B.waitFor(s=>s.phase==="question"&&s.qi===qi);
+    assert.deepEqual(qa.question,qb.question);
+    assert.equal(qa.question.answer,undefined);
+    A.send({t:"answer",q:qi,choice:0,ms:800});B.send({t:"answer",q:qi,choice:1,ms:900});
+    const reveal=await A.waitFor(s=>s.phase==="reveal"&&s.qi===qi);keys.push(reveal.reveal.key);
+    A.send({t:"next"});
+  }
+  await A.waitFor(s=>s.phase==="final");
+  assert.equal(new Set(keys).size,10);
+  const counts=['c_','m_','l_','u_'].map(prefix=>keys.filter(k=>k.startsWith(prefix)).length);
+  assert.ok(counts.every(n=>n===2||n===3),JSON.stringify(counts));
+  A.ws.close();B.ws.close();
+  console.log("  World Explorer: two players, same questions, four subjects, no repeats");
+}
+
 const t0 = Date.now();
 console.log("solo run…");
 await soloRun();
@@ -838,6 +865,8 @@ console.log("mix it up…");
 await mixTest();
 console.log("rufus fun stickers…");
 await funStickersTest();
+console.log("world explorer…");
+await explorerRoom();
 console.log("rufus coins and cards…");
 await cardsTest();
 console.log(`✔ e2e passed in ${((Date.now() - t0) / 1000).toFixed(1)}s`);

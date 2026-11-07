@@ -36,14 +36,14 @@ export const CARDS = CARD_LIST;
 export const CARD_BY_ID = Object.fromEntries(CARDS.map((c) => [c.id, c]));
 const idsIn = (pack) => CARDS.filter((c) => c.pack === pack).map((c) => c.id);
 
-// New five-card sets use the same rarity weights. These are base draw odds, not whole-pack odds.
+// Themed sets use the same rarity weights, including their new Legendary scene. These are base draw odds, not whole-pack odds.
 function themedPackRules(packId) {
   const ids = idsIn(packId);
-  const weights = { common: 40, rare: 35, epic: 12, divine: 1 };
+  const weights = { common: 40, rare: 35, epic: 11.75, divine: 1, legendary: 0.5 };
   return {
     odds: Object.fromEntries(ids.map((id) => [id, weights[CARD_BY_ID[id].rarity]])),
     newCards: ids.filter((id) => ["common", "rare", "epic"].includes(CARD_BY_ID[id].rarity)),
-    safety: Object.fromEntries(ids.filter((id) => CARD_BY_ID[id].rarity === "divine").map((id) => [id, 40])),
+    safety: Object.fromEntries(ids.filter((id) => ["divine", "legendary"].includes(CARD_BY_ID[id].rarity)).map((id) => [id, CARD_BY_ID[id].rarity === "divine" ? 40 : 80])),
     distinct: true,
   };
 }
@@ -52,7 +52,7 @@ function themedPackRules(packId) {
 function flagPackRules() {
   const ids = idsIn("flag");
   const grouped = (rarity) => ids.filter((id) => CARD_BY_ID[id].rarity === rarity);
-  const epicTotal = 100 - 40 - 35 - grouped("divine").length - 0.5;
+  const epicTotal = 100 - 40 - 35 - grouped("divine").length - 0.5 * grouped("legendary").length;
   return {
     odds: Object.fromEntries(ids.map((id) => {
       const rarity = CARD_BY_ID[id].rarity;
@@ -78,7 +78,7 @@ export const STARTER = "renard";
 export const PACKS = {
   char: {
     id: "char", title: "Rufus Family Pack", theme: "The Rufus family, in their real game designs.",
-    odds: { renard: 40, marthina: 35, fiery: 11.75, felix: 11.75, rufus: 1, family: 0.5 },
+    odds: { renard: 40, marthina: 35, fiery: 11.5, felix: 11.5, rufus: 1, family: 0.5, family_stage: 0.5 },
     newCards: ["renard", "marthina", "fiery", "felix"],
     safety: { rufus: 40, family: 80 },
   },
@@ -94,6 +94,13 @@ export const PACKS = {
   math: {
     id: "math", title: "Math Club Pack", theme: "Number trains, fraction feasts and clever little puzzles.",
     kind: "Math Club", ...themedPackRules("math"),
+  },
+  diwali: {
+    id: "diwali", title: "Diwali Festival Pack", theme: "Lamps, rangoli, sweets and a sparkling evening with the Rufus family.",
+    kind: "Diwali celebration", ...themedPackRules("diwali"),
+    // End is exclusive: Sunday Nov 15 at 11:59 PM Central is the last minute.
+    // Retain this catalogue after the event so owned cards and paid packs keep working.
+    season: { id: "diwali-2026", limited: true, startsAt: "2026-11-07T06:00:00Z", endsAt: "2026-11-16T06:00:00Z", timeZone: "America/Chicago" },
   },
   space: {
     id: "space", title: "Space Explorers Pack", theme: "Moon visits, rocket rides and a sky full of stars.",
@@ -180,6 +187,7 @@ export const publicCards = () => ({
   cards: CARDS,
   packs: Object.values(PACKS).map((p) => ({
     id: p.id, title: p.title, theme: p.theme, kind: p.kind || null, ids: idsIn(p.id), safety: p.safety,
+    season: p.season || null,
     odds: Object.fromEntries(drawTable(p.id)), newCards: p.newCards, distinct: !!p.distinct,
   })),
 });

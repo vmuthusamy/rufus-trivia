@@ -3,7 +3,7 @@
 
 import { COUNTRIES } from "../data/countries.js";
 import { FAMOUS, KNOWN } from "../data/flag-notes.js";
-import { pickFresh, pickDistractors, mixIn } from "../kit.js";
+import { pickFreshAcross, pickDistractors, mixIn } from "../kit.js";
 
 const WITH_CAPITAL = COUNTRIES.filter((c) => c.capital);
 const key = (c) => "c_" + c.code;
@@ -27,7 +27,7 @@ function distractorsFor(rng, c, level) {
 }
 
 export function capitalQuestion({ rng, level, used, avoid, missed }) {
-  const c = pickFresh(rng, poolFor(level), { used, avoid, missed, keyOf: key });
+  const c = pickFreshAcross(rng, poolFor(level), WITH_CAPITAL, { used, avoid, missed, keyOf: key });
   const { items, answer } = mixIn(rng, c, distractorsFor(rng, c, level));
   const reveal = items.map((x) => ({ label: `${x.capital} · ${x.name}`, img: x.img }));
   const fact = `${c.capital} is the capital of ${c.name}, a country in ${c.continent}.`;

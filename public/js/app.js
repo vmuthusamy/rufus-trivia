@@ -378,23 +378,23 @@ function topicCards(box, { blurbs = true, best = true, onPick }) {
     b.onclick = () => { sound.play("pick"); onPick(t); };
     box.append(b);
   }
-  box.append(mixerCard({ blurbs, best, onPick })); // 🎲 the sixth choice (see MIX IT UP below)
+  box.append(mixerCard({ blurbs, best, onPick })); // 🎲 a full-width row after the topic tiles
   balanceRows(box);
 }
 
 // How many cards go on each row so the rows come out even (the CSS reads --per-wide, --per-mid, --per-sm).
 // Big screens fit up to 5 a row, smaller laptops 3, phones 2. 5 cards with room for 3 -> 2 rows -> 3 a row (3 + 2).
-// 🎲 Mix it up is a slim row of its own on big screens (so it doesn't count there), and a normal card on smaller ones.
+// Mix it up keeps its own full-width row at every size; six topic tiles make neat rows of two or three.
 function balanceRows(box) {
   const n = box.children.length, cards = box.querySelectorAll(".topic:not(.mixer)").length;
   const perRow = (most, count = n) => Math.ceil(count / Math.ceil(count / most));
   box.style.setProperty("--per-wide", perRow(5, cards));
-  box.style.setProperty("--per-mid", perRow(3));
-  box.style.setProperty("--per-sm", perRow(2));
+  box.style.setProperty("--per-mid", perRow(3, cards));
+  box.style.setProperty("--per-sm", perRow(2, cards));
 }
 
 // ---------- 🎲 MIX IT UP ----------
-// The sixth choice: one game made of the topics you pick (at least 2). The little round buttons on its card
+// Mix it up: one game made of the topics you pick (at least 2). The little round buttons on its card
 // put a topic in the pot or take it out. Your last mix is remembered on this device.
 // The server side is src/shared/topics/mix.js.
 

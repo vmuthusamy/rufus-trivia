@@ -145,3 +145,12 @@ The full list, with every photographer, is on the site at [/credits](https://ruf
 - Rufus: pixel art from Adventures of Rufus 🦊
 
 Rufus Trivia's own code is licensed under the GPL-3.0 (see `LICENSE`).
+
+
+### November collection and geography update (local review)
+
+- 47 cards across six packs. Each existing pack gains a distinct Legendary scene at 0.5% base draw odds. Existing Family/World Poster guarantees are preserved; the additional Legendary in those two packs has no maximum-wait guarantee. New six-card themed sets use Common 40%, Rare 35%, two Epics at 11.75% each, Divine 1%, Legendary 0.5%.
+- Diwali collection: November 7–15, 2026, America/Chicago. New purchases stop at `2026-11-16T06:00:00Z`. Bought packs, owned cards and featuring remain usable afterward. No expiry of ownership. Thanksgiving remains a coming-soon concept.
+- World Explorer is the new playable `explorer` topic: restored landmarks, capitals and country maps, plus 50 US state/capital entries and 50 generated state maps. Four state question styles; three new achievement stickers. The retired `world` topic and old scores stay intact.
+- World Explorer balances four subjects; Mix balances selected categories with seeded, shuffled ties. Geography expands beyond recently seen easy places before recycling. No live question polling or unreviewed generated facts during play.
+- State map source: Census boundaries via us-atlas (ISC); capitals checked against the GPO Style Manual. Sources and licence are on the credits page. `npm run build:state-maps` rebuilds state maps offline. Card artwork source is the shared prototype; `node scripts/design-celebration-cards.mjs && npm run build:cards` rebuilds these additions.

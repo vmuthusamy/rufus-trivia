@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { BurrowCore } from "../src/shared/burrow-core.js";
-import { ECONOMY, STARTER, dayOf } from "../src/shared/cards.js";
+import { ECONOMY, STARTER, PACKS, dayOf } from "../src/shared/cards.js";
 
 // Make node:sqlite look like a Durable Object's storage.sql.
 function burrow({ now, random } = {}) {
@@ -230,4 +230,31 @@ test("restoring yesterday's withheld coins does not count them as earned today",
   assert.equal(migrated.state().restored, 200);
   assert.equal(migrated.settle({ game: "today", coins: 2500 }).credited, 2500);
   assert.equal(migrated.state().coins, 3000, "long games also earn all their coins");
+});
+
+
+test("seasonal purchases obey the server clock, retain receipts and never delete owned cards", () => {
+  const start = Date.parse(PACKS.diwali.season.startsAt), end = Date.parse(PACKS.diwali.season.endsAt);
+  let now = start - 1;
+  const b = burrow({ now: () => now, random: () => 0.5 });
+  b.settle({ game: "diwali-test", coins: 500 });
+  assert.equal(b.buy({ pack: "diwali", nonce: nonce("early") }).ok, false);
+  assert.equal(b.state().coins, 500);
+  now = start;
+  const first = b.buy({ pack: "diwali", nonce: nonce("season") });
+  assert.equal(first.ok, true);
+  assert.equal(b.state().coins, 400);
+  now = end - 1;
+  assert.equal(b.buy({ pack: "diwali", nonce: nonce("last-minute") }).ok, true);
+  const before = b.state();
+  now = end;
+  assert.equal(b.buy({ pack: "diwali", nonce: nonce("too-late") }).ok, false);
+  assert.equal(b.state().coins, before.coins);
+  assert.deepEqual(b.state().cards, before.cards);
+  const retry = b.buy({ pack: "diwali", nonce: nonce("season") });
+  assert.equal(retry.replay, true);
+  assert.deepEqual(retry.pack, first.pack);
+  assert.equal(b.opened({ id: first.pack.id }).ok, true);
+  assert.equal(b.feature({ card: first.pack.cards[0].id }).ok, true);
+  assert.equal(b.buy({ pack: "char", nonce: nonce("permanent") }).ok, true);
 });

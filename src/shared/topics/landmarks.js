@@ -5,7 +5,7 @@
 import { LANDMARKS } from "../data/landmarks.js";
 import { LANDMARK_FACTS } from "../data/landmark-notes.js";
 import { COUNTRIES } from "../data/countries.js";
-import { pickFresh, pickDistractors, mixIn } from "../kit.js";
+import { pickFreshAcross, pickDistractors, mixIn } from "../kit.js";
 
 const BY_CODE = new Map(COUNTRIES.map((c) => [c.code, c]));
 const key = (l) => "l_" + l.id;
@@ -105,7 +105,7 @@ const MIX = {
 };
 
 export function landmarkQuestion({ rng, level, used, avoid, missed }) {
-  const l = pickFresh(rng, poolFor(level, rng), { used, avoid, missed, keyOf: key });
+  const l = pickFreshAcross(rng, poolFor(level, rng), LANDMARKS, { used, avoid, missed, keyOf: key });
   let mode = rng.weighted(MIX[level] || MIX[2]);
   if ((mode === "photoToCountry" || mode === "inCountry") && !oneCountry(l)) mode = "photoToName";
   const q = MODES[mode](rng, l, level);

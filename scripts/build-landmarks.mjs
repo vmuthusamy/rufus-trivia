@@ -282,6 +282,24 @@ world-atlas packages the Natural Earth outlines; topojson-client and d3-geo turn
 Matches each country to its number in the map data. <a href="https://github.com/michaelwittig/node-i18n-iso-countries">github.com/michaelwittig/node-i18n-iso-countries</a>
 <details><summary>Full licence text</summary><pre>${mit("i18n-iso-countries/LICENSE")}</pre></details></div>
 
+<h2>🌎 US state explorer</h2>
+<div class="card"><b>US state maps</b> use US Census Bureau cartographic boundaries via <a href="https://github.com/topojson/us-atlas">us-atlas 3.0.1</a> (ISC licence). Maps use an Albers USA projection with Alaska and Hawaii inset. Tiny states have a locator circle.<br>
+<b>State capitals</b> were checked against the <a href="https://www.govinfo.gov/content/pkg/GPO-STYLEMANUAL-2016/pdf/GPO-STYLEMANUAL-2016-20.pdf">US Government Publishing Office Style Manual</a> on November 7, 2026. The quiz covers 50 states; DC and territories are not counted as states.
+<details><summary>us-atlas licence</summary><pre>Copyright 2013-2019 Michael Bostock
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+</pre></details></div>
+
 <h2>📱 Code and fonts</h2>
 <div class="card"><b>qrcode-generator</b> by Kazuhiko Arase <span class="tag">MIT License</span><br>
 Makes the QR codes for joining a challenge. <a href="https://github.com/kazuhikoarase/qrcode-generator">github.com/kazuhikoarase/qrcode-generator</a>

@@ -32,6 +32,9 @@ export const STICKERS = [
   { id: "renard_eye", emoji: "🧐", name: "Renard's Sharp Eye", how: "Spot 5 calls that aren't on your card in one Bingo game", rarity: 2 },
   { id: "fiery_stomp", emoji: "🦖", name: "Fiery's Double Stomp", how: "Finish two lines with one stamp", rarity: 4 },
   { id: "golden_paw", emoji: "🐾", name: "Golden Paw", how: "Get BINGO on a Second chance! call", rarity: 3 },
+  { id: "explorer_first", emoji: "🧭", name: "First Expedition", how: "Get your first answer right in World Explorer", rarity: 1 },
+  { id: "explorer_trail", emoji: "🥾", name: "Trailblazer", how: "Get 5 right in one World Explorer game", rarity: 2 },
+  { id: "explorer_master", emoji: "🌎", name: "World Explorer", how: "Get 15 right in one World Explorer game", rarity: 3 },
   // topic masters: 15 right in one game
   { id: "flags_master", emoji: "🚩", name: "Flag Master", how: "Get 15 right in one Flag Frenzy game", rarity: 3 },
   { id: "culture_master", emoji: "🎬", name: "Super Fan", how: "Get 15 right in one Books & Pop Culture game", rarity: 3 },
@@ -67,6 +70,8 @@ const STREAK_AT = [3, 5, 7, 10, 15, 20, 25, 30, 40, 50];
 export function stickersForAnswer({ topic, correct, streak, ms, correctSoFar }) {
   if (!correct) return [];
   const out = [];
+  if (topic === "explorer" && correctSoFar === 1) out.push("explorer_first");
+  if (topic === "explorer" && correctSoFar === 5) out.push("explorer_trail");
   if (STREAK_AT.includes(streak)) out.push("streak" + streak);
   if (ms < 2000) out.push("speedy");
   if (correctSoFar === 15 && STICKER_BY_ID[topic + "_master"]) out.push(topic + "_master");

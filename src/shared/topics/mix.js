@@ -1,7 +1,7 @@
 // 🎲 MIX IT UP - Rufus stirs several topics together into one game.
 //
 // The player picks which topics go in the pot (at least 2). A mix game is just mixTopic() from kit.js
-// with every chosen topic as a part, all with the same weight, so each question is a dice roll:
+// with every chosen topic taking an equal turn, shuffling ties:
 // a flag, then maybe a maths puzzle, then a book question...
 //
 // Every mix question's key gets its topic's name in front ("fr" becomes "flags-fr"), so:
@@ -11,6 +11,7 @@
 // That's why a topic id must never have a "-" in it.
 
 import { TOPICS, TOPIC_BY_ID, canPlay, topicCard } from "./index.js";
+import { balancedNext } from "../question-rotation.js";
 import { mixTopic } from "../kit.js";
 
 export const MIX = {
@@ -54,6 +55,7 @@ function inTheMix(topic) {
   const start = topic.id + "-";
   const own = (keys) => new Set([...(keys || [])].filter((k) => k.startsWith(start)).map((k) => k.slice(start.length)));
   return {
+    prefix: start,
     size: topic.size,
     next(ctx) {
       const q = topic.next({ ...ctx, used: own(ctx.used), avoid: own(ctx.avoid), missed: own(ctx.missed) });
@@ -72,11 +74,12 @@ const made = new Map();
 export function mixOf(ids) {
   const name = ids.join("+");
   if (!made.has(name)) {
-    made.set(name, mixTopic({
+    const parts = ids.map(id => inTheMix(TOPIC_BY_ID[id]));
+    made.set(name, { ...mixTopic({
       ...MIX,
       orbit: ids.map((id) => TOPIC_BY_ID[id].emoji),
       parts: ids.map((id) => [1, inTheMix(TOPIC_BY_ID[id])]), // [1, ...] = every topic equally likely
-    }));
+    }), next: ctx => balancedNext(ctx, parts) });
   }
   return made.get(name);
 }

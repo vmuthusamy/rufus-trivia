@@ -280,16 +280,11 @@ a { color: var(--a); }
   .mx-chips { gap: 5px; }
   .mx-chip { width: 32px; height: 32px; font-size: 17px; }
 }
-/* Phones and smaller laptops lay the home cards out 2 or 3 a row: there the mix is just the sixth card,
-   which evens the rows out (2 + 2 + 2, 3 + 3). Same slots as the other cards, with its buttons at the bottom. */
-@media (max-width: 640px), (min-width: 981px) and (max-width: 1180px) {
-  .topics:not(.mini) > .topic.mixer { flex-basis: calc((100% - (var(--per) - 1) * 12px) / var(--per)); flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0; padding: 14px 12px; }
-  .topics:not(.mini) .topic.mixer .te { margin-bottom: 8px; }
-  .topics:not(.mini) .topic.mixer .mx-words { flex: none; }
-  .topics:not(.mini) .topic.mixer b { display: flex; min-height: 2.3em; margin: 0; font-size: clamp(16px, 14cqw, 21px); }
-  .topics:not(.mini) .topic.mixer small { display: block; margin-top: 4px; }
-  .topics:not(.mini) .mx-chips { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; margin: auto 0 0; padding-top: 10px; }
-  .topics:not(.mini) .topic.mixer .best { position: absolute; top: 10px; right: 10px; }
+/* Six categories form pairs on phones and threes on tablets/desktops.
+   Mix stays full width, so the seventh tile never leaves a lone half-width card. */
+@media (max-width: 640px) {
+  .topics:not(.mini) .topic.mixer .mx-chips { flex-basis: 100%; justify-content: center; }
+  .topics:not(.mini) .topic.mixer .mx-chip { width: 40px; height: 40px; }
 }
 /* short laptop windows (like 1366 × 768): a little less space above the cards and in the bar, so Solo Quest stays on screen */
 @media (max-height: 800px) and (min-width: 1181px) {

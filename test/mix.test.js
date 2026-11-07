@@ -9,10 +9,10 @@ import { STICKER_BY_ID } from "../src/shared/stickers.js";
 const ALL = TOPICS.map((t) => t.id);
 const KEY_RE = /^[a-z0-9_-]{1,32}$/i; // what the server keeps in "seen recently" lists (cleanKeys in names.js)
 
-test("mix: 2 to 5 different topics you can play today, nothing else", () => {
+test("mix: 2 to 6 different topics you can play today, nothing else", () => {
   assert.deepEqual(cleanMix(["math", "flags"]), ["flags", "math"], "tidied into home-screen order");
   assert.deepEqual(cleanMix(ALL), ALL);
-  assert.equal(ALL.length, 5);
+  assert.equal(ALL.length, 6);
   for (const bad of [null, "flags", [], ["flags"], ["flags", "flags"], ["flags", "world"], ["flags", "space"],
     ["flags", "nope"], ["flags", 3], ["flags", "mix"], [...ALL, "flags"], { 0: "flags", 1: "math", length: 2 }]) {
     assert.equal(cleanMix(bad), null, JSON.stringify(bad));
@@ -62,7 +62,7 @@ test("mix: a 60-question solo run never repeats either", () => {
   }
 });
 
-test("mix: a 20-question game of all 5 topics has several of them (and a 2-mix has both)", () => {
+test("mix: a 20-question game of all 6 topics has several of them (and a 2-mix has both)", () => {
   for (let seed = 0; seed < 100; seed++) {
     const all = buildGame(topicFor("mix", ALL), { seed: "v" + seed, count: 20, levelSetting: "mixed" });
     assert.ok(new Set(all.map((q) => splitKey(q.key)[0])).size >= 3, "seed " + seed);

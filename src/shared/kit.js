@@ -61,6 +61,14 @@ export function pickFresh(rng, pool, { used, avoid, missed, keyOf = (x) => x.key
   return rng.pick(open);
 }
 
+// Widen a familiar/easier pool before recycling recently seen questions.
+// Keep the question style at the requested level; only the place being asked about changes.
+export function pickFreshAcross(rng, preferred, all, ctx) {
+  const fresh = pool => pool.filter(x => !ctx.used.has(ctx.keyOf(x)) && !ctx.avoid?.has(ctx.keyOf(x)));
+  const pools = [fresh(preferred), fresh(all), all.filter(x => !ctx.used.has(ctx.keyOf(x))), all];
+  return pickFresh(rng, pools.find(pool=>pool.length), ctx);
+}
+
 // Choose `n` distractors: first from `preferred`, then topped up from `fallback`.
 export function pickDistractors(rng, answer, preferred, fallback, n = 3, keyOf = (x) => x.key) {
   const out = [];

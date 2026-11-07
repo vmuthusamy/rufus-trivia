@@ -3,6 +3,7 @@
 //   2. add it to the TOPICS list
 // The order here is the order of the cards on the home screen.
 
+import explorer from "./explorer.js";
 import flags from "./flags.js";
 import culture from "./culture.js";
 import animals from "./animals.js";
@@ -11,7 +12,7 @@ import math from "./math.js";
 import world from "./world.js";
 import space from "./space.js";
 
-export const TOPICS = [flags, culture, animals, science, math];
+export const TOPICS = [flags, culture, animals, science, math, explorer];
 
 // Retired topics: hidden from the menus and nobody can start a new game of them, but a game that was
 // already running when they were retired can still finish (and old scores stay in the Hall of Fame).

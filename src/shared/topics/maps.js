@@ -7,7 +7,7 @@
 import { COUNTRIES } from "../data/countries.js";
 import { MAPS } from "../data/maps.js";
 import { FAMOUS, KNOWN } from "../data/flag-notes.js";
-import { pickFresh, pickDistractors, mixIn } from "../kit.js";
+import { pickFreshAcross, pickDistractors, mixIn } from "../kit.js";
 
 // Places whose borders grown-ups still argue about: we leave them out of map questions.
 const NO_MAP = new Set(["il", "ps"]);
@@ -64,7 +64,7 @@ export function mapFact(c) {
 
 export function mapQuestion({ rng, level, used, avoid, missed }) {
   const findIt = rng.chance(0.6); // the "find the country on the map" kind is the star
-  const c = pickFresh(rng, poolFor(level, findIt), { used, avoid, missed, keyOf: key });
+  const c = pickFreshAcross(rng, poolFor(level, findIt), findIt ? BIG : ON_MAP, { used, avoid, missed, keyOf: key });
   const { items, answer } = mixIn(rng, c, distractorsFor(rng, c, level, findIt));
   const reveal = items.map((x) => ({ label: x.name, img: x.img }));
   const fact = mapFact(c);

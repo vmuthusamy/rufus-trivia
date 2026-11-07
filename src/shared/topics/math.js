@@ -500,11 +500,11 @@ export default {
   orbit: ["➕", "➗", "✖️", "➖", "🔢", "🧮", "💯", "📐"],
   music: "brain",
 
-  next({ rng, level, used }) {
+  next({ rng, level, used, avoid = new Set() }) {
     // A mix: Rufus story problems, quick sums, "make the number" puzzles and mystery-number equations.
     const stories = STORIES.filter((s) => s.level === level);
-    let q;
-    for (let tries = 0; tries < 20; tries++) {
+    let q, unused;
+    for (let tries = 0; tries < 80; tries++) {
       const roll = rng.next();
       if (roll < 0.3 && stories.length) {
         const s = rng.pick(stories);
@@ -517,8 +517,12 @@ export default {
         q = rng.pick(MAKERS[level] || MAKERS[2])(rng);
       }
       q.key = q.key.replace(/[^a-z0-9_-]/gi, "_").slice(0, 32); // safe to store in the browser
-      if (!used.has(q.key)) break;
+      if (!used.has(q.key)) {
+        unused = q;
+        if (!avoid.has(q.key)) break;
+      }
     }
+    q = unused || q; // If every candidate was recent, prefer one not used in this game.
     // "Make the number" choices are sums like "44 + 4"; everything else answers with a number.
     const right = q.exprRight ?? q.ans;
     const wrong = q.exprRight ? q.exprWrong : nearMisses(rng, q.ans, (q.wrong || []).filter((n) => n !== q.ans));

@@ -283,3 +283,19 @@ html.lite .rc-live .rc-art::after { display: none; }
 .rc-season-card small, .rc-season-note { color: #ead6c9; }
 .rc-season-note { margin: 18px 0 0; font-size: .95rem; line-height: 1.5; }
 @media (max-width: 500px) { .rc-season-icon { display: none; } }
+
+/* Seasonal artwork stays still; it remains readable on phones and in reduced motion. */
+.rc-diwali { display: grid; grid-template-columns: minmax(0, 1fr) 180px; align-items: center; gap: 20px; background: linear-gradient(125deg, #392157, #592d52); border-color: #d49a4c; }
+.rc-diwali-picture { position: relative; aspect-ratio: 1; overflow: hidden; border: 2px solid #edbe6d; border-radius: 22px; }
+.rc-diwali .rc-h { color: #ffe5ab; }
+.rc-diwali p { line-height: 1.5; }
+.rc-season-dates { display: block; font-size: 14px; line-height: 1.4; color: var(--gold); margin-top: 8px; }
+.rc-p-diwali { background: linear-gradient(135deg, #763789, #39234f 60%, #c78443); }
+.rc-p-diwali .rc-pk-art { position: relative; overflow: hidden; }
+@media (max-width: 540px) { .rc-diwali { grid-template-columns: minmax(0, 1fr); } .rc-diwali-picture { width: 150px; justify-self: center; } }
+/* Gentle shimmer only while inspecting/revealing a card, never across the whole library. */
+.rc-live .rc-firework { animation: rc-sky-glow 5s ease-in-out infinite alternate; }
+.rc-live .rc-firework:nth-of-type(2n) { animation-delay: -2s; }
+@keyframes rc-sky-glow { from { opacity: .6; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rc-live .rc-firework { animation: none; } }
+html.lite .rc-live .rc-firework { animation: none; }

@@ -8,6 +8,7 @@
 
 import { spriteSVG } from "./sprites.js";
 import { pendingCoins } from "./coin-display.js";
+import { packAvailability, seasonLabel } from "./pack-availability.js";
 import { pendingOrders } from "./pack-orders.js";
 
 const $ = (id) => document.getElementById(id);
@@ -56,7 +57,7 @@ function cardHTML(id, { stamps, live } = {}) {
       ${r === "legendary" ? `<span class="rc-ribbon">Legendary</span>` : ""}
       <span class="rc-art">${art.ART[id] || ""}${stampsHTML(stamps)}</span>
       <span class="rc-name">${c.name}</span>
-      <span class="rc-rar">${gems}<span>${label(c)}</span></span>
+      <span class="rc-rar">${gems}<span>${label(c)}${pack(c.pack)?.season ? " · Limited edition" : ""}</span></span>
     </span>
   </span></span>`;
 }
@@ -80,7 +81,7 @@ function coveredCardHTML(c) {
   return `<span class="rc-cq"><span class="rc-card rc-covered">
     <span class="rc-cover-rarity rc-tier-${c.rarity || "unknown"}"><span aria-hidden="true">${c.rarity ? "◆".repeat(C().rarities[c.rarity].n) : "◇"}</span> ${label(c)}</span>
     <span class="rc-covered-symbol" aria-hidden="true">🦊</span>
-    <strong>${c.name}</strong><span class="rc-covered-state">Not collected</span>
+    <strong>${c.name}</strong><span class="rc-covered-state">${pack(c.pack)?.season ? "Limited edition · " : ""}Not collected</span>
     <span class="rc-preview-action">Preview card ↗</span>
   </span></span>`;
 }
@@ -223,6 +224,18 @@ function thanksgivingPreview() {
   </aside>`;
 }
 
+function diwaliBanner() {
+  const p = pack("diwali");
+  if (!p) return "";
+  return `<aside class="rc-season rc-diwali" aria-label="Diwali collection">
+    <div><p class="rc-season-tags"><span>Diwali 2026</span><span>Limited edition</span></p>
+    <h3 class="rc-h">A little light. The whole family.</h3>
+    <p>${seasonLabel(p)}. Six celebration cards; keep every one you collect.</p>
+    <button type="button" class="btn primary" data-rc="pack" data-id="diwali">${packAvailability(p) === "open" ? "See Diwali cards" : "View Diwali collection"} →</button></div>
+    <div class="rc-diwali-picture" aria-hidden="true">${art.ART.di_family}</div>
+  </aside>`;
+}
+
 const VIEWS = {
   house() {
     const all = allIds(), have = all.filter(owned).length;
@@ -241,7 +254,7 @@ const VIEWS = {
       <div class="rc-counts"><div class="rc-count"><b>${have} / ${all.length}</b><small>cards collected</small></div><div class="rc-count"><b>${(W.wallet ? W.wallet.coins : 0).toLocaleString()}</b><small>Rufus Coins</small></div></div></div>
       <details class="rc-earning"><summary>How coins work</summary><p>${C().economy.coinsPerRight} coins per right answer, saved when the game ends. No daily earning limit. No real-money purchases. Save a private player backup from your profile.</p></details>
       <p class="rc-lede">${W.wallet?.today || 0} coins earned today · <button type="button" class="btn ghost" data-rc="balance">Refresh balance</button></p>
-      ${coinHistory}${nudge}${building}${thanksgivingPreview()}<section class="rc-floor" aria-label="Selected room">${V.room === "packs" ? VIEWS.packs() : VIEWS.gallery()}</section>`;
+      ${coinHistory}${nudge}${building}${diwaliBanner()}${thanksgivingPreview()}<section class="rc-floor" aria-label="Selected room">${V.room === "packs" ? VIEWS.packs() : VIEWS.gallery()}</section>`;
   },
 
   gallery() {
@@ -262,7 +275,7 @@ const VIEWS = {
   packs() {
     const price = C().economy.packPrice;
     const tile = (p) => `<button type="button" class="rc-packtile" data-rc="pack" data-id="${p.id}">${packHTML(p.id)}
-      <span class="rc-packinfo"><span class="rc-hh">${p.title}</span><span class="rc-lede">${p.theme}</span><span class="rc-price">${coinIcon} ${price} coins</span></span></button>`;
+      <span class="rc-packinfo"><span class="rc-hh">${p.title}</span><span class="rc-lede">${p.theme}</span><span class="rc-price">${packAvailability(p) === "open" ? coinIcon + " " + price + " coins" : "View collection"}</span>${p.season ? `<span class="rc-season-dates">Limited edition · ${seasonLabel(p)}</span>` : ""}</span></button>`;
     return head("Choose a pack", "A pack is a theme. Rarity belongs to each card, so look inside before you buy.") + `<div class="rc-packs">${C().packs.map(tile).join("")}</div>`;
   },
 
@@ -276,7 +289,7 @@ const VIEWS = {
     const chance = `${+odds.toFixed(2)}% base chance on a normal draw. New-card and maximum-wait guarantees change some draws.${p.distinct ? " Cards drawn in the same pack are removed from its remaining draws." : ""}`;
     return head(n ? c.name : `Preview: ${c.name}`, n ? "" : "This card isn't in your collection yet.", back("house", "← Back to the house")) +
       `<div class="rc-detail">${cardHTML(id, { live: true, stamps: W.wallet && W.wallet.featured === id ? (d.S.profile.pins || []) : null })}<div class="rc-detail-copy">
-        <span class="${n ? "rc-got" : "rc-miss"}">${n ? `✓ Collected · ${n}` : "Preview only · not owned"}</span><h3 class="rc-hh">${label(c)}</h3><p>${story}</p><p class="rc-lede">${chance}</p>
+        <span class="${n ? "rc-got" : "rc-miss"}">${n ? `✓ Collected · ${n}` : "Preview only · not owned"}</span><h3 class="rc-hh">${label(c)}${p.season ? " · Limited edition" : ""}</h3>${p.season ? `<p class="rc-season-dates">${seasonLabel(p)}. Cards you collect stay yours.</p>` : ""}<p>${story}</p><p class="rc-lede">${chance}</p>
         <div class="rc-btns">${n ? `<button type="button" class="btn primary" data-rc="feature" data-id="${id}">Feature this card</button>` : ""}<button type="button" class="btn ghost" data-rc="pack" data-id="${c.pack}">See this pack ▶</button></div>
         ${n ? "" : `<p class="rc-tiny">Looking at a card doesn't add it to your collection.</p>`}</div></div>`;
   },
@@ -284,13 +297,14 @@ const VIEWS = {
   inspect() {
     const p = pack(V.pack), price = C().economy.packPrice, per = C().economy.cardsPerPack;
     const coins = W.wallet ? W.wallet.coins : 0;
-    const pending = pendingPurchase(d.S.profile.id), can = coins >= price || !!pending;
+    const pending = pendingPurchase(d.S.profile.id), available = packAvailability(p) === "open", can = (available && coins >= price) || !!pending;
     const cells = p.ids.map((id) => {
       const n = owned(id), c = card(id);
       return `<div class="rc-cell"><button type="button" class="rc-cardbtn" data-rc="look" data-id="${id}" aria-label="Look at ${c.name}">${cardHTML(id)}</button><p class="rc-meta"><span class="${n ? "rc-got" : "rc-miss"}">${n ? `✓ ${n}` : "Not yet"}</span><span class="rc-odds">${+p.odds[id].toFixed(2)}% base</span></p></div>`;
     }).join("");
     const left = p.newCards.filter((id) => !owned(id)).length;
     const rules = [
+      p.season ? `<li><strong>Limited edition · ${seasonLabel(p)}</strong>. Collected cards and already-bought packs remain available after the event.</li>` : "",
       `<li>${per} cards in every pack.</li>`,
       left ? `<li>One new Common, Rare or Epic card is guaranteed while any are missing (${left} left).</li>` : "",
       p.distinct ? "<li>Never the same card twice in one pack.</li>" : "",
@@ -301,8 +315,8 @@ const VIEWS = {
     ].join("");
     return head(p.title, p.theme, back("packs", "← All packs")) +
       `<div class="rc-split"><div class="rc-grid rc-three">${cells}</div><aside class="rc-side"><h3 class="rc-hh">Before you buy</h3><ul class="rc-rules">${rules}</ul>
-        <button type="button" class="btn primary" data-rc="buy" ${can && !V.busy ? "" : "disabled"}>${pending ? "Recover pending " + pack(pending.pack).title : "Buy for " + price + " coins"}</button>
-        ${can ? "" : `<p class="rc-tiny">You have ${coins.toLocaleString()} coins. You need ${price - coins} more: each right answer earns ${C().economy.coinsPerRight}.</p><button type="button" class="btn ghost" data-rc="play">Go earn coins ▶</button>`}
+        <button type="button" class="btn primary" data-rc="buy" ${can && !V.busy ? "" : "disabled"}>${pending ? "Recover pending " + pack(pending.pack).title : available ? "Buy for " + price + " coins" : "Event " + (packAvailability(p) === "upcoming" ? "not started" : "ended")}</button>
+        ${can || !available ? "" : `<p class="rc-tiny">You have ${coins.toLocaleString()} coins. You need ${price - coins} more: each right answer earns ${C().economy.coinsPerRight}.</p><button type="button" class="btn ghost" data-rc="play">Go earn coins ▶</button>`}
       </aside></div>`;
   },
 

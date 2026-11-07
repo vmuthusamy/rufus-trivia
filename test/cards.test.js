@@ -33,7 +33,7 @@ test("Flag cards inherit character rarity, with the World Poster Legendary", () 
   assert.equal(CARD_BY_ID.poster.rarity, "legendary");
   const odds = Object.fromEntries(drawTable("flag"));
   assert.equal(odds.poster, 0.5);
-  for (const c of CARDS.filter((x) => x.pack === "flag" && x.id !== "poster")) {
+  for (const c of CARDS.filter((x) => x.pack === "flag" && x.rarity !== "legendary")) {
     assert.equal(c.rarity, tiers[c.name.split(" ")[0]], c.id);
     if (c.rarity === "divine") {
       assert.equal(odds[c.id], 1);
@@ -160,7 +160,7 @@ test("the safety rule can give both Rufus and the family in one pack, and never 
 });
 
 test("finding a card by luck starts its safety count again", () => {
-  const { cards, since } = rollPack("char", { renard: 1, marthina: 1, fiery: 1, felix: 1 }, { family: 10 }, () => 0.999);
+  const { cards, since } = rollPack("char", { renard: 1, marthina: 1, fiery: 1, felix: 1 }, { family: 10 }, () => 0.992);
   assert.ok(cards.includes("family"));
   assert.equal(since.family, 0);
 });
@@ -201,12 +201,12 @@ test("duplicate lucky Divine or Legendary cards cannot block the other guarantee
   }
 });
 
-test("new five-card catalogues each have one Divine, two Epics, one Rare and one Common", () => {
-  for (const packId of ["adventure", "math", "space"]) {
+test("themed catalogues include a Legendary alongside the original five rarities", () => {
+  for (const packId of ["adventure", "math", "space", "diwali"]) {
     const cards = CARDS.filter((c) => c.pack === packId);
-    assert.deepEqual(cards.map((c) => c.rarity).sort(), ["common", "divine", "epic", "epic", "rare"]);
+    assert.deepEqual(cards.map((c) => c.rarity).sort(), ["common", "divine", "epic", "epic", "legendary", "rare"]);
     const odds = Object.fromEntries(drawTable(packId));
-    for (const c of cards) assert.equal(odds[c.id], { common: 40, rare: 35, epic: 12, divine: 1 }[c.rarity]);
+    for (const c of cards) assert.equal(odds[c.id], { common: 40, rare: 35, epic: 11.75, divine: 1, legendary: 0.5 }[c.rarity]);
     const divine = cards.find((c) => c.rarity === "divine").id;
     assert.ok(!PACKS[packId].newCards.includes(divine), "new-card guarantee excludes Divine");
     assert.equal(PACKS[packId].safety[divine], 40);

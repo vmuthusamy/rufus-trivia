@@ -12,3 +12,6 @@
 
 /m/*
   Cache-Control: public, max-age=2592000, immutable
+
+/u/*
+  Cache-Control: public, max-age=2592000, immutable

@@ -12,6 +12,7 @@
 
 import { CARD_BY_ID, ECONOMY, PACKS, STARTER, creditToday, dayOf, rollPack } from "./cards.js";
 
+import { packAvailability } from "../../public/js/pack-availability.js";
 
 // Good random numbers from the server (Math.random is fine for games, not for what's in a pack).
 function strongRandom() {
@@ -147,6 +148,9 @@ export class BurrowCore {
       const w = this.ensure();
       const seen = this.sql.exec("SELECT * FROM packs WHERE nonce = ?", nonce).toArray()[0];
       if (seen) return { ok: true, replay: true, pack: this.packView(seen), coins: w.coins, cards: this.owned() }; // a double tap
+      // Recover an existing purchase above even after the event ends. Only NEW buys are gated.
+      const availability = packAvailability(PACKS[pack], this.now());
+      if (availability !== "open") return { ok: false, error: availability === "upcoming" ? "This seasonal pack is not available yet." : "This seasonal event has ended. Your collected cards are still yours." };
       if (w.coins < ECONOMY.packPrice) return { ok: false, short: ECONOMY.packPrice - w.coins, coins: w.coins };
 
       const since = JSON.parse(w.since);
