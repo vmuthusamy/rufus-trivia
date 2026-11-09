@@ -46,7 +46,7 @@ already running can finish and old scores stay in the Hall of Fame. See `RETIRED
 Packs are themes, and rarity belongs to each card: Common, Rare, Epic, Divine and Legendary. Show off a card next to your name
 in rooms and in the Hall of Fame, with your stickers stamped on it. Cards are just for fun: they never change scores.
 Every correct answer earns 10 coins with no daily cap; packs cost 100 coins. The Card House also shows a
-Thanksgiving limited-edition concept preview; it is not purchasable and has no launch date yet.
+Seasonal collections can be previewed before they open. Only new purchases expire; collected cards, featured cards and already-bought packs remain in the player’s saved profile.
 
 ## Run it on your computer
 
@@ -149,8 +149,10 @@ Rufus Trivia's own code is licensed under the GPL-3.0 (see `LICENSE`).
 
 ### November collection and geography update (local review)
 
-- 47 cards across six packs. Each existing pack gains a distinct Legendary scene at 0.5% base draw odds. Existing Family/World Poster guarantees are preserved; the additional Legendary in those two packs has no maximum-wait guarantee. New six-card themed sets use Common 40%, Rare 35%, two Epics at 11.75% each, Divine 1%, Legendary 0.5%.
-- Diwali collection: November 7–15, 2026, America/Chicago. New purchases stop at `2026-11-16T06:00:00Z`. Bought packs, owned cards and featuring remain usable afterward. No expiry of ownership. Thanksgiving remains a coming-soon concept.
+- 59 cards across eight packs. Each existing pack gains a distinct Legendary scene at 0.5% base draw odds. Existing Family/World Poster guarantees are preserved; the additional Legendary in those two packs has no maximum-wait guarantee. New six-card themed sets use Common 40%, Rare 35%, two Epics at 11.75% each, Divine 1%, Legendary 0.5%.
+- Diwali collection: November 7–15, 2026, America/Chicago. New purchases stop at `2026-11-16T06:00:00Z`. Bought packs, owned cards and featuring remain usable afterward. No expiry of ownership. Science Week opens November 9–15 and Thanksgiving opens November 23–29 (Central), exactly seven days each. Both have six collectible cards with the same rarity rules.
 - World Explorer is the new playable `explorer` topic: restored landmarks, capitals and country maps, plus 50 US state/capital entries and 50 generated state maps. Four state question styles; three new achievement stickers. The retired `world` topic and old scores stay intact.
 - World Explorer balances four subjects; Mix balances selected categories with seeded, shuffled ties. Geography expands beyond recently seen easy places before recycling. No live question polling or unreviewed generated facts during play.
 - State map source: Census boundaries via us-atlas (ISC); capitals checked against the GPO Style Manual. Sources and licence are on the credits page. `npm run build:state-maps` rebuilds state maps offline. Card artwork source is the shared prototype; `node scripts/design-celebration-cards.mjs && npm run build:cards` rebuilds these additions.
+
+Season dates are game collection windows, not claims that every country observes a holiday for that whole week. World Science Day for Peace and Development is [November 10 (UNESCO)](https://www.unesco.org/en/days/science-peace-development). U.S. Thanksgiving is [November 26, 2026 (Federal Reserve)](https://www.federalreserve.gov/aboutthefed/k8.htm). Diwali retains its previously published November 15 closing date. Keep seasonal definitions and artwork in the catalogue after the event: archived collections are still browsable, featureable and owned. A saved player backup is needed to recover the same profile on a new browser.

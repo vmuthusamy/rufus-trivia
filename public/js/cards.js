@@ -197,43 +197,25 @@ const head = (title, sub, extra = "") => `<div class="rc-head"><div><h2 class="r
 const back = (to, text) => `<button type="button" class="btn ghost" data-rc="go" data-id="${to}">${text}</button>`;
 const allIds = () => C().cards.map((c) => c.id);
 
-// A sneak peek only: these concepts are not in the server's purchasable pack catalogue.
-function thanksgivingPreview() {
-  const ideas = [
-    ["rufus", "Rufus’s Harvest Welcome", "🍂"],
-    ["marthina", "Martina’s Pumpkin Pie", "🥧"],
-    ["renard", "Renard’s Leaf Parade", "🍁"],
-    ["fiery", "Fiery’s Cosy Campfire", "🔥"],
-    ["felix", "Felix’s Thank-you Letters", "✉️"],
-  ];
-  return `<aside class="rc-season" aria-label="Thanksgiving pack preview">
-    <div class="rc-season-heading"><span class="rc-season-icon" aria-hidden="true">🍂</span><div>
-      <p class="rc-season-tags"><span>Coming soon</span><span>Limited edition</span></p>
-      <h3 class="rc-hh">Thanksgiving with Rufus</h3>
-      <p>A little harvest, a lot of friendship. A seasonal pack of limited-edition cards.</p>
-    </div></div>
-    <details class="rc-season-preview"><summary>Peek at the planned cards</summary>
-      <p class="rc-lede">Concept previews · final artwork and rarities are still being designed.</p>
-      <div class="rc-season-grid">${ideas.map(([who, name, prop]) => `<article class="rc-season-card">
-        <span class="rc-season-limited">Limited edition</span>
-        <div class="rc-season-art" aria-hidden="true">${spriteSVG(who)}<span>${prop}</span></div>
-        <h4>${name}</h4><small>Coming soon · Preview</small>
-      </article>`).join("")}</div>
-    </details>
-    <p class="rc-season-note">Not available to buy yet. Dates, price and odds will be shown before launch. Collected cards will stay yours after the event.</p>
-  </aside>`;
-}
-
-function diwaliBanner() {
-  const p = pack("diwali");
-  if (!p) return "";
-  return `<aside class="rc-season rc-diwali" aria-label="Diwali collection">
-    <div><p class="rc-season-tags"><span>Diwali 2026</span><span>Limited edition</span></p>
-    <h3 class="rc-h">A little light. The whole family.</h3>
-    <p>${seasonLabel(p)}. Six celebration cards; keep every one you collect.</p>
-    <button type="button" class="btn primary" data-rc="pack" data-id="diwali">${packAvailability(p) === "open" ? "See Diwali cards" : "View Diwali collection"} →</button></div>
-    <div class="rc-diwali-picture" aria-hidden="true">${art.ART.di_family}</div>
-  </aside>`;
+// One small shelf for all seasonal sets. Expiry changes buying, never the card library.
+function seasonalShelf() {
+  const events = C().packs.filter((p) => p.season);
+  if (!events.length) return "";
+  const status = { upcoming: "Coming soon", open: "Available now", ended: "Event ended" };
+  return `<section class="rc-events" aria-label="Seasonal collections">
+    <h3 class="rc-hh">Seasonal collections</h3>
+    <p class="rc-lede">Packs are here for a short time. Cards you collect stay in your profile and can still be featured after the event. Already-bought packs can be opened anytime.</p>
+    <div class="rc-event-grid">${events.map((p) => {
+      const state = packAvailability(p);
+      const legend = C().cards.find((c) => c.pack === p.id && c.rarity === "legendary");
+      return `<article class="rc-event rc-event-${p.id}">
+        <div class="rc-event-art" aria-hidden="true">${art.ART[legend?.id] || art.PACK_ART[p.id]}</div>
+        <div class="rc-event-copy"><p class="rc-season-tags"><span>${status[state]}</span><span>Limited edition</span></p>
+        <h4 class="rc-hh">${p.title}</h4><p class="rc-season-dates">${seasonLabel(p)}</p>
+        <button type="button" class="btn ghost" data-rc="pack" data-id="${p.id}">${state === "upcoming" ? "Preview cards" : "View collection"} →</button></div>
+      </article>`;
+    }).join("")}</div>
+  </section>`;
 }
 
 const VIEWS = {
@@ -241,7 +223,7 @@ const VIEWS = {
     const all = allIds(), have = all.filter(owned).length;
     const rooms = [
       ["cards", "Card room", "Every card", cardHTML("renard") + cardHTML("rufus")],
-      ["packs", "Pack room", `${C().packs.length} packs to open`, packHTML("char") + packHTML("flag")],
+      ["packs", "Pack room", `${C().packs.filter((p) => packAvailability(p) === "open").length} packs available now`, packHTML("char") + packHTML("flag")],
       ["legendary", "Legendary gallery", "The rarest cards", cardHTML("family") + cardHTML("poster")],
     ];
     const building = `<div class="rc-building"><div class="rc-roof" aria-hidden="true"></div><span class="rc-sign" aria-hidden="true">HOME OF YOUR CARDS</span>
@@ -254,7 +236,7 @@ const VIEWS = {
       <div class="rc-counts"><div class="rc-count"><b>${have} / ${all.length}</b><small>cards collected</small></div><div class="rc-count"><b>${(W.wallet ? W.wallet.coins : 0).toLocaleString()}</b><small>Rufus Coins</small></div></div></div>
       <details class="rc-earning"><summary>How coins work</summary><p>${C().economy.coinsPerRight} coins per right answer, saved when the game ends. No daily earning limit. No real-money purchases. Save a private player backup from your profile.</p></details>
       <p class="rc-lede">${W.wallet?.today || 0} coins earned today · <button type="button" class="btn ghost" data-rc="balance">Refresh balance</button></p>
-      ${coinHistory}${nudge}${building}${diwaliBanner()}${thanksgivingPreview()}<section class="rc-floor" aria-label="Selected room">${V.room === "packs" ? VIEWS.packs() : VIEWS.gallery()}</section>`;
+      ${coinHistory}${nudge}${building}${seasonalShelf()}<section class="rc-floor" aria-label="Selected room">${V.room === "packs" ? VIEWS.packs() : VIEWS.gallery()}</section>`;
   },
 
   gallery() {

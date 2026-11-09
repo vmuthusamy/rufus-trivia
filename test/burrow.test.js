@@ -258,3 +258,27 @@ test("seasonal purchases obey the server clock, retain receipts and never delete
   assert.equal(b.feature({ card: first.pack.cards[0].id }).ok, true);
   assert.equal(b.buy({ pack: "char", nonce: nonce("permanent") }).ok, true);
 });
+
+for (const p of Object.values(PACKS).filter(p => p.season)) {
+  test(`${p.id}: saved profile, featured card and unopened pack survive expiry and a worker restart`, () => {
+    let now = Date.parse(p.season.startsAt);
+    const b = burrow({ now: () => now, random: () => 0.5 });
+    b.settle({ game: "seasonal-earnings", coins: 500 });
+    const bought = b.buy({ pack: p.id, nonce: nonce(p.id) });
+    assert.equal(bought.ok, true);
+    const chosen = bought.pack.cards[0].id;
+    assert.equal(b.feature({ card: chosen }).ok, true);
+    const before = b.state();
+    now = Date.parse(p.season.endsAt) + 365 * 86400000;
+    const restarted = new BurrowCore(b.sql, b.transaction, { now: () => now });
+    assert.deepEqual(restarted.state().cards, before.cards);
+    assert.equal(restarted.featured(), chosen);
+    assert.deepEqual(restarted.state().unopened, before.unopened);
+    assert.equal(restarted.buy({ pack: p.id, nonce: nonce("late-" + p.id) }).ok, false);
+    assert.equal(restarted.state().coins, before.coins);
+    assert.equal(restarted.buy({ pack: p.id, nonce: nonce(p.id) }).replay, true);
+    assert.equal(restarted.opened({ id: bought.pack.id }).ok, true);
+    for (const c of bought.pack.cards) assert.equal(restarted.feature({ card: c.id }).ok, true);
+    assert.deepEqual(restarted.state().cards, before.cards);
+  });
+}

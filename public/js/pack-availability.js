@@ -12,7 +12,7 @@ export function seasonLabel(pack, now = Date.now()) {
     hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
   }).format(ms);
   const state = packAvailability(pack, now);
-  if (state === 'upcoming') return `Opens ${format(Date.parse(pack.season.startsAt))}`;
+  if (state === 'upcoming') return `Opens ${format(Date.parse(pack.season.startsAt))} · Closes ${format(Date.parse(pack.season.endsAt) - 60000)}`;
   if (state === 'ended') return 'Event ended · collected cards stay yours';
   return `Collect through ${format(Date.parse(pack.season.endsAt) - 60000)}`;
 }

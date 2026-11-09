@@ -48,6 +48,8 @@ Sister project of `../adventures-of-rufus` (the platformer at rufusfamily.com).
   `public/js/cards.js` + `public/css/cards.css` (every class starts `rc-`). Cards are only for show: nothing about them may ever reach scoring, timing or question choice.
   Never put card pictures in `/api/meta` or a `/f/` flag file in card art (that's the Flag Frenzy answer key), and cards stay hidden during questions.
   Stamps are just your 3 sticker pins shown on your card, so stamping never uses a sticker up.
+  Seasonal packs (`season` in `PACKS`, e.g. Diwali, Science Week, Thanksgiving): the server's clock only stops NEW purchases. Owned cards, featuring
+  and already-bought packs never expire, and each window must stay open at least 7 days (`test/pack-availability.test.js`). New card art: `scripts/design-celebration-cards.mjs`, then `npm run build:cards`.
 - **Arcade theme** (only while 🎲 Mix it up is the topic): `arcadeCheck()` in the "ARCADE" section of `app.js` puts
   `html.arcade` on the page (CSS: "ARCADE" at the end of `app.css`; `fx.setArcade()` for the grid; `data-arcade="..."` words
   in `index.html`); the music is `MUSIC.arcade`, the original menu tune from Adventures of Rufus, and the sprites are in `sprites.js`.

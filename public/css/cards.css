@@ -264,35 +264,25 @@ html.lite .rc-live .rc-art::after { display: none; }
 .rc-tier-legendary { color: #ffe28a; background: linear-gradient(110deg, #54305b, #28386b); }
 .rc-tier-unknown { color: #d0c7df; }
 
-/* Seasonal previews belong in the house, but never in the buy flow. */
-.rc-season { margin: 24px 0; padding: clamp(18px, 3vw, 28px); border: 2px solid #c98e56; border-radius: 22px; color: #fff3df; background: linear-gradient(125deg, #382343, #542d32); }
-.rc-season-heading { display: flex; gap: 18px; align-items: center; }
-.rc-season-icon { font-size: 3rem; }
-.rc-season-heading p { margin: 8px 0; }
-.rc-season-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.rc-season-tags span, .rc-season-limited { display: inline-block; border: 1px solid #dcb47e; border-radius: 999px; padding: 4px 10px; color: #ffe5ae; font-size: .85rem; font-weight: 800; }
-.rc-season-preview { margin-top: 18px; }
-.rc-season-preview summary { cursor: pointer; padding: 12px 0; font-weight: 800; color: #ffe5ae; }
-.rc-season-preview summary:focus-visible { outline: 3px solid #ffe5ae; outline-offset: 4px; }
-.rc-season-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 14px; }
-.rc-season-card { padding: 14px; border: 2px solid #a57569; border-radius: 18px; background: #2b203d; text-align: center; }
-.rc-season-art { height: 150px; display: flex; align-items: end; justify-content: center; gap: 6px; padding: 20px 0 8px; background: radial-gradient(ellipse, #78484a, transparent 72%); }
-.rc-season-art svg { height: 115px; width: 80px; }
-.rc-season-art > span { font-size: 2rem; }
-.rc-season-card h4 { margin: 14px 0 8px; font-size: 1.1rem; }
-.rc-season-card small, .rc-season-note { color: #ead6c9; }
-.rc-season-note { margin: 18px 0 0; font-size: .95rem; line-height: 1.5; }
-@media (max-width: 500px) { .rc-season-icon { display: none; } }
-
-/* Seasonal artwork stays still; it remains readable on phones and in reduced motion. */
-.rc-diwali { display: grid; grid-template-columns: minmax(0, 1fr) 180px; align-items: center; gap: 20px; background: linear-gradient(125deg, #392157, #592d52); border-color: #d49a4c; }
-.rc-diwali-picture { position: relative; aspect-ratio: 1; overflow: hidden; border: 2px solid #edbe6d; border-radius: 22px; }
-.rc-diwali .rc-h { color: #ffe5ab; }
-.rc-diwali p { line-height: 1.5; }
-.rc-season-dates { display: block; font-size: 14px; line-height: 1.4; color: var(--gold); margin-top: 8px; }
+/* A compact shelf keeps seasonal events together without pushing the collection far away. */
+.rc-events { margin: 24px 0; }
+.rc-events > .rc-lede { max-width: 75ch; line-height: 1.5; }
+.rc-event-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.rc-event { min-width: 0; overflow: hidden; border: 2px solid #ae7b9e; border-radius: 20px; background: #30213f; color: #fff3df; }
+/* position: relative keeps each scene (.rc-scene is absolute) inside its own box, not across the Card House. */
+.rc-event-art { position: relative; height: 145px; overflow: hidden; background: #253551; }
+.rc-event-copy { padding: 16px; }
+.rc-event-copy .rc-hh { margin: 10px 0; }
+.rc-event-copy .btn { margin-top: 12px; min-height: 44px; }
+.rc-season-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.rc-season-tags span { display: inline-block; border: 1px solid #dcb47e; border-radius: 999px; padding: 4px 10px; color: #ffe5ae; font-size: .85rem; font-weight: 800; }
+.rc-season-dates { display: block; font-size: 14px; line-height: 1.5; color: var(--gold); margin-top: 8px; overflow-wrap: anywhere; }
 .rc-p-diwali { background: linear-gradient(135deg, #763789, #39234f 60%, #c78443); }
-.rc-p-diwali .rc-pk-art { position: relative; overflow: hidden; }
-@media (max-width: 540px) { .rc-diwali { grid-template-columns: minmax(0, 1fr); } .rc-diwali-picture { width: 150px; justify-self: center; } }
+.rc-p-scienceweek { background: linear-gradient(135deg, #266d78, #283550 60%, #6c6aab); }
+.rc-p-thanksgiving { background: linear-gradient(135deg, #965846, #493050 60%, #c18447); }
+.rc-p-diwali .rc-pk-art, .rc-p-scienceweek .rc-pk-art, .rc-p-thanksgiving .rc-pk-art { position: relative; overflow: hidden; }
+@media (max-width: 760px) { .rc-event-grid { grid-template-columns: minmax(0, 1fr); } .rc-event { display: grid; grid-template-columns: 110px minmax(0, 1fr); } .rc-event-art { height: 100%; min-height: 180px; } }
+@media (max-width: 390px) { .rc-event { grid-template-columns: 80px minmax(0, 1fr); } .rc-event-copy { padding: 12px; } }
 /* Gentle shimmer only while inspecting/revealing a card, never across the whole library. */
 .rc-live .rc-firework { animation: rc-sky-glow 5s ease-in-out infinite alternate; }
 .rc-live .rc-firework:nth-of-type(2n) { animation-delay: -2s; }

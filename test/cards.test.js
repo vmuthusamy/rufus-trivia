@@ -202,7 +202,7 @@ test("duplicate lucky Divine or Legendary cards cannot block the other guarantee
 });
 
 test("themed catalogues include a Legendary alongside the original five rarities", () => {
-  for (const packId of ["adventure", "math", "space", "diwali"]) {
+  for (const packId of ["adventure", "math", "space", "diwali", "scienceweek", "thanksgiving"]) {
     const cards = CARDS.filter((c) => c.pack === packId);
     assert.deepEqual(cards.map((c) => c.rarity).sort(), ["common", "divine", "epic", "epic", "legendary", "rare"]);
     const odds = Object.fromEntries(drawTable(packId));
