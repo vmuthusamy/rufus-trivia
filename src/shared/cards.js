@@ -100,19 +100,22 @@ export const PACKS = {
     kind: "Diwali celebration", ...themedPackRules("diwali"),
     // End is exclusive: Sunday Nov 15 at 11:59 PM Central is the last minute.
     // Retain this catalogue after the event so owned cards and paid packs keep working.
-    season: { id: "diwali-2026", limited: true, startsAt: "2026-11-07T06:00:00Z", endsAt: "2026-11-16T06:00:00Z", timeZone: "America/Chicago" },
+    season: { id: "diwali-2026", limited: true, startsAt: "2026-11-07T06:00:00Z", endsAt: "2026-11-16T06:00:00Z", timeZone: "America/Chicago",
+      hello: "Happy Diwali! 🪔 Come and see the festival of lights cards." },
   },
   scienceweek: {
     id: "scienceweek", title: "Science Week Pack", theme: "Seeds, rainbows, magnets and discoveries to share.",
     kind: "Science Week", ...themedPackRules("scienceweek"),
     // A seven-day game event around World Science Day (November 10).
-    season: { id: "science-week-2026", limited: true, startsAt: "2026-11-09T06:00:00Z", endsAt: "2026-11-16T06:00:00Z", timeZone: "America/Chicago" },
+    season: { id: "science-week-2026", limited: true, startsAt: "2026-11-09T06:00:00Z", endsAt: "2026-11-16T06:00:00Z", timeZone: "America/Chicago",
+      hello: "It’s Science Week! 🔬 Come and see what we discovered." },
   },
   thanksgiving: {
     id: "thanksgiving", title: "Thanksgiving Pack", theme: "Autumn leaves, shared treats and thank-you notes from the whole family.",
     kind: "Thanksgiving", ...themedPackRules("thanksgiving"),
     // One week including US Thanksgiving on November 26. Cards never expire.
-    season: { id: "thanksgiving-2026", limited: true, startsAt: "2026-11-23T06:00:00Z", endsAt: "2026-11-30T06:00:00Z", timeZone: "America/Chicago" },
+    season: { id: "thanksgiving-2026", limited: true, startsAt: "2026-11-23T06:00:00Z", endsAt: "2026-11-30T06:00:00Z", timeZone: "America/Chicago",
+      hello: "Happy Thanksgiving week! 🍂 Thank you for playing with us." },
   },
   space: {
     id: "space", title: "Space Explorers Pack", theme: "Moon visits, rocket rides and a sky full of stars.",

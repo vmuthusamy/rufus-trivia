@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PACKS, CARDS, drawTable, publicCards } from '../src/shared/cards.js';
-import { packAvailability, seasonLabel } from '../public/js/pack-availability.js';
+import { packAvailability, seasonLabel, seasonShort, seasonOrder, seasonHello } from '../public/js/pack-availability.js';
 test('Diwali has exact start and end boundaries and readable Central dates', () => {
   const p=PACKS.diwali, start=Date.parse(p.season.startsAt), end=Date.parse(p.season.endsAt);
   assert.equal(packAvailability(p,start-1),'upcoming');
@@ -50,4 +50,28 @@ test('every seasonal pack is open for at least seven days and only buying expire
     assert.equal(p.season.limited, true);
     assert.ok(CARDS.some(c => c.pack === p.id), `${p.id} cards stay in the catalogue`);
   }
+});
+
+// Shelf words a 9-year-old can use; the exact minute stays in seasonLabel().
+test('short season lines count days in plain words', () => {
+  const p = PACKS.scienceweek, start = Date.parse(p.season.startsAt), end = Date.parse(p.season.endsAt), hour = 3600000;
+  assert.equal(seasonShort(p, start - 5 * hour), 'Opens Mon, Nov 9 · here for 7 days');
+  assert.equal(seasonShort(p, start), '7 days left · last day Sun, Nov 15');
+  assert.equal(seasonShort(p, end - 25 * hour), '2 days left · last day Sun, Nov 15', 'Saturday evening: Saturday and Sunday are left');
+  assert.equal(seasonShort(p, end - 24 * hour), 'Last day!', 'from midnight on the last day');
+  assert.equal(seasonShort(p, end - 1), 'Last day!');
+  assert.equal(seasonShort(p, end), 'Event ended · your cards stay yours');
+  assert.equal(seasonShort(PACKS.char, start), '');
+});
+
+test('the shelf shows open events first, then coming soon, then ended; Rufus greets the newest open one', () => {
+  const ids = (now) => seasonOrder(Object.values(PACKS), now).map(p => p.id);
+  const at = (iso) => Date.parse(iso);
+  assert.deepEqual(ids(at('2026-11-08T18:00:00Z')), ['diwali', 'scienceweek', 'thanksgiving']);
+  assert.deepEqual(ids(at('2026-11-20T18:00:00Z')), ['thanksgiving', 'diwali', 'scienceweek'], 'coming soon before ended');
+  assert.deepEqual(ids(at('2026-11-25T18:00:00Z')), ['thanksgiving', 'diwali', 'scienceweek']);
+  assert.equal(seasonHello(Object.values(PACKS), at('2026-11-08T18:00:00Z')), PACKS.diwali.season.hello);
+  assert.equal(seasonHello(Object.values(PACKS), at('2026-11-10T18:00:00Z')), PACKS.scienceweek.season.hello, 'two open: the newer one says hello');
+  assert.equal(seasonHello(Object.values(PACKS), at('2026-11-20T18:00:00Z')), null, 'nothing open: the usual welcome');
+  for (const p of Object.values(PACKS).filter(p => p.season)) assert.ok(p.season.hello && p.season.hello.length < 80, `${p.id} has a short hello`);
 });

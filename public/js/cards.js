@@ -8,7 +8,7 @@
 
 import { spriteSVG } from "./sprites.js";
 import { pendingCoins } from "./coin-display.js";
-import { packAvailability, seasonLabel } from "./pack-availability.js";
+import { packAvailability, seasonLabel, seasonShort, seasonOrder, seasonHello } from "./pack-availability.js";
 import { pendingOrders } from "./pack-orders.js";
 
 const $ = (id) => document.getElementById(id);
@@ -199,7 +199,7 @@ const allIds = () => C().cards.map((c) => c.id);
 
 // One small shelf for all seasonal sets. Expiry changes buying, never the card library.
 function seasonalShelf() {
-  const events = C().packs.filter((p) => p.season);
+  const events = seasonOrder(C().packs); // open now first, then coming soon, then ended
   if (!events.length) return "";
   const status = { upcoming: "Coming soon", open: "Available now", ended: "Event ended" };
   return `<section class="rc-events" aria-label="Seasonal collections">
@@ -211,7 +211,7 @@ function seasonalShelf() {
       return `<article class="rc-event rc-event-${p.id}">
         <div class="rc-event-art" aria-hidden="true">${art.ART[legend?.id] || art.PACK_ART[p.id]}</div>
         <div class="rc-event-copy"><p class="rc-season-tags"><span>${status[state]}</span><span>Limited edition</span></p>
-        <h4 class="rc-hh">${p.title}</h4><p class="rc-season-dates">${seasonLabel(p)}</p>
+        <h4 class="rc-hh">${p.title}</h4><p class="rc-season-dates">${seasonShort(p)}</p>
         <button type="button" class="btn ghost" data-rc="pack" data-id="${p.id}">${state === "upcoming" ? "Preview cards" : "View collection"} →</button></div>
       </article>`;
     }).join("")}</div>
@@ -257,7 +257,7 @@ const VIEWS = {
   packs() {
     const price = C().economy.packPrice;
     const tile = (p) => `<button type="button" class="rc-packtile" data-rc="pack" data-id="${p.id}">${packHTML(p.id)}
-      <span class="rc-packinfo"><span class="rc-hh">${p.title}</span><span class="rc-lede">${p.theme}</span><span class="rc-price">${packAvailability(p) === "open" ? coinIcon + " " + price + " coins" : "View collection"}</span>${p.season ? `<span class="rc-season-dates">Limited edition · ${seasonLabel(p)}</span>` : ""}</span></button>`;
+      <span class="rc-packinfo"><span class="rc-hh">${p.title}</span><span class="rc-lede">${p.theme}</span><span class="rc-price">${packAvailability(p) === "open" ? coinIcon + " " + price + " coins" : "View collection"}</span>${p.season ? `<span class="rc-season-dates">Limited edition · ${seasonShort(p)}</span>` : ""}</span></button>`;
     return head("Choose a pack", "A pack is a theme. Rarity belongs to each card, so look inside before you buy.") + `<div class="rc-packs">${C().packs.map(tile).join("")}</div>`;
   },
 
@@ -494,7 +494,8 @@ const ACT = {
 export async function openCardHouse() {
   d.requireProfile(async () => {
     d.show("cards");
-    d.host.say("Welcome to my Card House! Every card has a home here.", { mood: "happy" });
+    // During a seasonal event Rufus says its hello (see `season.hello` in src/shared/cards.js).
+    d.host.say((d.S.meta && seasonHello(C().packs)) || "Welcome to my Card House! Every card has a home here.", { mood: "happy" });
     const root = $("cardsRoot");
     if (!art) root.innerHTML = `<p class="rc-lede">Opening the door…</p>`;
     V.view = "house";
